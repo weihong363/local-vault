@@ -1,0 +1,54 @@
+name: local_vault
+description: AI 聊天的本地记忆库 - 跨对话、跨平台、100% 本地
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+  hive_flutter: ^1.1.0
+  hive: ^2.2.3
+  path_provider: ^2.1.3
+  cupertino_icons: ^1.0.6
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.2.3
+  flutter_markdown: ^0.7.3
+  intl: ^0.20.2
+  go_router: ^13.2.0
+  fluttertoast: ^8.2.8
+  logger: ^2.4.0
+  permission_handler: ^11.3.1
+  share_plus: ^7.2.2
+  clipboard: ^0.1.3
+  flutter_animate: ^4.5.2
+  flutter_svg: ^2.0.16
+  cached_network_image: ^3.3.1
+  image_picker: ^1.0.7
+  uuid: ^4.4.2
+  meta: ^1.15.0
+  google_mlkit_text_recognition: ^0.15.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  integration_test:
+    sdk: flutter
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.12
+  riverpod_generator: ^2.4.0
+  mockito: ^5.4.4
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/icons/
+    - assets/images/

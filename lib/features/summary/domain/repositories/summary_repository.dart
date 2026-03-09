@@ -1,0 +1,65 @@
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:local_vault/features/summary/models/summary.dart';
+
+class SummaryRepository {
+  static const String _boxName = 'summaries';
+  Box<Summary>? _box;
+
+  Future<void> init() async {
+    _box ??= await Hive.openBox<Summary>(_boxName);
+  }
+
+  Box<Summary> get _summaryBox {
+    assert(_box != null, 'Repository not initialized. Call init() first.');
+    return _box!;
+  }
+
+  Future<void> addSummary(Summary summary) async {
+    await _summaryBox.put(summary.id, summary);
+  }
+
+  Future<void> updateSummary(Summary summary) async {
+    await _summaryBox.put(summary.id, summary);
+  }
+
+  Future<void> deleteSummary(String id) async {
+    await _summaryBox.delete(id);
+  }
+
+  Summary? getSummary(String id) {
+    return _summaryBox.get(id);
+  }
+
+  List<Summary> getAllSummaries() {
+    return _summaryBox.values.toList();
+  }
+
+  List<Summary> searchSummaries(String query) {
+    final lowerQuery = query.toLowerCase();
+    return _summaryBox.values.where((summary) {
+      return summary.title.toLowerCase().contains(lowerQuery) ||
+          summary.content.toLowerCase().contains(lowerQuery) ||
+          summary.tags.any((tag) => tag.toLowerCase().contains(lowerQuery));
+    }).toList();
+  }
+
+  List<Summary> getSummariesByTag(String tag) {
+    return _summaryBox.values.where((summary) {
+      return summary.tags.contains(tag);
+    }).toList();
+  }
+
+  List<Summary> getSummariesBySource(String source) {
+    return _summaryBox.values.where((summary) {
+      return summary.source == source;
+    }).toList();
+  }
+
+  int get totalCount {
+    return _summaryBox.length;
+  }
+
+  Future<void> clearAll() async {
+    await _summaryBox.clear();
+  }
+}
