@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.provider.Settings
 import android.util.Log
 import androidx.preference.PreferenceManager
@@ -18,13 +19,22 @@ import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
-    private val TAG = "MainActivity"
-    private val FLOATING_CHANNEL = "local_vault/floating_window"
-    private val GESTURE_CONFIG_CHANNEL = "local_vault/gesture_config"
-    private val PERMISSIONS_CHANNEL = "local_vault/permissions"
-    private val SHARE_CHANNEL = "local_vault/share"
-    private var pendingAction: String? = null
-    private var pendingShareText: String? = null
+  private val TAG = "MainActivity"
+  private val FLOATING_CHANNEL = "local_vault/floating_window"
+  private val GESTURE_CONFIG_CHANNEL = "local_vault/gesture_config"
+  private val PERMISSIONS_CHANNEL = "local_vault/permissions"
+  private val SHARE_CHANNEL = "local_vault/share"
+  private val APPS_CHANNEL = "local_vault/apps"
+  private val QUICK_ACTION_CHANNEL = "com.ironion.local_vault/quick_action"
+  private var pendingAction: String? = null
+  private var pendingShareText: String? = null
+  private var whitelistPackages = mutableSetOf<String>()
+  
+ companion object {
+     // 保存 FlutterEngine 的静态引用，供 QuickSaveActivity 使用
+    var flutterEngine: FlutterEngine? = null
+      private set
+ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,78 +47,120 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        intent?.let {
-            when (it.action) {
+        intent?.let { intent ->
+            val action = intent.action
+            val mimeType = intent.type
+
+            when (action) {
                 Intent.ACTION_SEND -> {
                     when {
                         // 处理文本分享
-                        it.type == "text/plain" -> {
-                            val text = it.getStringExtra(Intent.EXTRA_TEXT)
+                        mimeType == "text/plain" -> {
+                            val text = intent.getStringExtra(Intent.EXTRA_TEXT)
                             if (text != null) {
                                 pendingShareText = text
-                                Log.d(TAG, "收到分享内容：$text")
+                                Log.d(TAG, "收到文本分享：${text.take(100)}${if (text.length > 100) "..." else ""}")
                                 notifyFlutterOfShare(text)
+                            } else {
+                                Log.w(TAG, "收到文本分享意图但 EXTRA_TEXT 为空")
                             }
                         }
                         // 处理图片分享
-                        it.type?.startsWith("image/") == true -> {
-                            val imageUri = it.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                        mimeType?.startsWith("image/") == true -> {
+                            val imageUri = intent.getParcelableExtraCompat<Uri>(Intent.EXTRA_STREAM)
                             if (imageUri != null) {
                                 pendingShareImageUri = imageUri.toString()
-                                Log.d(TAG, "收到图片分享：$imageUri")
-                                // 通知 Flutter 有图片需要 OCR
+                                Log.d(TAG, "收到单张图片分享：$imageUri")
                                 shareChannel?.invokeMethod("onImageReceived", mapOf(
                                     "uri" to imageUri.toString(),
                                     "type" to "single"
                                 ))
+                            } else {
+                                Log.w(TAG, "收到图片分享意图但 EXTRA_STREAM 为空")
                             }
+                        }
+                        else -> {
+                            Log.w(TAG, "收到不支持的分享类型：$mimeType")
                         }
                     }
                 }
                 Intent.ACTION_SEND_MULTIPLE -> {
                     when {
                         // 处理多个文本分享
-                        it.type?.startsWith("text/") == true -> {
-                            val uris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                it.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                it.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-                            }
+                        mimeType?.startsWith("text/") == true -> {
+                            val uris = intent.getParcelableArrayListExtraCompat<Uri>(Intent.EXTRA_STREAM)
                             uris?.let { uriList ->
-                                pendingShareText = uriList.joinToString("\n") { uri -> uri.toString() }
-                                Log.d(TAG, "收到多个分享内容：$pendingShareText")
-                                notifyFlutterOfShare(pendingShareText!!)
+                                if (uriList.isNotEmpty()) {
+                                    pendingShareText = uriList.joinToString("\n") { uri -> uri.toString() }
+                                    Log.d(TAG, "收到多个文本分享，共 ${uriList.size} 项")
+                                    notifyFlutterOfShare(pendingShareText!!)
+                                } else {
+                                    Log.w(TAG, "收到多个文本分享意图但列表为空")
+                                }
+                            } ?: run {
+                                Log.w(TAG, "收到多个文本分享意图但 EXTRA_STREAM 为空")
                             }
                         }
                         // 处理多张图片分享
-                        it.type?.startsWith("image/") == true -> {
-                            val uris = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                it.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                it.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
-                            }
+                        mimeType?.startsWith("image/") == true -> {
+                            val uris = intent.getParcelableArrayListExtraCompat<Uri>(Intent.EXTRA_STREAM)
                             uris?.let { uriList ->
                                 val uriStrings = uriList.map { uri -> uri.toString() }
                                 pendingShareImageUri = uriStrings.firstOrNull()
-                                Log.d(TAG, "收到多张图片分享：${uriStrings.size} 张")
-                                // 通知 Flutter 有多张图片需要 OCR
+                                Log.d(TAG, "收到多张图片分享，共 ${uriStrings.size} 张")
                                 shareChannel?.invokeMethod("onImageReceived", mapOf(
                                     "uris" to uriStrings,
                                     "type" to "multiple"
                                 ))
+                            } ?: run {
+                                Log.w(TAG, "收到多张图片分享意图但 EXTRA_STREAM 为空")
                             }
+                        }
+                        else -> {
+                            Log.w(TAG, "收到不支持的多重分享类型：$mimeType")
                         }
                     }
                 }
-                "OPEN_TEMPLATES", "OPEN_SUMMARIES" -> {
-                    pendingAction = it.action
-                }
+                "OPEN_TEMPLATES", "OPEN_SUMMARIES", "OPEN_INJECT" -> {
+               pendingAction = action
+             Log.d(TAG, "收到待处理动作：$action")
+            }
+           "QUICK_SAVE" -> {
+               // 快速保存 - 从剪贴板读取内容
+             Log.d(TAG, "收到快速保存请求")
+              handleQuickSave()
+            }
+            "QUICK_SAVE_FROM_TILE" -> {
+                // 从控制中心快捷开关触发的快速保存
+              Log.d(TAG, "收到控制中心快速保存请求")
+               // 直接从剪贴板读取内容
+             handleQuickSave()
+            }
+          else -> {
+            Log.d(TAG, "收到未知意图：action=$action, type=$mimeType")
+            }
             }
         }
     }
-    
+
+    @Suppress("DEPRECATION")
+    private inline fun <reified T> Intent.getParcelableExtraCompat(key: String): T? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableExtra(key, T::class.java)
+        } else {
+            getParcelableExtra(key)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private inline fun <reified T> Intent.getParcelableArrayListExtraCompat(key: String): ArrayList<T>? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableArrayListExtra(key, T::class.java)
+        } else {
+            getParcelableArrayListExtra<Parcelable>(key) as? ArrayList<T>
+        }
+    }
+
     private var shareChannel: MethodChannel? = null
     private var pendingShareImageUri: String? = null // 存储图片 URI
     
@@ -116,8 +168,41 @@ class MainActivity : FlutterActivity() {
         shareChannel?.invokeMethod("onShareReceived", text)
     }
 
+   /**
+     * 处理快速保存请求
+     * 从剪贴板读取内容并触发保存流程
+     */
+  private fun handleQuickSave() {
+   try {
+    Log.d(TAG, "=== 开始处理快速保存 ===")
+     val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+     val clipData = clipboard.primaryClip
+    
+   if (clipData != null && clipData.itemCount > 0) {
+       val text = clipData.getItemAt(0).text
+      if (text != null) {
+        Log.d(TAG, "✅ 从剪贴板读取到内容，长度：${text.length}")
+       Log.d(TAG, "📋 内容预览：${text.take(100)}${if (text.length > 100) "..." else ""}")
+         // 通知 Flutter 处理快捷保存
+       Log.d(TAG, "📤 正在调用 shareChannel.invokeMethod...")
+       shareChannel?.invokeMethod("onQuickSaveRequested", text.toString())
+      Log.d(TAG, "✅ 已成功通知 Flutter")
+      return
+       }
+    }
+    
+   // 如果剪贴板为空，通知 Flutter 显示输入框
+ Log.d(TAG, "⚠️ 剪贴板为空，请求显示输入界面")
+   shareChannel?.invokeMethod("onQuickSaveRequested", null)
+ } catch (e: Exception) {
+  Log.e(TAG, "❌ 处理快速保存失败", e)
+   shareChannel?.invokeMethod("onQuickSaveRequested", null)
+ }
+}
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MainActivity.flutterEngine = flutterEngine
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FLOATING_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -230,6 +315,48 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, APPS_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInstalledApps" -> {
+                    try {
+                        val installedApps = getInstalledApps()
+                        result.success(installedApps)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "获取已安装应用失败", e)
+                        result.error("GET_APPS_FAILED", e.message, null)
+                    }
+                }
+                "setWhitelist" -> {
+                    try {
+                        val packages = call.argument<List<String>>("packages") ?: emptyList()
+                        whitelistPackages.clear()
+                        whitelistPackages.addAll(packages)
+                        Log.d(TAG, "设置应用白名单：$whitelistPackages")
+                        result.success(null)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "设置应用白名单失败", e)
+                        result.error("SET_WHITELIST_FAILED", e.message, null)
+                    }
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+        
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, QUICK_ACTION_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "finishActivity" -> {
+                    Log.d(TAG, "收到 finishActivity 请求，正在关闭 Activity")
+                    finish()
+                    result.success(null)
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
         
         // 保存 channel 引用，用于主动通知 Flutter
         shareChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_CHANNEL)
@@ -292,19 +419,37 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * 启动悬浮窗服务
+     * 注意：FloatingWindowService 必须在 onCreate 中调用 startForeground() 以避免被系统杀死
+     */
     private fun startFloatingService() {
+        // 检查悬浮窗权限
         if (!hasOverlayPermission()) {
+            Log.w(TAG, "缺少悬浮窗权限，正在请求授权")
             requestOverlayPermission()
             return
         }
-        
-        if (!FloatingWindowService.isServiceRunning) {
-            val intent = Intent(this, FloatingWindowService::class.java)
+
+        // 避免重复启动
+        if (FloatingWindowService.isServiceRunning) {
+            Log.d(TAG, "悬浮窗服务已在运行中")
+            return
+        }
+
+        // 根据 Android 版本选择启动方式
+        val serviceIntent = Intent(this, FloatingWindowService::class.java)
+        try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent)
+                Log.d(TAG, "启动前台服务 (Android O+)")
+                startForegroundService(serviceIntent)
             } else {
-                startService(intent)
+                Log.d(TAG, "启动普通服务 (Android < O)")
+                startService(serviceIntent)
             }
+            Log.i(TAG, "悬浮窗服务启动请求已发送")
+        } catch (e: Exception) {
+            Log.e(TAG, "启动悬浮窗服务失败：${e.message}", e)
         }
     }
 
@@ -446,10 +591,48 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun stopFloatingService() {
-        if (FloatingWindowService.isServiceRunning) {
-            val intent = Intent(this, FloatingWindowService::class.java)
-            stopService(intent)
+    /**
+     * 停止悬浮窗服务
+     * 注意：isServiceRunning 状态可能在检查后发生变化，实际停止是异步的
+     */
+   private fun stopFloatingService() {
+       if (!FloatingWindowService.isServiceRunning) {
+            Log.d(TAG, "悬浮窗服务未在运行中")
+            return
         }
+        
+       val serviceIntent = Intent(this, FloatingWindowService::class.java)
+        try {
+            stopService(serviceIntent)
+            Log.i(TAG, "悬浮窗服务停止请求已发送")
+        } catch (e: Exception) {
+            Log.e(TAG, "停止悬浮窗服务失败：${e.message}", e)
+        }
+    }
+
+    /**
+     * 获取已安装的应用列表
+     */
+    private fun getInstalledApps(): List<Map<String, String>> {
+        val apps = mutableListOf<Map<String, String>>()
+        val packageManager = packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val resolveInfos = packageManager.queryIntentActivities(intent, 0)
+
+        for (resolveInfo in resolveInfos) {
+            val appName = resolveInfo.loadLabel(packageManager).toString()
+            val packageName = resolveInfo.activityInfo.packageName
+            
+            apps.add(
+                mapOf(
+                    "packageName" to packageName,
+                    "appName" to appName
+                )
+            )
+        }
+
+        // 按应用名称排序
+        apps.sortBy { it["appName"] }
+        return apps
     }
 }

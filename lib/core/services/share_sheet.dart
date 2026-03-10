@@ -33,7 +33,7 @@ abstract class ShareSheetPlatform {
 class ShareSheetPlatformAndroid extends ShareSheetPlatform {
   @override
   Future<void> share(String text, {String? subject}) async {
-    final channel = MethodChannel('local_vault/share');
+    const channel = MethodChannel('local_vault/share');
 
     try {
       await channel.invokeMethod('share', {

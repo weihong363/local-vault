@@ -25,13 +25,14 @@ class SummaryAdapter extends TypeAdapter<Summary> {
       updatedAt: fields[5] as DateTime?,
       source: fields[6] as String,
       embedding: (fields[7] as List).cast<double>(),
+      sortOrder: fields[8] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, Summary obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -47,7 +48,9 @@ class SummaryAdapter extends TypeAdapter<Summary> {
       ..writeByte(6)
       ..write(obj.source)
       ..writeByte(7)
-      ..write(obj.embedding);
+      ..write(obj.embedding)
+      ..writeByte(8)
+      ..write(obj.sortOrder);
   }
 
   @override

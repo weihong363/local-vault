@@ -19,7 +19,8 @@ class OcrResult {
   });
 
   @override
-  String toString() => 'OcrResult(text: ${text.length > 50 ? '${text.substring(0, 50)}...' : text}, success: $success)';
+  String toString() =>
+      'OcrResult(text: ${text.length > 50 ? '${text.substring(0, 50)}...' : text}, success: $success)';
 }
 
 /// OCR 服务 - 单例模式
@@ -29,14 +30,15 @@ class OcrService {
   OcrService._internal();
 
   // 使用中文和拉丁混合脚本的 TextRecognizer（最适合中英文混合）
-  final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.chinese);
+  final TextRecognizer _textRecognizer =
+      TextRecognizer(script: TextRecognitionScript.chinese);
   static const MethodChannel _channel = MethodChannel('local_vault/share');
 
   /// 从 URI 识别图片中的文字
   Future<OcrResult> recognizeTextFromUri(String uriString) async {
     try {
       debugPrint('🔍 [OcrService] 开始识别图片：$uriString');
-      
+
       // 获取文件（对于 content:// URI，会通过原生端复制到缓存）
       final file = await _getFileFromUri(uriString);
       if (file == null) {
@@ -49,23 +51,24 @@ class OcrService {
         );
       }
 
-      debugPrint('📁 [OcrService] 图片文件路径：${file.path}, 大小：${file.lengthSync()} 字节');
+      debugPrint(
+          '📁 [OcrService] 图片文件路径：${file.path}, 大小：${file.lengthSync()} 字节');
 
       // 使用 ML Kit 识别文字（直接使用中文识别器，也能很好地识别英文）
       final inputImage = InputImage.fromFile(file);
-      
+
       debugPrint('🔤 [OcrService] 使用中文识别器（支持中英文混合）');
       final recognizedText = await _textRecognizer.processImage(inputImage);
-      
+
       debugPrint('✅ [OcrService] 识别成功，找到 ${recognizedText.blocks.length} 个文本块');
-      
+
       // 提取所有识别出的文字
-      final extractedText = recognizedText.blocks
-          .map((block) => block.text)
-          .join('\n');
-      
-      debugPrint('📝 [OcrService] 识别到的文本内容：${extractedText.length > 100 ? extractedText.substring(0, 100) + '...' : extractedText}');
-      
+      final extractedText =
+          recognizedText.blocks.map((block) => block.text).join('\n');
+
+      debugPrint(
+          '📝 [OcrService] 识别到的文本内容：${extractedText.length > 100 ? '${extractedText.substring(0, 100)}...' : extractedText}');
+
       return OcrResult(
         text: extractedText,
         imagePaths: [file.path],
@@ -86,24 +89,25 @@ class OcrService {
   Future<OcrResult> recognizeTextFromUris(List<String> uriStrings) async {
     try {
       debugPrint('🔍 [OcrService] 开始批量识别 ${uriStrings.length} 张图片');
-      
+
       final allTexts = <String>[];
       final allPaths = <String>[];
-      
+
       for (int i = 0; i < uriStrings.length; i++) {
         debugPrint('📸 [OcrService] 正在处理第 ${i + 1}/${uriStrings.length} 张图片');
-        
+
         final result = await recognizeTextFromUri(uriStrings[i]);
         if (result.success) {
           allTexts.add(result.text);
           allPaths.addAll(result.imagePaths);
         }
       }
-      
-      final combinedText = allTexts.join('\n\n--- 图片 ${allTexts.length} ---\n\n');
-      
+
+      final combinedText =
+          allTexts.join('\n\n--- 图片 ${allTexts.length} ---\n\n');
+
       debugPrint('✅ [OcrService] 批量识别完成，共 ${allTexts.length} 张图片');
-      
+
       return OcrResult(
         text: combinedText,
         imagePaths: allPaths,
@@ -128,7 +132,8 @@ class OcrService {
         // 对于 content:// URI，需要通过原生端读取到缓存文件
         if (Platform.isAndroid) {
           debugPrint('📲 [OcrService] 准备通过原生端读取 content URI: $uriString');
-          final cachePath = await _readContentUriViaMethodChannel(Uri.parse(uriString));
+          final cachePath =
+              await _readContentUriViaMethodChannel(Uri.parse(uriString));
           if (cachePath != null && cachePath.isNotEmpty) {
             debugPrint('✅ [OcrService] 原生端返回缓存路径：$cachePath');
             final cacheFile = File(cachePath);
@@ -143,13 +148,13 @@ class OcrService {
             debugPrint('❌ [OcrService] 原生端返回 null 或空路径');
           }
         }
-        
+
         // 备用方案：尝试直接复制（已废弃）
         debugPrint('⚠️ [OcrService] 备用方案已废弃');
       } else if (uriString.startsWith('file://')) {
         return File(uriString.replaceFirst('file://', ''));
       }
-      
+
       // 尝试直接作为文件路径
       return File(uriString);
     } catch (e) {
@@ -169,16 +174,17 @@ class OcrService {
       return null;
     }
   }
-  
+
   /// 通过 MethodChannel 读取 content URI（Android）
   Future<String?> _readContentUriViaMethodChannel(Uri uri) async {
     try {
       debugPrint('📲 [OcrService] 调用原生端读取 content URI: $uri');
-      
-      final cachePath = await _channel.invokeMethod<String>('readContentUriToCache', {
+
+      final cachePath =
+          await _channel.invokeMethod<String>('readContentUriToCache', {
         'uri': uri.toString(),
       });
-      
+
       if (cachePath != null && cachePath.isNotEmpty) {
         debugPrint('✅ [OcrService] 原生端读取成功，缓存路径：$cachePath');
         return cachePath;

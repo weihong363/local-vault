@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/core/services/floating_window_service.dart';
 import 'package:local_vault/core/services/share_service.dart';
+import 'package:local_vault/core/services/save_coordinator.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
 import 'package:local_vault/features/summary/models/summary.dart';
 import 'package:local_vault/features/summary/presentation/pages/summary_detail_page.dart';
@@ -42,6 +44,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
   late final GoRouter _router;
   StreamSubscription<SharedText>? _shareSubscription;
   StreamSubscription<SharedImage>? _imageSubscription;
+  static const MethodChannel _quickSaveChannel = MethodChannel('com.ironion.local_vault/quick_save');
 
   @override
   void initState() {
@@ -49,10 +52,65 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
     WidgetsBinding.instance.addObserver(this);
     _router = _createRouter();
     _loadPreferences();
-    // 延迟检查权限，确保 UI 已加载和 MaterialLocalizations 可用
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 权限检查会在 _loadPreferences 完成后触发
+    _setupQuickSaveChannel();
+  }
+
+  /// 设置快速保存 MethodChannel
+  void _setupQuickSaveChannel() {
+    _quickSaveChannel.setMethodCallHandler((call) async {
+      debugPrint('📥 [main] 收到 MethodChannel 调用：${call.method}');
+      try {
+        switch (call.method) {
+          case 'saveFromClipboard':
+            final content = call.arguments as String;
+            await _handleSaveFromClipboard(content);
+            return true;
+          case 'openTemplates':
+            _router.push(AppRoutes.template);
+            return true;
+          case 'openSave':
+            _router.push(AppRoutes.save);
+            return true;
+          case 'openSummaries':
+            _router.go(AppRoutes.home);
+            return true;
+          case 'openInject':
+            _router.push(AppRoutes.inject);
+            return true;
+          default:
+            throw PlatformException(
+              code: 'Unimplemented',
+              message: 'Method ${call.method} not implemented',
+            );
+        }
+      } catch (e) {
+        debugPrint('❌ [main] MethodChannel 处理失败：$e');
+        rethrow;
+      }
     });
+    debugPrint('✅ [main] QuickSave MethodChannel 已设置');
+  }
+
+  /// 处理从剪贴板保存
+  Future<void> _handleSaveFromClipboard(String content) async {
+    debugPrint('💾 [main] 开始静默保存剪贴板内容，长度：${content.length}');
+    try {
+      final saveCoordinator = SaveCoordinator();
+      final success = await saveCoordinator.handleQuickAction(
+        content: content,
+        actionId: 'quick_save_from_clipboard',
+      );
+      
+      if (success) {
+        debugPrint('✅ [main] 静默保存成功');
+      } else {
+        debugPrint('⚠️ [main] 静默保存被中断，跳转到保存页面');
+        _router.push(AppRoutes.save, extra: content);
+      }
+    } catch (e) {
+      debugPrint('❌ [main] 静默保存失败：$e，跳转到保存页面');
+      _router.push(AppRoutes.save, extra: content);
+    }
   }
 
   /// 初始化分享服务
@@ -91,10 +149,13 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
   }
 
   void _handleShareText(String text) {
-    debugPrint('Flutter 收到分享文本：$text');
-    // 直接导航到保存页面，并传递文本
-    _router.push(AppRoutes.save, extra: text);
-  }
+ debugPrint('📝 [main] Flutter 收到分享文本，长度：${text.length}');
+ debugPrint('📝 [main] 文本内容：${text.substring(0, text.length.clamp(0, 100))}${text.length > 100 ? '...' : ''}');
+   // 直接导航到保存页面，并传递文本
+ debugPrint('🚀 [main] 准备导航到保存页面...');
+  _router.push(AppRoutes.save, extra: text);
+ debugPrint('✅ [main] 导航完成');
+ }
   
   void _handleShareImage(List<String> uris) {
     debugPrint('Flutter 收到分享图片：${uris.length} 张');
@@ -189,6 +250,9 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
       case 'OPEN_SUMMARIES':
         actionType = QuickActionType.summaries;
         break;
+      case 'OPEN_INJECT':
+        _router.push(AppRoutes.inject);
+        return;
     }
 
     if (actionType != null) {
@@ -225,9 +289,14 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
         GoRoute(
           path: AppRoutes.save,
           builder: (context, state) {
-            // 从路由参数或 extra 获取分享文本或图片
+            // 从路由参数或 extra 获取分享文本或图片或 Summary（编辑）
             final initialData = state.extra;
-            return SavePage(initialData: initialData);
+            // 检查是否是编辑模式
+            Summary? editingSummary;
+            if (initialData is Summary) {
+              editingSummary = initialData;
+            }
+            return SavePage(initialData: editingSummary != null ? null : initialData, editingSummary: editingSummary);
           },
         ),
         GoRoute(

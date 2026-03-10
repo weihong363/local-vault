@@ -7,8 +7,8 @@ class AppRoutes {
   static const String summaryDetail = '/summary-detail';
   static const String save = '/save';
   static const String inject = '/inject';
-  static const String template = '/template';
-  static const String quickAction = '/quick-action';
   static const String gestureConfig = '/gesture-config';
   static const String appWhitelist = '/app-whitelist';
+  static const String quickAction = '/quick-action';
+  static const String template = '/template';
 }

@@ -14,30 +14,40 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: AppColors.primary,
-          child: Text(
-            summary.title.substring(0, 1),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return ListTile(
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      leading: CircleAvatar(
+        backgroundColor: AppColors.primary,
+        child: Text(
+          summary.title.substring(0, 1),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        title: Text(summary.title),
-        subtitle: Text(
-          summary.content.length > 100
-              ? '${summary.content.substring(0, 100)}...'
-              : summary.content,
-        ),
-        trailing: summary.updatedAt != null
-            ? Text(
-                _formatDate(summary.updatedAt!),
-                style: Theme.of(context).textTheme.bodySmall,
-              )
-            : null,
-        onTap: onTap,
       ),
+      title: Text(
+        summary.title,
+        style: TextStyle(
+          color: isDark ? AppColors.darkTextPrimary : null,
+        ),
+      ),
+      subtitle: Text(
+        summary.content.length > 100
+            ? '${summary.content.substring(0, 100)}...'
+            : summary.content,
+        style: TextStyle(
+          color: isDark ? AppColors.darkTextMuted : null,
+        ),
+      ),
+      trailing: summary.updatedAt != null
+          ? Text(
+              _formatDate(summary.updatedAt!),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isDark ? AppColors.darkTextMuted : null,
+                  ),
+            )
+          : null,
+      onTap: onTap,
     );
   }
 

@@ -34,10 +34,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
-      
+
       final repository = ref.read(summaryRepositoryProvider);
       final filtered = repository.searchSummaries(query);
-      
+
       setState(() {
         _results = filtered;
       });
@@ -56,10 +56,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       appBar: AppBar(
         title: TextField(
           controller: _searchController,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: '搜索标题、内容或标签...',
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
           onChanged: _handleSearch,
         ),

@@ -29,6 +29,9 @@ class Summary {
   @HiveField(7)
   final List<double> embedding;
 
+  @HiveField(8)
+  final int sortOrder;
+
   Summary({
     required this.id,
     required this.title,
@@ -38,6 +41,7 @@ class Summary {
     this.updatedAt,
     this.source = 'manual',
     this.embedding = const [],
+    this.sortOrder = 0,
   });
 
   factory Summary.create({
@@ -46,6 +50,7 @@ class Summary {
     List<String> tags = const [],
     String source = 'manual',
     List<double> embedding = const [],
+    int sortOrder = 0,
   }) {
     return Summary(
       id: const Uuid().v4(),
@@ -55,6 +60,7 @@ class Summary {
       createdAt: DateTime.now(),
       source: source,
       embedding: embedding,
+      sortOrder: sortOrder,
     );
   }
 
@@ -67,6 +73,7 @@ class Summary {
     DateTime? updatedAt,
     String? source,
     List<double>? embedding,
+    int? sortOrder,
   }) {
     return Summary(
       id: id ?? this.id,
@@ -77,6 +84,7 @@ class Summary {
       updatedAt: updatedAt ?? this.updatedAt,
       source: source ?? this.source,
       embedding: embedding ?? this.embedding,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -90,6 +98,7 @@ class Summary {
       'updatedAt': updatedAt?.toIso8601String(),
       'source': source,
       'embedding': embedding,
+      'sortOrder': sortOrder,
     };
   }
 
@@ -105,6 +114,7 @@ class Summary {
           : null,
       source: json['source'] as String? ?? 'manual',
       embedding: List<double>.from(json['embedding'] ?? []),
+      sortOrder: json['sortOrder'] as int? ?? 0,
     );
   }
 }

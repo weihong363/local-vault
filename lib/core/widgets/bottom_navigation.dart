@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:local_vault/features/home/presentation/pages/home_page.dart';
-import 'package:local_vault/features/search/presentation/pages/search_page.dart';
 import 'package:local_vault/features/settings/presentation/pages/settings_page.dart';
+import 'package:local_vault/features/template/presentation/pages/template_page.dart';
 
 class BottomNavigation extends StatefulWidget {
   const BottomNavigation({super.key});
@@ -15,7 +15,7 @@ class _BottomNavigationState extends State<BottomNavigation> {
 
   final List<Widget> _pages = [
     const HomePage(),
-    const SearchPage(),
+    const TemplatePage(),
     const SettingsPage(),
   ];
 
@@ -38,8 +38,8 @@ class _BottomNavigationState extends State<BottomNavigation> {
             label: '首页',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: '搜索',
+            icon: Icon(Icons.dashboard),
+            label: '模板',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

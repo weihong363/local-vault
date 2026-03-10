@@ -40,6 +40,17 @@ class TemplateNotifier extends StateNotifier<AsyncValue<List<Template>>> {
     }
   }
 
+  Future<void> updateTemplate(Template template) async {
+    state = const AsyncLoading();
+    try {
+      await repository.updateTemplate(template);
+      final templates = repository.getAllTemplates();
+      state = AsyncData(templates);
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+    }
+  }
+
   Future<void> deleteTemplate(String id) async {
     state = const AsyncLoading();
     try {

@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.hardware.Sensor
@@ -17,6 +18,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.preference.PreferenceManager
+import org.json.JSONArray
 
 class FloatingWindowService : Service(), SensorEventListener {
 
@@ -36,6 +38,7 @@ class FloatingWindowService : Service(), SensorEventListener {
         // SharedPreferences 键
         private const val PREF_GESTURE_TAP_2_ACTION = "gesture_tap_2_action"
         private const val PREF_GESTURE_TAP_3_ACTION = "gesture_tap_3_action"
+        private const val PREF_APP_WHITELIST = "app_whitelist"
         
         var isServiceRunning = false
             private set
@@ -125,8 +128,67 @@ class FloatingWindowService : Service(), SensorEventListener {
         }
     }
 
+    /**
+     * 获取当前前台应用的包名
+     */
+    private fun getForegroundAppPackage(): String? {
+        return try {
+            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val time = System.currentTimeMillis()
+            val stats = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                time - 1000 * 60,
+                time
+            )
+            
+            if (stats != null && stats.isNotEmpty()) {
+                val sortedStats = stats.sortedByDescending { it.lastTimeUsed }
+                sortedStats.firstOrNull()?.packageName
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "获取前台应用失败", e)
+            null
+        }
+    }
+    
+    /**
+     * 检查当前前台应用是否在白名单中
+     * 如果白名单为空，则允许所有应用
+     */
+    private fun isAppInWhitelist(): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val whitelistJson = prefs.getStringSet(PREF_APP_WHITELIST, emptySet())
+        
+        // 如果白名单为空，允许所有应用
+        if (whitelistJson.isNullOrEmpty()) {
+            Log.d(TAG, "白名单为空，允许所有应用")
+            return true
+        }
+        
+        val foregroundPackage = getForegroundAppPackage() ?: return false
+        Log.d(TAG, "当前前台应用：$foregroundPackage")
+        
+        // 直接使用包名集合
+       val whitelistPackages = whitelistJson
+        
+        Log.d(TAG, "白名单应用：$whitelistPackages")
+        
+        val isAllowed = whitelistPackages.contains(foregroundPackage)
+        Log.d(TAG, "应用 $foregroundPackage ${if (isAllowed) "在白名单中" else "不在白名单中"}")
+        
+        return isAllowed
+    }
+    
     private fun handleTapGesture(tapCount: Int) {
         Log.d(TAG, "处理 $tapCount 次敲击手势")
+        
+        // 检查应用白名单
+        if (!isAppInWhitelist()) {
+            Log.d(TAG, "当前应用不在白名单中，忽略手势")
+            return
+        }
         
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         val actionKey = when (tapCount) {
@@ -142,18 +204,18 @@ class FloatingWindowService : Service(), SensorEventListener {
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         
         when (actionIndex) {
-            0 -> {
-                intent.action = "OPEN_TEMPLATES"
-            }
-            1 -> {
-                // 保存摘要只能通过分享，这里不做处理
-                Log.d(TAG, "保存摘要功能仅通过分享使用")
-                return
-            }
-            2 -> {
-                intent.action = "OPEN_SUMMARIES"
-            }
-        }
+           0 -> {
+             intent.action = "OPEN_TEMPLATES"
+           }
+         1 -> {
+               // 保存摘要 - 从剪贴板读取内容并保存
+            Log.d(TAG, "触发快速保存摘要功能")
+            intent.action= "QUICK_SAVE"
+           }
+        2 -> {
+            intent.action = "OPEN_SUMMARIES"
+           }
+       }
         
         startActivity(intent)
     }

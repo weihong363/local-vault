@@ -31,16 +31,40 @@ class SummaryRepository {
   }
 
   List<Summary> getAllSummaries() {
-    return _summaryBox.values.toList();
+    final summaries = _summaryBox.values.toList();
+    summaries.sort((a, b) {
+      if (a.sortOrder != b.sortOrder) {
+        return a.sortOrder.compareTo(b.sortOrder);
+      }
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return summaries;
   }
 
   List<Summary> searchSummaries(String query) {
     final lowerQuery = query.toLowerCase();
-    return _summaryBox.values.where((summary) {
+    final summaries = _summaryBox.values.where((summary) {
       return summary.title.toLowerCase().contains(lowerQuery) ||
           summary.content.toLowerCase().contains(lowerQuery) ||
           summary.tags.any((tag) => tag.toLowerCase().contains(lowerQuery));
     }).toList();
+    summaries.sort((a, b) {
+      if (a.sortOrder != b.sortOrder) {
+        return a.sortOrder.compareTo(b.sortOrder);
+      }
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return summaries;
+  }
+
+  Future<void> updateSortOrders(List<Summary> summaries) async {
+    for (int i = 0; i < summaries.length; i++) {
+      final summary = summaries[i];
+      if (summary.sortOrder != i) {
+        final updatedSummary = summary.copyWith(sortOrder: i);
+        await _summaryBox.put(updatedSummary.id, updatedSummary);
+      }
+    }
   }
 
   List<Summary> getSummariesByTag(String tag) {

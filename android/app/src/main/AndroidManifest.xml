@@ -48,6 +48,16 @@
                 <data android:mimeType="image/*"/>
             </intent-filter>
         </activity>
+       
+       <!-- 快速保存 Activity - 透明无感知 -->
+       <activity
+          android:name=".QuickSaveActivity"
+          android:exported="true"
+          android:launchMode="singleTask"
+          android:excludeFromRecents="true"
+          android:taskAffinity=""
+          android:theme="@style/TransparentTheme">
+       </activity>
         <service
             android:name=".FloatingWindowService"
             android:exported="false"
@@ -56,6 +66,52 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="floatingWidget"/>
         </service>
+        
+        <!-- Android 系统控制中心快捷服务 -->
+        <service
+            android:name=".SaveSummaryTileService"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:icon="@mipmap/ic_launcher"
+            android:label="保存摘要">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        
+        <service
+            android:name=".TemplateTileService"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:icon="@mipmap/ic_launcher"
+            android:label="摘要模板">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        
+        <service
+            android:name=".InjectSummaryTileService"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:icon="@mipmap/ic_launcher"
+            android:label="引用摘要">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        
+        <service
+            android:name=".SummariesTileService"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:icon="@mipmap/ic_launcher"
+            android:label="本地记忆库">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

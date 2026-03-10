@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:local_vault/core/services/share_sheet.dart';
+import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/features/template/domain/providers/template_provider.dart';
 import 'package:local_vault/features/template/models/template.dart';
 
@@ -27,7 +27,7 @@ class TemplatePage extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () {
-              _showAddTemplateDialog(context, ref);
+              _showTemplateDialog(context, ref);
             },
           ),
         ],
@@ -50,8 +50,13 @@ class TemplatePage extends ConsumerWidget {
                   onTap: () {
                     _copyToClipboard(context, templates[index].content);
                   },
+                  onEdit: () {
+                    _showTemplateDialog(context, ref, template: templates[index]);
+                  },
                   onDelete: () {
-                    ref.read(templateNotifierProvider.notifier).deleteTemplate(templates[index].id);
+                    ref
+                        .read(templateNotifierProvider.notifier)
+                        .deleteTemplate(templates[index].id);
                   },
                 );
               },
@@ -64,15 +69,16 @@ class TemplatePage extends ConsumerWidget {
     );
   }
 
-  void _showAddTemplateDialog(BuildContext context, WidgetRef ref) {
-    final titleController = TextEditingController();
-    final contentController = TextEditingController();
-    final tagsController = TextEditingController();
+  void _showTemplateDialog(BuildContext context, WidgetRef ref, {Template? template}) {
+    final isEditing = template != null;
+    final titleController = TextEditingController(text: template?.title ?? '');
+    final contentController = TextEditingController(text: template?.content ?? '');
+    final tagsController = TextEditingController(text: template?.tags.join(', ') ?? '');
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('添加模板'),
+        title: Text(isEditing ? '编辑模板' : '添加模板'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -91,7 +97,7 @@ class TemplatePage extends ConsumerWidget {
                   labelText: '内容',
                   border: OutlineInputBorder(),
                 ),
-                maxLines: 4,
+                maxLines: 6,
               ),
               const SizedBox(height: 16),
               TextField(
@@ -126,12 +132,21 @@ class TemplatePage extends ConsumerWidget {
                 return;
               }
 
-              final template = Template.create(
-                title: title,
-                content: content,
-                tags: tags,
-              );
-              ref.read(templateNotifierProvider.notifier).addTemplate(template);
+              if (isEditing) {
+                final updatedTemplate = template.copyWith(
+                  title: title,
+                  content: content,
+                  tags: tags,
+                );
+                ref.read(templateNotifierProvider.notifier).updateTemplate(updatedTemplate);
+              } else {
+                final newTemplate = Template.create(
+                  title: title,
+                  content: content,
+                  tags: tags,
+                );
+                ref.read(templateNotifierProvider.notifier).addTemplate(newTemplate);
+              }
               Navigator.pop(context);
             },
             child: const Text('保存'),
@@ -152,29 +167,70 @@ class TemplatePage extends ConsumerWidget {
 class TemplateCard extends StatelessWidget {
   final Template template;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const TemplateCard({
     super.key,
     required this.template,
     required this.onTap,
+    required this.onEdit,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        title: Text(template.title),
-        subtitle: Text(
-          template.content.length > 50
-              ? '${template.content.substring(0, 50)}...'
-              : template.content,
+        title: Text(
+          template.title,
+          style: TextStyle(
+            color: isDark ? AppColors.darkTextPrimary : null,
+          ),
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete, color: Colors.red),
-          onPressed: onDelete,
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              template.content.length > 100
+                  ? '${template.content.substring(0, 100)}...'
+                  : template.content,
+              style: TextStyle(
+                color: isDark ? AppColors.darkTextMuted : null,
+              ),
+            ),
+            if (template.tags.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Wrap(
+                  spacing: 4,
+                  children: template.tags.map((tag) => Chip(
+                    label: Text(
+                      tag,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  )).toList(),
+                ),
+              ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: onDelete,
+            ),
+          ],
         ),
         onTap: onTap,
       ),

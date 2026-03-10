@@ -40,6 +40,17 @@ class SummaryNotifier extends StateNotifier<AsyncValue<List<Summary>>> {
     }
   }
 
+  Future<void> updateSummary(Summary summary) async {
+    state = const AsyncLoading();
+    try {
+      await repository.updateSummary(summary);
+      final summaries = repository.getAllSummaries();
+      state = AsyncData(summaries);
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+    }
+  }
+
   Future<void> deleteSummary(String id) async {
     state = const AsyncLoading();
     try {
@@ -67,9 +78,19 @@ class SummaryNotifier extends StateNotifier<AsyncValue<List<Summary>>> {
   Future<void> refresh() async {
     await _loadSummaries();
   }
+
+  Future<void> updateSortOrders(List<Summary> summaries) async {
+    try {
+      await repository.updateSortOrders(summaries);
+      state = AsyncData(List.from(summaries));
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+    }
+  }
 }
 
-final summaryNotifierProvider = StateNotifierProvider<SummaryNotifier, AsyncValue<List<Summary>>>((ref) {
+final summaryNotifierProvider =
+    StateNotifierProvider<SummaryNotifier, AsyncValue<List<Summary>>>((ref) {
   final repository = ref.watch(summaryRepositoryProvider);
   return SummaryNotifier(repository);
 });

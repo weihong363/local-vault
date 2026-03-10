@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
+import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/features/summary/domain/providers/summary_provider.dart';
-import 'package:local_vault/features/summary/presentation/widgets/summary_card.dart';
 import 'package:local_vault/features/template/domain/providers/template_provider.dart';
 import 'package:local_vault/features/template/models/template.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +27,8 @@ class QuickActionPage extends ConsumerStatefulWidget {
 }
 
 class _QuickActionPageState extends ConsumerState<QuickActionPage> {
+  static const MethodChannel _channel = MethodChannel('com.ironion.local_vault/quick_action');
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,6 +59,7 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
       QuickActionType.save => '保存摘要',
       QuickActionType.summaries => '我的摘要',
     };
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -70,14 +73,27 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    color: isDark 
+                        ? AppColors.darkTextPrimary 
+                        : Theme.of(context).colorScheme.onPrimaryContainer,
                   ),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.close),
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
-            onPressed: () => Navigator.pop(context),
+            color: isDark 
+                ? AppColors.darkTextPrimary 
+                : Theme.of(context).colorScheme.onPrimaryContainer,
+            onPressed: () async {
+              try {
+                await _channel.invokeMethod('finishActivity');
+              } catch (e) {
+                debugPrint('调用 finishActivity 失败: $e');
+                if (mounted) {
+                  Navigator.pop(context);
+                }
+              }
+            },
           ),
         ],
       ),
@@ -123,26 +139,49 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
   }
 
   Widget _buildSaveContent() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
+   return Padding(
+     padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              context.push(AppRoutes.save);
+            onPressed: () async {
+              // 尝试从剪贴板读取内容
+            final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+            if (clipboardData?.text != null && clipboardData!.text!.isNotEmpty) {
+                // 有剪贴板内容，直接保存到摘要
+               Navigator.pop(context);
+               context.push(AppRoutes.save, extra: clipboardData.text);
+              } else {
+                // 剪贴板为空，打开空白保存页面
+               Navigator.pop(context);
+               context.push(AppRoutes.save);
+              }
             },
-            icon: const Icon(Icons.add),
-            label: const Text('打开保存页面'),
-            style: ElevatedButton.styleFrom(
+            icon: const Icon(Icons.save_alt),
+            label: const Text('快速保存'),
+           style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
             ),
           ),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () {
+             Navigator.pop(context);
+             context.push(AppRoutes.save);
+            },
+            icon: const Icon(Icons.edit),
+           label: const Text('手动输入'),
+           style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+             backgroundColor: Colors.grey.shade200,
+            ),
+          ),
           const SizedBox(height: 16),
-          const Text(
-            '提示：可以先复制 AI 回复的内容，然后在此页面快速保存',
+         const Text(
+           '提示：会自动读取剪贴板内容快速保存\n如果没有内容，可以手动输入',
             textAlign: TextAlign.center,
+           style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ],
       ),
@@ -176,11 +215,24 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
     );
   }
 
-  void _copyToClipboard(String text) {
+  void _copyToClipboard(String text) async {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('已复制到剪贴板')),
     );
+    // 延迟一点后调用原生端返回之前的应用
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (mounted) {
+      try {
+        await _channel.invokeMethod('finishActivity');
+      } catch (e) {
+        debugPrint('调用 finishActivity 失败: $e');
+        // 备用方案
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      }
+    }
   }
 }
 
@@ -195,16 +247,27 @@ class _QuickTemplateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         dense: true,
-        title: Text(template.title, style: const TextStyle(fontSize: 14)),
+        title: Text(
+          template.title,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark ? AppColors.darkTextPrimary : null,
+          ),
+        ),
         subtitle: Text(
           template.content.length > 30
               ? '${template.content.substring(0, 30)}...'
               : template.content,
-          style: const TextStyle(fontSize: 12),
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? AppColors.darkTextMuted : null,
+          ),
         ),
         onTap: onTap,
       ),
@@ -223,16 +286,27 @@ class _QuickSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         dense: true,
-        title: Text(summary.title, style: const TextStyle(fontSize: 14)),
+        title: Text(
+          summary.title,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark ? AppColors.darkTextPrimary : null,
+          ),
+        ),
         subtitle: Text(
           summary.content.length > 30
               ? '${summary.content.substring(0, 30)}...'
               : summary.content,
-          style: const TextStyle(fontSize: 12),
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? AppColors.darkTextMuted : null,
+          ),
         ),
         onTap: onTap,
       ),

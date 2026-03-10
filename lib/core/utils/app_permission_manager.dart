@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class AppPermissionManager {
   AppPermissionManager._();
 
-  static const MethodChannel _overlayChannel = MethodChannel('local_vault/floating_window');
+  static const MethodChannel _overlayChannel =
+      MethodChannel('local_vault/floating_window');
 
   /// 检查悬浮窗权限
   static Future<bool> checkOverlayPermission() async {
     try {
-      final result = await _overlayChannel.invokeMethod<bool>('checkOverlayPermission');
+      final result =
+          await _overlayChannel.invokeMethod<bool>('checkOverlayPermission');
       return result ?? false;
     } catch (e) {
       return false;
@@ -31,7 +32,8 @@ class AppPermissionManager {
     try {
       // 通过 MethodChannel 调用原生代码检查
       const MethodChannel channel = MethodChannel('local_vault/permissions');
-      final result = await channel.invokeMethod<bool>('checkUsageStatsPermission');
+      final result =
+          await channel.invokeMethod<bool>('checkUsageStatsPermission');
       return result ?? false;
     } catch (e) {
       return false;
@@ -56,7 +58,7 @@ class AppPermissionManager {
   static Future<Map<String, bool>> checkAllPermissions() async {
     final overlayGranted = await checkOverlayPermission();
     final usageStatsGranted = await checkUsageStatsPermission();
-    
+
     return {
       'overlay': overlayGranted,
       'usage_stats': usageStatsGranted,
@@ -69,12 +71,12 @@ class AppPermissionManager {
     // 请求悬浮窗权限
     await requestOverlayPermission();
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     // 请求使用统计权限
     final usageStatsGranted = await requestUsageStatsPermission();
-    
+
     final overlayGranted = await checkOverlayPermission();
-    
+
     return overlayGranted && usageStatsGranted;
   }
 
