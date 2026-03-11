@@ -31,4 +31,40 @@
        <!-- 点击外部不关闭 -->
        <item name="android:backgroundDimEnabled">false</item>
    </style>
+   
+   <!-- 透明对话框主题 - 用于快捷操作 Activity -->
+   <style name="TransparentDialogTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+       <!-- 完全透明的背景 -->
+       <item name="android:windowBackground">@android:color/transparent</item>
+       <item name="android:windowIsTranslucent">true</item>
+       <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+       
+       <!-- 移除所有装饰 -->
+       <item name="android:windowNoTitle">true</item>
+       <item name="android:windowFullscreen">false</item>
+       <item name="android:windowIsFloating">true</item>
+       
+       <!-- 背景完全透明，没有黑色遮罩 -->
+       <item name="android:backgroundDimEnabled">false</item>
+   </style>
+   
+   <!-- 优化的透明主题 - 消除黑色区域 -->
+   <style name="OptimizedTransparentTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+       <!-- 完全透明的背景 -->
+       <item name="android:windowBackground">@android:color/transparent</item>
+       <item name="android:windowIsTranslucent">true</item>
+       <item name="android:windowAnimationStyle">@null</item>
+       <item name="android:windowContentOverlay">@null</item>
+       
+       <!-- 移除所有装饰 -->
+       <item name="android:windowNoTitle">true</item>
+       <item name="android:windowFullscreen">false</item>
+       <item name="android:windowIsFloating">true</item>
+       
+       <!-- 背景完全透明，没有黑色遮罩 -->
+       <item name="android:backgroundDimEnabled">false</item>
+       
+       <!-- 不显示状态栏和导航栏背景 -->
+       <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+   </style>
 </resources>

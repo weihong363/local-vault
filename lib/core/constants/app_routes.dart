@@ -10,5 +10,7 @@ class AppRoutes {
   static const String gestureConfig = '/gesture-config';
   static const String appWhitelist = '/app-whitelist';
   static const String quickAction = '/quick-action';
+  static const String quickActionActivity = '/quick-action-activity';
   static const String template = '/template';
+  static const String memoryManagement = '/memory-management';
 }

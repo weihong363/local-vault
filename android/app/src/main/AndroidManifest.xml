@@ -58,6 +58,16 @@
           android:taskAffinity=""
           android:theme="@style/TransparentTheme">
        </activity>
+       
+       <!-- 快捷操作 Activity - 用于模板和摘要选择 -->
+       <activity
+          android:name=".QuickActionActivity"
+          android:exported="true"
+          android:launchMode="singleTask"
+          android:excludeFromRecents="true"
+          android:taskAffinity=".QuickAction"
+          android:theme="@style/OptimizedTransparentTheme">
+       </activity>
         <service
             android:name=".FloatingWindowService"
             android:exported="false"
@@ -73,7 +83,7 @@
             android:exported="true"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             android:icon="@mipmap/ic_launcher"
-            android:label="保存摘要">
+            android:label="保存记忆">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
@@ -81,6 +91,7 @@
         
         <service
             android:name=".TemplateTileService"
+            android:theme="@style/Theme.BApp.Dialog.Picker"
             android:exported="true"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             android:icon="@mipmap/ic_launcher"
@@ -90,23 +101,25 @@
             </intent-filter>
         </service>
         
-        <service
-            android:name=".InjectSummaryTileService"
-            android:exported="true"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
-            android:icon="@mipmap/ic_launcher"
-            android:label="引用摘要">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
+<!--        <service-->
+<!--            android:name=".InjectSummaryTileService"-->
+<!--            android:theme="@style/Theme.BApp.Dialog.Picker"-->
+<!--            android:exported="true"-->
+<!--            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"-->
+<!--            android:icon="@mipmap/ic_launcher"-->
+<!--            android:label="引用摘要">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.service.quicksettings.action.QS_TILE" />-->
+<!--            </intent-filter>-->
+<!--        </service>-->
         
         <service
             android:name=".SummariesTileService"
+            android:theme="@style/Theme.BApp.Dialog.Picker"
             android:exported="true"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             android:icon="@mipmap/ic_launcher"
-            android:label="本地记忆库">
+            android:label="我的记忆">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>

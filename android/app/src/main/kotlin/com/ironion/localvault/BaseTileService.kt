@@ -1,4 +1,4 @@
-package com.ironion.local_vault
+package com.ironion.localvault
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

@@ -1,4 +1,4 @@
-package com.ironion.local_vault
+package com.ironion.localvault
 
 import android.content.Intent
 import android.os.Build
@@ -14,12 +14,9 @@ class SummariesTileService : BaseTileService() {
         private const val TAG = "SummariesTileService"
     }
 
-    override fun getTileLabel(): String = "本地记忆库"
+    override fun getTileLabel(): String = "我的记忆"
 
     override fun getLaunchIntent(): Intent {
-        return Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            action = "OPEN_SUMMARIES"
-        }
+        return QuickActionActivity.createIntent(this, QuickActionActivity.ACTION_SUMMARIES)
     }
 }

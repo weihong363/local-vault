@@ -6,6 +6,7 @@ import 'package:local_vault/core/providers/theme_provider.dart';
 import 'package:local_vault/core/providers/locale_provider.dart';
 import 'package:local_vault/core/services/floating_window_service.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
+import 'package:local_vault/core/utils/architecture_verifier.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -121,13 +122,42 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildThemeSelector(loc, themeMode, ref),
           _buildLanguageSelector(loc, appLocale, ref),
           _buildSectionHeader(loc.storageSettings),
+          _buildMemoryManagement(),
           _buildStorageSpace(loc),
           _buildBackupData(loc),
+          _buildSectionHeader('架构测试'),
+          _buildArchitectureVerification(),
           _buildSectionHeader(loc.about),
           _buildVersionInfo(loc),
           _buildFeedback(loc, context),
         ],
       ),
+    );
+  }
+
+  Widget _buildArchitectureVerification() {
+    return ListTile(
+      title: const Text('运行架构验证'),
+      subtitle: const Text('验证新架构是否正常工作'),
+      trailing: const Icon(Icons.play_arrow),
+      onTap: () async {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('正在运行架构验证...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        await verifyNewArchitecture();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('架构验证完成！请查看控制台输出'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      },
     );
   }
 
@@ -305,6 +335,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       subtitle: const Text('v1.0.0'),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {},
+    );
+  }
+
+  Widget _buildMemoryManagement() {
+    return ListTile(
+      title: const Text('记忆管理'),
+      subtitle: const Text('管理、合并和清理记忆'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        context.push(AppRoutes.memoryManagement);
+      },
     );
   }
 

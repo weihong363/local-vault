@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' hide Summary;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:local_vault/features/summary/models/summary.dart';
 
@@ -6,7 +7,19 @@ class SummaryRepository {
   Box<Summary>? _box;
 
   Future<void> init() async {
-    _box ??= await Hive.openBox<Summary>(_boxName);
+    try {
+      debugPrint('🔄 [SummaryRepository] 正在打开 Hive box: $_boxName');
+      if (_box == null) {
+        _box = await Hive.openBox<Summary>(_boxName);
+        debugPrint('✅ [SummaryRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
+      }
+    } catch (e) {
+      debugPrint('❌ [SummaryRepository] 打开 Hive box 失败: $e');
+      debugPrint('⚠️  [SummaryRepository] 尝试删除并重建 box...');
+      await Hive.deleteBoxFromDisk(_boxName);
+      _box = await Hive.openBox<Summary>(_boxName);
+      debugPrint('✅ [SummaryRepository] Hive box 重建成功');
+    }
   }
 
   Box<Summary> get _summaryBox {

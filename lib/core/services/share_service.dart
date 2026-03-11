@@ -165,6 +165,7 @@ class ShareService {
   /// 获取待处理的分享文本（被动拉取模式）
   Future<String?> getPendingShareText() async {
     try {
+      debugPrint('🔍 [ShareService] 尝试获取待处理的分享文本...');
       final text = await _channel.invokeMethod<String>('getPendingShareText');
       if (text != null && text.isNotEmpty) {
         debugPrint('📥 [ShareService] 被动拉取到分享文本：${text.substring(
@@ -178,8 +179,14 @@ class ShareService {
         ));
       }
       return text;
+    } on MissingPluginException catch (e) {
+      debugPrint('⚠️ [ShareService] 原生方法 getPendingShareText 未实现，跳过：$e');
+      return null;
     } on PlatformException catch (e) {
       debugPrint('❌ [ShareService] 获取分享文本失败：${e.message}');
+      return null;
+    } catch (e) {
+      debugPrint('⚠️ [ShareService] 获取分享文本时发生未知错误：$e');
       return null;
     }
   }
@@ -189,8 +196,12 @@ class ShareService {
     try {
       await _channel.invokeMethod('reset');
       debugPrint('✅ [ShareService] 已重置分享状态');
+    } on MissingPluginException catch (e) {
+      debugPrint('⚠️ [ShareService] 原生方法 reset 未实现，跳过：$e');
     } on PlatformException catch (e) {
       debugPrint('❌ [ShareService] 重置失败：${e.message}');
+    } catch (e) {
+      debugPrint('⚠️ [ShareService] 重置时发生未知错误：$e');
     }
   }
 

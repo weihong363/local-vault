@@ -4,15 +4,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
-import 'package:local_vault/features/summary/models/summary.dart';
-import 'package:local_vault/features/summary/domain/providers/summary_provider.dart';
+import 'package:local_vault/core/providers/summary_entities_provider.dart';
+import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/core/services/share_sheet.dart';
 import 'package:local_vault/core/services/ocr_service.dart';
 
 class SavePage extends ConsumerStatefulWidget {
-  final dynamic initialData; // 可以是 String 或 Map (图片分享) 或 Summary (编辑)
-  final Summary? editingSummary; // 要编辑的摘要
+  final dynamic initialData; // 可以是 String 或 Map (图片分享) 或 SummaryEntity (编辑)
+  final SummaryEntity? editingSummary; // 要编辑的摘要
 
   const SavePage({super.key, this.initialData, this.editingSummary});
 
@@ -255,10 +255,6 @@ class _SavePageState extends ConsumerState<SavePage> {
         return;
       }
 
-      final repository = ref.read(summaryRepositoryProvider);
-      // ✅ 初始化 repository（重要！）
-      await repository.init();
-
       // 如果有备注，将备注添加到内容中
       final fullContent =
           remark.isNotEmpty ? '$content\n\n---备注---\n$remark' : content;
@@ -275,12 +271,12 @@ class _SavePageState extends ConsumerState<SavePage> {
 
         debugPrint('✏️ [SavePage] 更新摘要：${updatedSummary.title}');
         await ref
-            .read(summaryNotifierProvider.notifier)
+            .read(summaryEntityNotifierProvider.notifier)
             .updateSummary(updatedSummary);
         debugPrint('✅ [SavePage] 更新成功');
       } else {
         // 新增模式
-        final summary = Summary.create(
+        final summary = SummaryEntity.create(
           title: title,
           content: fullContent,
           tags: tags,
@@ -288,7 +284,7 @@ class _SavePageState extends ConsumerState<SavePage> {
         );
 
         debugPrint('💾 [SavePage] 准备保存摘要：${summary.title}');
-        await ref.read(summaryNotifierProvider.notifier).addSummary(summary);
+        await ref.read(summaryEntityNotifierProvider.notifier).addSummary(summary);
         debugPrint('✅ [SavePage] 保存成功');
       }
 

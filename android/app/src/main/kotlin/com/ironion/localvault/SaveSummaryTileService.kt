@@ -1,4 +1,4 @@
-package com.ironion.local_vault
+package com.ironion.localvault
 
 import android.content.Intent
 import android.os.Build

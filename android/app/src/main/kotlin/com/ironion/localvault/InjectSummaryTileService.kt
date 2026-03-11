@@ -1,25 +1,25 @@
-package com.ironion.local_vault
+package com.ironion.localvault
 
 import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
 
 /**
- * 模板快捷方式服务
+ * 引用摘要快捷方式服务
  */
 @RequiresApi(Build.VERSION_CODES.N)
-class TemplateTileService : BaseTileService() {
+class InjectSummaryTileService : BaseTileService() {
 
     companion object {
-        private const val TAG = "TemplateTileService"
+        private const val TAG = "InjectSummaryTileService"
     }
 
-    override fun getTileLabel(): String = "摘要模板"
+    override fun getTileLabel(): String = "引用摘要"
 
     override fun getLaunchIntent(): Intent {
         return Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            action = "OPEN_TEMPLATES"
+            action = "OPEN_INJECT"
         }
     }
 }

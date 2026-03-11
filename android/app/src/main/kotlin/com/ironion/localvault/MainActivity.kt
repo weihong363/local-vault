@@ -1,4 +1,4 @@
-package com.ironion.local_vault
+package com.ironion.localvault
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -25,15 +25,14 @@ class MainActivity : FlutterActivity() {
   private val PERMISSIONS_CHANNEL = "local_vault/permissions"
   private val SHARE_CHANNEL = "local_vault/share"
   private val APPS_CHANNEL = "local_vault/apps"
-  private val QUICK_ACTION_CHANNEL = "com.ironion.local_vault/quick_action"
+  private val QUICK_ACTION_CHANNEL = "com.ironion.localvault/quick_action"
   private var pendingAction: String? = null
   private var pendingShareText: String? = null
   private var whitelistPackages = mutableSetOf<String>()
   
  companion object {
-     // 保存 FlutterEngine 的静态引用，供 QuickSaveActivity 使用
+     // 保存 FlutterEngine 的静态引用，供 QuickSaveActivity 和 QuickActionActivity 使用
     var flutterEngine: FlutterEngine? = null
-      private set
  }
 
     override fun onCreate(savedInstanceState: Bundle?) {

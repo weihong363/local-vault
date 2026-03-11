@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/features/summary/domain/providers/summary_provider.dart';
+import 'package:local_vault/core/providers/summary_entities_provider.dart';
+import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/features/summary/presentation/widgets/empty_state.dart';
 import 'package:local_vault/features/summary/presentation/widgets/summary_card.dart';
-import 'package:local_vault/features/summary/models/summary.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -15,17 +15,38 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    debugPrint('🏠 [HomePage] 初始化完成');
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🏠 [HomePage] 应用恢复，执行刷新');
+      _refreshData();
+    }
+  }
+
+  void _refreshData() {
+    _searchController.clear();
+    ref.read(summaryEntityNotifierProvider.notifier).refresh();
+  }
+
   void _handleSearch(String query) {
-    final notifier = ref.read(summaryNotifierProvider.notifier);
+    final notifier = ref.read(summaryEntityNotifierProvider.notifier);
     
     if (query.isEmpty) {
       notifier.refresh();
@@ -36,7 +57,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   /// 显示确认删除对话框
-  Future<void> _showDeleteConfirmationDialog(BuildContext context, Summary summary) async {
+  Future<void> _showDeleteConfirmationDialog(BuildContext context, SummaryEntity summary) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -60,7 +81,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     if (confirmed == true && mounted) {
       try {
-        await ref.read(summaryNotifierProvider.notifier).deleteSummary(summary.id);
+        await ref.read(summaryEntityNotifierProvider.notifier).deleteSummary(summary.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -84,10 +105,10 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   /// 处理拖拽排序完成
   Future<void> _handleReorder(int oldIndex, int newIndex) async {
-    final currentState = ref.read(summaryNotifierProvider);
-    if (currentState is! AsyncData<List<Summary>>) return;
+    final currentState = ref.read(summaryEntityNotifierProvider);
+    if (currentState is! AsyncData<List<SummaryEntity>>) return;
 
-    final summaries = List<Summary>.from(currentState.value);
+    final summaries = List<SummaryEntity>.from(currentState.value);
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
@@ -95,14 +116,14 @@ class _HomePageState extends ConsumerState<HomePage> {
     final item = summaries.removeAt(oldIndex);
     summaries.insert(newIndex, item);
     
-    await ref.read(summaryNotifierProvider.notifier).updateSortOrders(summaries);
+    await ref.read(summaryEntityNotifierProvider.notifier).updateSortOrders(summaries);
   }
 
   @override
   Widget build(BuildContext context) {
-    final asyncSummaries = ref.watch(summaryNotifierProvider);
+    final asyncSummaries = ref.watch(summaryEntityNotifierProvider);
 
-    ref.listen(summaryNotifierProvider, (previous, next) {
+    ref.listen(summaryEntityNotifierProvider, (previous, next) {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('错误: ${next.error}')),
@@ -154,6 +175,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       body: asyncSummaries.when(
         data: (summaries) {
+          debugPrint('🏠 [HomePage] 显示 ${summaries.length} 条摘要');
           if (summaries.isEmpty) {
             return const EmptyState();
           }
@@ -161,7 +183,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             onRefresh: () async {
               _searchController.clear();
               _handleSearch('');
-              await ref.read(summaryNotifierProvider.notifier).refresh();
+              await ref.read(summaryEntityNotifierProvider.notifier).refresh();
             },
             child: ReorderableListView.builder(
               padding: const EdgeInsets.all(16),
@@ -187,14 +209,51 @@ class _HomePageState extends ConsumerState<HomePage> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('错误: $error')),
+        error: (error, stack) {
+          debugPrint('❌ [HomePage] 显示错误: $error');
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '加载失败',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '错误: $error',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      ref.read(summaryEntityNotifierProvider.notifier).refresh();
+                    },
+                    child: const Text('重试'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
 class _BuildReorderableItem extends StatefulWidget {
-  final Summary summary;
+  final SummaryEntity summary;
   final int index;
   final VoidCallback onTap;
   final VoidCallback onDelete;
@@ -292,6 +351,7 @@ class _BuildReorderableItemState extends State<_BuildReorderableItem>
                       widget.onTap();
                     }
                   },
+                  index: widget.index,
                 ),
               ),
               Positioned(

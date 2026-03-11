@@ -33,12 +33,55 @@ class AppColors {
 
   static Color surfaceVariant(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    return brightness == Brightness.dark ? darkSurfaceVariant : lightSurfaceVariant;
+    return brightness == Brightness.dark
+        ? darkSurfaceVariant
+        : lightSurfaceVariant;
   }
 
   static Color textMuted(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return brightness == Brightness.dark ? darkTextMuted : lightTextMuted;
+  }
+
+  static const List<Color> summaryCardColors = [
+    Color(0xFFE3F2FD),
+    Color(0xFFFFEBEE),
+    Color(0xFFFFF3E0),
+    Color(0xFFF1F8E9),
+    Color(0xFFEDE7F6),
+    Color(0xFFFFFDE7),
+    Color(0xFFECEFF1),
+    Color(0xFFE0F2F1),
+  ];
+
+  static const List<Color> darkSummaryCardColors = [
+    Color(0xFF1A365D),
+    Color(0xFF5A1A1A),
+    Color(0xFF4A2C1A),
+    Color(0xFF1A3D2A),
+    Color(0xFF2D2A3D),
+    Color(0xFF3D3A1A),
+    Color(0xFF2A2D32),
+    Color(0xFF1A3C36),
+  ];
+
+  static Color getSummaryCardColor(int index, BuildContext context) {
+    final colors = Theme.of(context).brightness == Brightness.dark
+        ? darkSummaryCardColors
+        : summaryCardColors;
+    return colors[index % colors.length];
+  }
+
+  static Color getSummaryCardTextColor(int index, BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFE0E0E0)
+        : const Color(0xFF1C1B1F);
+  }
+
+  static Color getSummaryCardMutedTextColor(int index, BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF9E9E9E)
+        : const Color(0xFF625B71);
   }
 }
 

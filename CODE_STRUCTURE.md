@@ -520,7 +520,7 @@ Hive 数据库
 - **Repository**: `summary_repository.dart`, `template_repository.dart`
 
 ### 4. 原生通信 (MethodChannel)
-- **通道**: `com.ironion.local_vault/quick_save`
+- **通道**: `com.ironion.localvault/quick_save`
 - **方向**: Flutter ↔ Android
 - **方法**:
   - `saveFromClipboard` - 从剪贴板保存

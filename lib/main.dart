@@ -5,11 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/core/services/floating_window_service.dart';
 import 'package:local_vault/core/services/share_service.dart';
 import 'package:local_vault/core/services/save_coordinator.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
-import 'package:local_vault/features/summary/models/summary.dart';
 import 'package:local_vault/features/summary/presentation/pages/summary_detail_page.dart';
 import 'package:local_vault/core/utils/storage_initializer.dart';
 import 'package:local_vault/features/search/presentation/pages/search_page.dart';
@@ -19,16 +17,23 @@ import 'package:local_vault/features/save/presentation/pages/save_page.dart';
 import 'package:local_vault/features/inject/presentation/pages/inject_page.dart';
 import 'package:local_vault/features/template/presentation/pages/template_page.dart';
 import 'package:local_vault/features/quick_action/presentation/pages/quick_action_page.dart';
+import 'package:local_vault/features/quick_action/models/quick_action_type.dart';
 import 'package:local_vault/features/gesture_config/presentation/pages/gesture_config_page.dart';
 import 'package:local_vault/features/app_whitelist/presentation/pages/app_whitelist_page.dart';
+import 'package:local_vault/features/memory/presentation/pages/memory_management_page.dart';
 import 'package:local_vault/core/widgets/bottom_navigation.dart';
+import 'package:local_vault/core/widgets/quick_action_activity_page.dart';
 import 'package:local_vault/core/providers/theme_provider.dart';
 import 'package:local_vault/core/providers/locale_provider.dart';
+import 'package:local_vault/core/di/service_locator.dart';
+import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await StorageInitializer.initialize();
+  await initializeDependencies();
   runApp(const ProviderScope(child: LocalVaultApp()));
 }
 
@@ -44,7 +49,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
   late final GoRouter _router;
   StreamSubscription<SharedText>? _shareSubscription;
   StreamSubscription<SharedImage>? _imageSubscription;
-  static const MethodChannel _quickSaveChannel = MethodChannel('com.ironion.local_vault/quick_save');
+  static const MethodChannel _quickSaveChannel = MethodChannel('com.ironion.localvault/quick_save');
 
   @override
   void initState() {
@@ -124,8 +129,19 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
     // 监听分享文本流
     _shareSubscription = shareService.shareStream.listen((sharedText) {
       if (mounted) {
-        debugPrint('✨ [main] 从 Stream 收到分享：${sharedText.text.substring(0, sharedText.text.length.clamp(0, 50))}...');
-        _handleShareText(sharedText.text);
+        debugPrint('✨ [main] 从 Stream 收到分享，来源：${sharedText.source}');
+        debugPrint('✨ [main] 文本内容：${sharedText.text.substring(0, sharedText.text.length.clamp(0, 50))}...');
+        
+        // 根据来源决定处理方式
+        if (sharedText.source == 'quick_save' || sharedText.source == 'silent_save_from_tile') {
+          // 快捷方式保存，静默保存
+          debugPrint('🤫 [main] 快捷方式保存，执行静默保存');
+          _handleSilentSave(sharedText.text);
+        } else {
+          // 普通分享，打开保存页面
+          debugPrint('📱 [main] 普通分享，打开保存页面');
+          _handleShareText(sharedText.text);
+        }
       }
     });
     
@@ -148,14 +164,36 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
     debugPrint('✅ [main] 分享服务初始化完成');
   }
 
+  /// 处理静默保存（不打开 UI）
+  Future<void> _handleSilentSave(String text) async {
+    debugPrint('💾 [main] 开始静默保存...');
+    try {
+      final saveCoordinator = SaveCoordinator();
+      final success = await saveCoordinator.handleQuickAction(
+        content: text,
+        actionId: 'quick_save_from_share_stream',
+      );
+      
+      if (success) {
+        debugPrint('✅ [main] 静默保存成功');
+      } else {
+        debugPrint('⚠️ [main] 静默保存被中断，跳转到保存页面');
+        _router.push(AppRoutes.save, extra: text);
+      }
+    } catch (e) {
+      debugPrint('❌ [main] 静默保存失败：$e，跳转到保存页面');
+      _router.push(AppRoutes.save, extra: text);
+    }
+  }
+
   void _handleShareText(String text) {
- debugPrint('📝 [main] Flutter 收到分享文本，长度：${text.length}');
- debugPrint('📝 [main] 文本内容：${text.substring(0, text.length.clamp(0, 100))}${text.length > 100 ? '...' : ''}');
-   // 直接导航到保存页面，并传递文本
- debugPrint('🚀 [main] 准备导航到保存页面...');
-  _router.push(AppRoutes.save, extra: text);
- debugPrint('✅ [main] 导航完成');
- }
+    debugPrint('📝 [main] Flutter 收到分享文本，长度：${text.length}');
+    debugPrint('📝 [main] 文本内容：${text.substring(0, text.length.clamp(0, 100))}${text.length > 100 ? '...' : ''}');
+    // 直接导航到保存页面，并传递文本
+    debugPrint('🚀 [main] 准备导航到保存页面...');
+    _router.push(AppRoutes.save, extra: text);
+    debugPrint('✅ [main] 导航完成');
+  }
   
   void _handleShareImage(List<String> uris) {
     debugPrint('Flutter 收到分享图片：${uris.length} 张');
@@ -227,42 +265,30 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkPendingAction();
+      debugPrint('🔄 [main] 应用恢复，执行记忆清理');
+      _runMemoryCleanup();
     }
   }
 
-  Future<void> _checkPendingAction() async {
-    final action = await FloatingWindowService.getPendingAction();
-    if (action != null && mounted) {
-      _navigateToAction(action);
-    }
-  }
-
-  void _navigateToAction(String action) {
-    QuickActionType? actionType;
-    switch (action) {
-      case 'OPEN_TEMPLATES':
-        actionType = QuickActionType.templates;
-        break;
-      case 'OPEN_SAVE':
-        actionType = QuickActionType.save;
-        break;
-      case 'OPEN_SUMMARIES':
-        actionType = QuickActionType.summaries;
-        break;
-      case 'OPEN_INJECT':
-        _router.push(AppRoutes.inject);
-        return;
-    }
-
-    if (actionType != null) {
-      _router.push(AppRoutes.quickAction, extra: actionType);
+  Future<void> _runMemoryCleanup() async {
+    try {
+      final container = ProviderScope.containerOf(context);
+      final notifier = container.read(summaryEntityNotifierProvider.notifier);
+      await notifier.applyForgettingCurve();
+      await notifier.cleanupSessionMemories();
+      debugPrint('✅ [main] 记忆清理完成');
+    } catch (e) {
+      debugPrint('❌ [main] 记忆清理失败: $e');
     }
   }
 
   GoRouter _createRouter() {
     return GoRouter(
       routes: [
+        GoRoute(
+          path: AppRoutes.quickActionActivity,
+          builder: (context, state) => const QuickActionActivityPage(),
+        ),
         GoRoute(
           path: AppRoutes.home,
           builder: (context, state) => const BottomNavigation(),
@@ -282,18 +308,19 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
         GoRoute(
           path: AppRoutes.summaryDetail,
           builder: (context, state) {
-            final summary = state.extra as Summary;
-            return SummaryDetailPage(summary: summary);
+            final extra = state.extra;
+            if (extra is SummaryEntity) {
+              return SummaryDetailPage(summary: extra);
+            }
+            return const BottomNavigation();
           },
         ),
         GoRoute(
           path: AppRoutes.save,
           builder: (context, state) {
-            // 从路由参数或 extra 获取分享文本或图片或 Summary（编辑）
             final initialData = state.extra;
-            // 检查是否是编辑模式
-            Summary? editingSummary;
-            if (initialData is Summary) {
+            SummaryEntity? editingSummary;
+            if (initialData is SummaryEntity) {
               editingSummary = initialData;
             }
             return SavePage(initialData: editingSummary != null ? null : initialData, editingSummary: editingSummary);
@@ -322,6 +349,10 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
           path: AppRoutes.appWhitelist,
           builder: (context, state) => const AppWhitelistPage(),
         ),
+        GoRoute(
+          path: AppRoutes.memoryManagement,
+          builder: (context, state) => const MemoryManagementPage(),
+        ),
       ],
     );
   }
@@ -342,7 +373,6 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
     if (mounted) {
       _checkPermissions();
       _initializeShareService();
-      _checkPendingAction();
     }
   }
 

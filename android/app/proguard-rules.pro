@@ -23,4 +23,4 @@
 -keep class io.flutter.embedding.engine.** { *; }
 
 # Keep Local Vault app classes
--keep class com.ironion.local_vault.** { *; }
+-keep class com.ironion.localvault.** { *; }

@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
-import 'package:local_vault/features/template/domain/providers/template_provider.dart';
-import 'package:local_vault/features/template/models/template.dart';
+import 'package:local_vault/core/providers/template_entities_provider.dart';
+import 'package:local_vault/core/domain/entities/template_entity.dart';
 
 class TemplatePage extends ConsumerWidget {
   const TemplatePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncTemplates = ref.watch(templateNotifierProvider);
+    final asyncTemplates = ref.watch(templateEntityNotifierProvider);
 
-    ref.listen(templateNotifierProvider, (previous, next) {
+    ref.listen(templateEntityNotifierProvider, (previous, next) {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('错误: ${next.error}')),
@@ -39,7 +39,7 @@ class TemplatePage extends ConsumerWidget {
           }
           return RefreshIndicator(
             onRefresh: () async {
-              await ref.read(templateNotifierProvider.notifier).refresh();
+              await ref.read(templateEntityNotifierProvider.notifier).refresh();
             },
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -55,7 +55,7 @@ class TemplatePage extends ConsumerWidget {
                   },
                   onDelete: () {
                     ref
-                        .read(templateNotifierProvider.notifier)
+                        .read(templateEntityNotifierProvider.notifier)
                         .deleteTemplate(templates[index].id);
                   },
                 );
@@ -69,7 +69,7 @@ class TemplatePage extends ConsumerWidget {
     );
   }
 
-  void _showTemplateDialog(BuildContext context, WidgetRef ref, {Template? template}) {
+  void _showTemplateDialog(BuildContext context, WidgetRef ref, {TemplateEntity? template}) {
     final isEditing = template != null;
     final titleController = TextEditingController(text: template?.title ?? '');
     final contentController = TextEditingController(text: template?.content ?? '');
@@ -138,14 +138,14 @@ class TemplatePage extends ConsumerWidget {
                   content: content,
                   tags: tags,
                 );
-                ref.read(templateNotifierProvider.notifier).updateTemplate(updatedTemplate);
+                ref.read(templateEntityNotifierProvider.notifier).updateTemplate(updatedTemplate);
               } else {
-                final newTemplate = Template.create(
+                final newTemplate = TemplateEntity.create(
                   title: title,
                   content: content,
                   tags: tags,
                 );
-                ref.read(templateNotifierProvider.notifier).addTemplate(newTemplate);
+                ref.read(templateEntityNotifierProvider.notifier).addTemplate(newTemplate);
               }
               Navigator.pop(context);
             },
@@ -165,7 +165,7 @@ class TemplatePage extends ConsumerWidget {
 }
 
 class TemplateCard extends StatelessWidget {
-  final Template template;
+  final TemplateEntity template;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;

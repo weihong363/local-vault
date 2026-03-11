@@ -15,4 +15,42 @@
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- Transparent theme for picker dialog - fully transparent background -->
+    <style name="Theme.BApp.Dialog.Picker" parent="@android:style/Theme.DeviceDefault.Dialog.NoActionBar">
+        <!-- Fully transparent window background -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+
+        <!-- Floating and translucent window -->
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+
+        <!-- Disable dim effect for full transparency -->
+        <item name="android:backgroundDimEnabled">false</item>
+
+        <!-- No animation -->
+        <item name="android:windowAnimationStyle">@null</item>
+
+        <!-- No overlay -->
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+    <!-- 透明对话框主题 - 用于快捷操作 Activity (深色模式) -->
+    <style name="TransparentDialogTheme" parent="@android:style/Theme.DeviceDefault.Dialog.NoActionBar">
+        <!-- 完全透明的背景 -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+
+        <!-- 移除所有装饰 -->
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowIsFloating">true</item>
+
+        <!-- 背景完全透明，没有黑色遮罩 -->
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
 </resources>

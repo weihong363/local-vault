@@ -1,4 +1,4 @@
-package com.ironion.local_vault
+package com.ironion.localvault
 
 import android.app.Activity
 import android.app.PendingIntent
@@ -26,7 +26,7 @@ class QuickSaveActivity : Activity() {
     
    companion object {
       private const val TAG = "QuickSaveActivity"
-      private const val CHANNEL = "com.ironion.local_vault/quick_save"
+      private const val CHANNEL = "com.ironion.localvault/quick_save"
     }
     
     // 状态标记
@@ -92,15 +92,15 @@ class QuickSaveActivity : Activity() {
                     saveToDatabase(clipboardText)
                     
                     // 显示成功提示
-                    showSuccessNotification()
+                    showSuccessToast()
                 } else {
                     Log.w(TAG, "⚠️ 剪贴板为空")
-                    showEmptyClipboardNotification()
+                    showEmptyClipboardToast()
                 }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "❌ 读取或保存失败", e)
-                showErrorNotification(e.message)
+                showErrorToast(e.message)
             } finally {
                 // 完成后关闭 Activity
                 Log.d(TAG, "完成任务，关闭 Activity")
@@ -186,108 +186,50 @@ class QuickSaveActivity : Activity() {
 }
     
     /**
-     * 显示成功通知
+     * 显示成功 Toast
      */
-  private fun showSuccessNotification() {
-      try {
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            
-            // 创建通知渠道
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = android.app.NotificationChannel(
-                    "quick_save_result",
-                    "快速保存结果",
-                  android.app.NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = "显示静默保存的成功结果"
-                    setShowBadge(false)
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
-            
-            val notification = androidx.core.app.NotificationCompat.Builder(this, "quick_save_result")
-                .setSmallIcon(android.R.drawable.ic_menu_save)
-                .setContentTitle("✅ 保存成功")
-                .setContentText("已自动保存到 Local Vault")
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
-                .setAutoCancel(true)
-                .build()
-            
-            notificationManager.notify(2001, notification)
-            Log.d(TAG, "已显示成功通知")
-            
+    private fun showSuccessToast() {
+        try {
+            android.widget.Toast.makeText(
+                this,
+                "✅ 保存成功 - 已自动保存到 Local Vault",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            Log.d(TAG, "已显示成功 Toast")
         } catch (e: Exception) {
-            Log.e(TAG, "显示成功通知失败", e)
+            Log.e(TAG, "显示成功 Toast 失败", e)
         }
     }
     
     /**
-     * 显示剪贴板为空的通知
+     * 显示剪贴板为空的 Toast
      */
-  private fun showEmptyClipboardNotification() {
-      try {
-            val notificationManager= getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = android.app.NotificationChannel(
-                    "quick_save_result",
-                    "快速保存结果",
-                  android.app.NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = "显示静默保存的结果"
-                    setShowBadge(false)
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
-            
-            val notification = androidx.core.app.NotificationCompat.Builder(this, "quick_save_result")
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle("⚠️ 剪贴板为空")
-                .setContentText("请先复制要保存的内容")
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
-                .setAutoCancel(true)
-                .build()
-            
-            notificationManager.notify(2002, notification)
-            Log.d(TAG, "已显示空剪贴板通知")
-            
+    private fun showEmptyClipboardToast() {
+        try {
+            android.widget.Toast.makeText(
+                this,
+                "⚠️ 剪贴板为空，请先复制要保存的内容",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            Log.d(TAG, "已显示空剪贴板 Toast")
         } catch (e: Exception) {
-            Log.e(TAG, "显示通知失败", e)
+            Log.e(TAG, "显示空剪贴板 Toast 失败", e)
         }
     }
     
     /**
-     * 显示错误通知
+     * 显示错误 Toast
      */
-  private fun showErrorNotification(errorMsg: String?) {
-      try {
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = android.app.NotificationChannel(
-                    "quick_save_result",
-                    "快速保存结果",
-                  android.app.NotificationManager.IMPORTANCE_DEFAULT
-                ).apply {
-                    description = "显示静默保存的错误信息"
-                    setShowBadge(false)
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
-            
-            val notification = androidx.core.app.NotificationCompat.Builder(this, "quick_save_result")
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle("❌ 保存失败")
-                .setContentText(errorMsg ?: "未知错误")
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_DEFAULT)
-                .setAutoCancel(true)
-                .build()
-            
-            notificationManager.notify(2003, notification)
-            Log.d(TAG, "已显示错误通知")
-            
+    private fun showErrorToast(errorMsg: String?) {
+        try {
+            android.widget.Toast.makeText(
+                this,
+                "❌ 保存失败：${errorMsg ?: "未知错误"}",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            Log.d(TAG, "已显示错误 Toast")
         } catch (e: Exception) {
-            Log.e(TAG, "显示错误通知失败", e)
+            Log.e(TAG, "显示错误 Toast 失败", e)
         }
     }
   

@@ -1,23 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/features/summary/models/summary.dart';
+import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/providers/summary_entities_provider.dart';
 
-class SummaryDetailPage extends StatefulWidget {
-  final Summary summary;
+class SummaryDetailPage extends ConsumerStatefulWidget {
+  final SummaryEntity summary;
 
   const SummaryDetailPage({super.key, required this.summary});
 
   @override
-  State<SummaryDetailPage> createState() => _SummaryDetailPageState();
+  ConsumerState<SummaryDetailPage> createState() => _SummaryDetailPageState();
 }
 
-class _SummaryDetailPageState extends State<SummaryDetailPage> {
+class _SummaryDetailPageState extends ConsumerState<SummaryDetailPage> {
   bool _isExpanded = false;
   static const int _maxPreviewLength = 500;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordAccess();
+  }
+
+  Future<void> _recordAccess() async {
+    await ref.read(summaryEntityNotifierProvider.notifier).recordAccess(widget.summary.id);
+  }
 
   @override
   Widget build(BuildContext context) {

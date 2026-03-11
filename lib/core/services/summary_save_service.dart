@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:local_vault/features/summary/models/summary.dart' as vault;
-import 'package:local_vault/features/summary/domain/repositories/summary_repository.dart';
+import 'package:local_vault/core/di/service_locator.dart';
+import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 
 /// 摘要保存触发方式枚举
 enum SaveTriggerType {
@@ -225,16 +226,15 @@ class SummarySaveService {
         debugPrint('📱 [SummarySaveService] 需要显示 UI，返回到调用者处理路由');
         saveSuccess = true;
       } else {
-        // 静默保存 - 直接保存到数据库
-        debugPrint('🤫 [SummarySaveService] 执行静默保存');
+        // 静默保存 - 直接保存到数据库（使用新 DDD 架构）
+        debugPrint('🤫 [SummarySaveService] 执行静默保存（新 DDD 架构）');
 
-        // 将 Payload 转换为 Summary
-        final summary = _payloadToSummary(payload, context);
+        // 将 Payload 转换为 SummaryEntity
+        final summary = _payloadToSummaryEntity(payload, context);
 
-        // 初始化并保存
-        final repository = SummaryRepository();
-        await repository.init();
-        await repository.addSummary(summary);
+        // 使用新架构的 UseCases 保存
+        final useCases = sl<SummaryUseCases>();
+        await useCases.addSummary(summary);
 
         debugPrint('✅ [SummarySaveService] 静默保存成功：${summary.id}');
         saveSuccess = true;
@@ -265,8 +265,9 @@ class SummarySaveService {
     debugPrint('🧹 [SummarySaveService] 已清除所有钩子');
   }
 
-  /// 将 SavePayload 转换为 Summary
-  vault.Summary _payloadToSummary(SavePayload payload, SaveContext context) {
+  /// 将 SavePayload 转换为 SummaryEntity
+  SummaryEntity _payloadToSummaryEntity(
+      SavePayload payload, SaveContext context) {
     String title = payload.title;
     if (title.isEmpty) {
       title = _generateSmartTitle(payload.content);
@@ -276,7 +277,7 @@ class SummarySaveService {
         ? '${payload.content}\n\n---备注---\n${payload.remark}'
         : payload.content;
 
-    return vault.Summary.create(
+    return SummaryEntity.create(
       title: title,
       content: finalContent,
       tags: payload.tags,

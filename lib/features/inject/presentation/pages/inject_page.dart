@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/services/share_sheet.dart';
-import 'package:local_vault/features/summary/models/summary.dart';
+import 'package:local_vault/core/domain/entities/summary_entity.dart';
 
 class InjectPage extends StatelessWidget {
   const InjectPage({super.key});
@@ -17,17 +17,19 @@ class InjectPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           InjectItem(
-            summary: Summary.create(
+            summary: SummaryEntity.create(
               title: '示例摘要 1',
               content: '这是通过本地记忆库保存的示例内容，可以在其他应用中快速注入使用。',
               tags: ['示例', '测试'],
+              source: 'manual',
             ),
           ),
           InjectItem(
-            summary: Summary.create(
+            summary: SummaryEntity.create(
               title: '示例摘要 2',
               content: '另一个示例内容，展示如何在不同应用之间共享重要信息。',
               tags: ['示例', '分享'],
+              source: 'manual',
             ),
           ),
         ],
@@ -37,7 +39,7 @@ class InjectPage extends StatelessWidget {
 }
 
 class InjectItem extends StatelessWidget {
-  final Summary summary;
+  final SummaryEntity summary;
 
   const InjectItem({super.key, required this.summary});
 
@@ -89,7 +91,7 @@ class InjectItem extends StatelessWidget {
     );
   }
 
-  void _shareSummary(BuildContext context, Summary summary) {
+  void _shareSummary(BuildContext context, SummaryEntity summary) {
     ShareSheet.share(
       context,
       summary.content,

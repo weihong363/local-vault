@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/features/summary/models/summary.dart';
+import 'package:local_vault/core/providers/summary_entities_provider.dart';
+import 'package:local_vault/core/di/service_locator.dart';
+import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 import 'package:local_vault/features/summary/presentation/widgets/summary_card.dart';
 import 'package:local_vault/features/summary/presentation/widgets/empty_state.dart';
-import 'package:local_vault/features/summary/domain/providers/summary_provider.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -16,7 +18,7 @@ class SearchPage extends ConsumerStatefulWidget {
 
 class _SearchPageState extends ConsumerState<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
-  List<Summary> _results = [];
+  List<SummaryEntity> _results = [];
   bool _isSearching = false;
 
   void _handleSearch(String query) {
@@ -35,8 +37,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
 
-      final repository = ref.read(summaryRepositoryProvider);
-      final filtered = repository.searchSummaries(query);
+      final useCases = sl<SummaryUseCases>();
+      final filtered = useCases.searchSummaries(query);
 
       setState(() {
         _results = filtered;
@@ -80,6 +82,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           extra: _results[index],
                         );
                       },
+                      index: index,
                     );
                   },
                 ),
