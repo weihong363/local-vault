@@ -6,16 +6,16 @@ import 'package:local_vault/core/domain/repositories/template_repository_interfa
 /// TemplateRepository 的 Hive 实现
 class HiveTemplateRepository implements TemplateRepositoryInterface {
   static const String _boxName = 'templates_v2';
-  Box<Map<String, dynamic>>? _box;
+  Box? _box;
 
   @override
   Future<void> init() async {
     try {
       debugPrint('🔄 [HiveTemplateRepository] 正在打开 Hive box: $_boxName');
       if (_box == null) {
-        _box = await Hive.openBox<Map<String, dynamic>>(_boxName);
+        _box = await Hive.openBox(_boxName);
         debugPrint('✅ [HiveTemplateRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
-        
+
         // 首次初始化时添加默认模板
         if (_box!.isEmpty) {
           await _addDefaultTemplates();
@@ -25,7 +25,7 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
       debugPrint('❌ [HiveTemplateRepository] 打开 Hive box 失败: $e');
       debugPrint('⚠️  [HiveTemplateRepository] 尝试删除并重建 box...');
       await Hive.deleteBoxFromDisk(_boxName);
-      _box = await Hive.openBox<Map<String, dynamic>>(_boxName);
+      _box = await Hive.openBox(_boxName);
       await _addDefaultTemplates();
       debugPrint('✅ [HiveTemplateRepository] Hive box 重建成功');
     }
@@ -64,6 +64,41 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
         tags: ['会议', '纪要'],
         createdAt: DateTime.now(),
       ),
+      TemplateEntity(
+        id: 'default_action_items',
+        title: '行动项提取',
+        content: '请从以下内容中提取可执行的行动项，按优先级排序，并给出负责人和截止时间建议：\n\n{{content}}',
+        tags: ['行动项', '任务'],
+        createdAt: DateTime.now(),
+      ),
+      TemplateEntity(
+        id: 'default_brief',
+        title: '要点提炼',
+        content: '请提炼以下内容的要点，使用条目化列表输出：\n\n{{content}}',
+        tags: ['要点', '提炼'],
+        createdAt: DateTime.now(),
+      ),
+      TemplateEntity(
+        id: 'default_code_review',
+        title: '代码审查',
+        content: '请审查以下代码，指出潜在问题、风险和改进建议：\n\n```dart\n{{content}}\n```',
+        tags: ['代码', '审查'],
+        createdAt: DateTime.now(),
+      ),
+      TemplateEntity(
+        id: 'default_plan',
+        title: '任务拆解',
+        content: '请将以下目标拆解为可执行的步骤，并给出估时与依赖关系：\n\n{{content}}',
+        tags: ['规划', '拆解'],
+        createdAt: DateTime.now(),
+      ),
+      TemplateEntity(
+        id: 'default_translation',
+        title: '翻译润色',
+        content: '请将以下内容翻译为中文，并进行润色：\n\n{{content}}',
+        tags: ['翻译', '润色'],
+        createdAt: DateTime.now(),
+      ),
     ];
 
     for (final template in defaultTemplates) {
@@ -73,9 +108,42 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
     debugPrint('✅ [HiveTemplateRepository] 已添加 ${defaultTemplates.length} 个默认模板');
   }
 
-  Box<Map<String, dynamic>> get _templateBox {
+  Box get _templateBox {
     assert(_box != null, 'Repository not initialized. Call init() first.');
     return _box!;
+  }
+
+  Map<String, dynamic> _safeCastMap(dynamic map) {
+    if (map is Map<String, dynamic>) {
+      return map;
+    }
+    if (map is Map) {
+      return Map<String, dynamic>.from(map);
+    }
+    throw ArgumentError('无法转换为 Map<String, dynamic>: $map');
+  }
+
+  List<String> _parseTags(dynamic raw) {
+    if (raw == null) return const [];
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    if (raw is String) {
+      return raw
+          .split(',')
+          .map((tag) => tag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
+
+  DateTime _parseDate(dynamic raw) {
+    if (raw is DateTime) return raw;
+    if (raw is String && raw.isNotEmpty) {
+      return DateTime.parse(raw);
+    }
+    return DateTime.now();
   }
 
   @override
@@ -110,14 +178,12 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
   @override
   TemplateEntity? getTemplate(String id) {
     final json = _templateBox.get(id);
-    return json != null ? _fromMap(json) : null;
+    return json != null ? _fromMap(_safeCastMap(json)) : null;
   }
 
   @override
   List<TemplateEntity> getAllTemplates() {
-    return _templateBox.values
-        .map(_fromMap)
-        .toList()
+    return _templateBox.values.map(_safeCastMap).map(_fromMap).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
@@ -125,6 +191,7 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
   List<TemplateEntity> searchTemplates(String query) {
     final lowerQuery = query.toLowerCase();
     return _templateBox.values
+        .map(_safeCastMap)
         .map(_fromMap)
         .where((template) =>
             template.title.toLowerCase().contains(lowerQuery) ||
@@ -143,11 +210,9 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
       id: map['id'] as String,
       title: map['title'] as String,
       content: map['content'] as String,
-      tags: (map['tags'] as List<dynamic>).cast<String>(),
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: map['updatedAt'] != null
-          ? DateTime.parse(map['updatedAt'] as String)
-          : null,
+      tags: _parseTags(map['tags']),
+      createdAt: _parseDate(map['createdAt']),
+      updatedAt: map['updatedAt'] != null ? _parseDate(map['updatedAt']) : null,
     );
   }
 }

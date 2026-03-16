@@ -1,14 +1,14 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:local_vault/core/constants/app_theme.dart';
-import 'package:local_vault/core/providers/summary_entities_provider.dart';
-import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/core/services/share_sheet.dart';
+import 'package:local_vault/core/constants/app_theme.dart';
+import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/core/services/ocr_service.dart';
+import 'package:local_vault/core/utils/summary_text_utils.dart';
 
 class SavePage extends ConsumerStatefulWidget {
   final dynamic initialData; // 可以是 String 或 Map (图片分享) 或 SummaryEntity (编辑)
@@ -237,17 +237,17 @@ class _SavePageState extends ConsumerState<SavePage> {
       final title = _titleController.text.trim();
       final content = _contentController.text.trim();
       final remark = _remarkController.text.trim();
-      final tags = _tagsController.text
+      final inputTags = _tagsController.text
           .split(',')
           .map((tag) => tag.trim())
           .where((tag) => tag.isNotEmpty)
           .toList();
 
-      if (title.isEmpty || content.isEmpty) {
+      if (content.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('标题和内容不能为空'),
+              content: Text('内容不能为空'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -255,15 +255,26 @@ class _SavePageState extends ConsumerState<SavePage> {
         return;
       }
 
+      String finalTitle = title;
+      if (finalTitle.isEmpty) {
+        finalTitle = SummaryTextUtils.generateTitle(content);
+        _titleController.text = finalTitle;
+      }
+      finalTitle = SummaryTextUtils.compressTitle(finalTitle);
+
       // 如果有备注，将备注添加到内容中
       final fullContent =
           remark.isNotEmpty ? '$content\n\n---备注---\n$remark' : content;
+
+      final tags = inputTags.isNotEmpty
+          ? inputTags
+          : SummaryTextUtils.generateTags(finalTitle, fullContent);
 
       // 判断是新增还是编辑
       if (widget.editingSummary != null) {
         // 编辑模式
         final updatedSummary = widget.editingSummary!.copyWith(
-          title: title,
+          title: finalTitle,
           content: fullContent,
           tags: tags,
           updatedAt: DateTime.now(),
@@ -277,14 +288,16 @@ class _SavePageState extends ConsumerState<SavePage> {
       } else {
         // 新增模式
         final summary = SummaryEntity.create(
-          title: title,
+          title: finalTitle,
           content: fullContent,
           tags: tags,
           source: _source,
         );
 
         debugPrint('💾 [SavePage] 准备保存摘要：${summary.title}');
-        await ref.read(summaryEntityNotifierProvider.notifier).addSummary(summary);
+        await ref
+            .read(summaryEntityNotifierProvider.notifier)
+            .addWithDeduplication(summary);
         debugPrint('✅ [SavePage] 保存成功');
       }
 
@@ -335,54 +348,6 @@ class _SavePageState extends ConsumerState<SavePage> {
     }
   }
 
-  Future<void> _shareContent() async {
-    final content = _contentController.text.trim();
-    if (content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先输入内容')),
-      );
-      return;
-    }
-
-    try {
-      await ShareSheet.share(
-        context,
-        content,
-        subject: _titleController.text.trim().isNotEmpty
-            ? _titleController.text.trim()
-            : '分享内容',
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('分享失败: $e')),
-      );
-    }
-  }
-
-  Future<void> _copyToClipboard() async {
-    final content = _contentController.text.trim();
-    if (content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先输入内容')),
-      );
-      return;
-    }
-
-    await Clipboard.setData(ClipboardData(text: content));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板')),
-    );
-  }
-
-  Future<void> _listenClipboard() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data != null) {
-      setState(() {
-        _contentController.text = data.text ?? '';
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -408,9 +373,11 @@ class _SavePageState extends ConsumerState<SavePage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(isDark ? 0.25 : 0.15),
+                    color: Colors.green.withValues(alpha: isDark ? 0.25 : 0.15),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green.withOpacity(isDark ? 0.5 : 0.3)),
+                    border: Border.all(
+                        color:
+                            Colors.green.withValues(alpha: isDark ? 0.5 : 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

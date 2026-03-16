@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:go_router/go_router.dart';
-import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
+import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SummaryDetailPage extends ConsumerStatefulWidget {
   final SummaryEntity summary;
@@ -149,6 +149,9 @@ class _SummaryDetailPageState extends ConsumerState<SummaryDetailPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('已复制到剪贴板')),
     );
+    ref
+        .read(summaryEntityNotifierProvider.notifier)
+        .recordAccess(widget.summary.id);
   }
 
   void _shareSummary(BuildContext context) {
@@ -156,5 +159,8 @@ class _SummaryDetailPageState extends ConsumerState<SummaryDetailPage> {
       widget.summary.content,
       subject: widget.summary.title,
     );
+    ref
+        .read(summaryEntityNotifierProvider.notifier)
+        .recordAccess(widget.summary.id);
   }
 }

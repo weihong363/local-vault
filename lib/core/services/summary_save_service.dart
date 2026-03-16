@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
+import 'package:local_vault/core/utils/summary_text_utils.dart';
 
 /// 摘要保存触发方式枚举
 enum SaveTriggerType {
@@ -234,7 +235,11 @@ class SummarySaveService {
 
         // 使用新架构的 UseCases 保存
         final useCases = sl<SummaryUseCases>();
-        await useCases.addSummary(summary);
+        if (summary.type == MemoryType.session) {
+          await useCases.addSessionMemory(summary);
+        } else {
+          await useCases.addWithDeduplication(summary);
+        }
 
         debugPrint('✅ [SummarySaveService] 静默保存成功：${summary.id}');
         saveSuccess = true;
@@ -270,85 +275,31 @@ class SummarySaveService {
       SavePayload payload, SaveContext context) {
     String title = payload.title;
     if (title.isEmpty) {
-      title = _generateSmartTitle(payload.content);
+      title = SummaryTextUtils.generateTitle(payload.content);
     }
+    title = SummaryTextUtils.compressTitle(title);
 
     final finalContent = payload.remark != null && payload.remark!.isNotEmpty
         ? '${payload.content}\n\n---备注---\n${payload.remark}'
         : payload.content;
 
+    final tags = payload.tags.isNotEmpty
+        ? payload.tags
+        : SummaryTextUtils.generateTags(title, finalContent);
+
+    final memoryType = switch (context.triggerType) {
+      SaveTriggerType.quickAction => MemoryType.session,
+      SaveTriggerType.gesture => MemoryType.session,
+      SaveTriggerType.voice => MemoryType.session,
+      _ => MemoryType.fact,
+    };
+
     return SummaryEntity.create(
       title: title,
       content: finalContent,
-      tags: payload.tags,
+      tags: tags,
       source: '${payload.sourceType}_${context.triggerType.name}',
+      type: memoryType,
     );
-  }
-
-  /// 智能生成标题
-  String _generateSmartTitle(String content) {
-    if (content.isEmpty) {
-      return '未命名摘要';
-    }
-
-    // 清理内容
-    String cleaned = content.trim();
-
-    // 移除开头的空白字符
-    cleaned = cleaned.replaceFirst(RegExp(r'^\s+'), '');
-
-    // 尝试找到第一个句子或段落
-    int endIndex = cleaned.length;
-
-    // 优先使用句号、问号、感叹号作为句子结束符
-    final sentenceEnd = RegExp(r'[。！？.!?]');
-    final firstSentenceMatch = sentenceEnd.firstMatch(cleaned);
-    if (firstSentenceMatch != null) {
-      endIndex = firstSentenceMatch.end;
-    } else {
-      // 如果没有句子结束符，尝试使用换行符
-      final firstNewline = cleaned.indexOf('\n');
-      if (firstNewline != -1 && firstNewline < 100) {
-        endIndex = firstNewline;
-      }
-    }
-
-    // 截取标题，最长 50 个字符
-    int maxLength = 50;
-    if (endIndex > maxLength) {
-      endIndex = maxLength;
-      // 确保不在单词中间截断（中文）
-      while (endIndex > 0 && _isChineseChar(cleaned[endIndex - 1])) {
-        endIndex--;
-      }
-      if (endIndex == 0) {
-        endIndex = maxLength;
-      }
-    }
-
-    String title = cleaned.substring(0, endIndex).trim();
-
-    // 如果标题为空，使用前 50 个字符
-    if (title.isEmpty) {
-      title = cleaned.substring(0, cleaned.length > 50 ? 50 : cleaned.length);
-    }
-
-    // 如果标题结尾有省略号，去掉
-    title = title.replaceAll(RegExp(r'[.…。！？,!?]+$'), '');
-
-    // 如果标题还是太长，添加省略号
-    if (title.length > 50) {
-      title = '${title.substring(0, 47)}...';
-    }
-
-    return title.isEmpty ? '未命名摘要' : title;
-  }
-
-  /// 判断是否是中文字符
-  bool _isChineseChar(String char) {
-    final codeUnit = char.codeUnitAt(0);
-    return (codeUnit >= 0x4E00 && codeUnit <= 0x9FFF) ||
-        (codeUnit >= 0x3400 && codeUnit <= 0x4DBF) ||
-        (codeUnit >= 0x20000 && codeUnit <= 0x2A6DF);
   }
 }

@@ -5,6 +5,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.RenderMode
+import io.flutter.embedding.android.TransparencyMode
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
@@ -103,6 +105,14 @@ class QuickActionActivity : FlutterActivity() {
 
     override fun getInitialRoute(): String {
         return "/quick-action-activity"
+    }
+
+    override fun getRenderMode(): RenderMode {
+        return RenderMode.texture
+    }
+
+    override fun getTransparencyMode(): TransparencyMode {
+        return TransparencyMode.transparent
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

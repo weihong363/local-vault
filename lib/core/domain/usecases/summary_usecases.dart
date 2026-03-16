@@ -76,6 +76,19 @@ class SummaryUseCases {
   }) async {
     final existingSummaries = getAllSummaries();
 
+    // 1) 完全重复内容：不新增，只更新访问记录
+    final duplicate = _findExactDuplicate(existingSummaries, summary);
+    if (duplicate != null) {
+      await updateSummary(
+        duplicate.copyWith(
+          lastAccessedAt: DateTime.now(),
+          accessCount: duplicate.accessCount + 1,
+          updatedAt: DateTime.now(),
+        ),
+      );
+      return;
+    }
+
     for (final existing in existingSummaries) {
       final similarity = SimilarityUtils.calculateMemorySimilarity(
         summary.title,
@@ -92,6 +105,89 @@ class SummaryUseCases {
     }
 
     await addSummary(summary);
+  }
+
+  /// 添加会话记忆（仅在会话内合并）
+  Future<void> addSessionMemory(
+    SummaryEntity summary, {
+    double similarityThreshold = 0.6,
+  }) async {
+    final sessionSummaries = getSummariesByType(MemoryType.session);
+    SummaryEntity? bestMatch;
+    double bestScore = 0.0;
+
+    final duplicate = _findExactDuplicate(sessionSummaries, summary);
+    if (duplicate != null) {
+      await updateSummary(
+        duplicate.copyWith(
+          lastAccessedAt: DateTime.now(),
+          accessCount: duplicate.accessCount + 1,
+          updatedAt: DateTime.now(),
+        ),
+      );
+      return;
+    }
+
+    for (final existing in sessionSummaries) {
+      if (_isSameTopic(existing, summary)) {
+        final merged = _mergeMemories(existing, summary);
+        await updateSummary(merged.copyWith(updatedAt: DateTime.now()));
+        return;
+      }
+
+      final similarity = SimilarityUtils.calculateMemorySimilarity(
+        summary.title,
+        summary.content,
+        existing.title,
+        existing.content,
+      );
+      if (similarity > bestScore) {
+        bestScore = similarity;
+        bestMatch = existing;
+      }
+    }
+
+    if (bestMatch != null && bestScore >= similarityThreshold) {
+      final merged = _mergeMemories(bestMatch, summary);
+      await updateSummary(merged);
+      return;
+    }
+
+    await addSummary(summary);
+  }
+
+  SummaryEntity? _findExactDuplicate(
+    List<SummaryEntity> existing,
+    SummaryEntity incoming,
+  ) {
+    final incomingContent = _normalizeContent(incoming.content);
+    for (final item in existing) {
+      if (_normalizeContent(item.content) == incomingContent) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  bool _isSameTopic(SummaryEntity a, SummaryEntity b) {
+    final titleA = _normalizeTitle(a.title);
+    final titleB = _normalizeTitle(b.title);
+    if (titleA.isEmpty || titleB.isEmpty) return false;
+    if (titleA == titleB) return true;
+    if (titleA.contains(titleB) || titleB.contains(titleA)) return true;
+    return false;
+  }
+
+  String _normalizeTitle(String title) {
+    return title
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[^\w\u4E00-\u9FFF ]'), '')
+        .trim();
+  }
+
+  String _normalizeContent(String content) {
+    return content.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   /// 合并两个相似记忆

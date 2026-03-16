@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
-import 'package:local_vault/core/providers/summary_entities_provider.dart';
-import 'package:local_vault/core/providers/template_entities_provider.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/template_entity.dart';
+import 'package:local_vault/core/providers/summary_entities_provider.dart';
+import 'package:local_vault/core/providers/template_entities_provider.dart';
+import 'package:local_vault/core/widgets/common_template_card.dart';
 import 'package:local_vault/features/quick_action/models/quick_action_type.dart';
-import 'package:go_router/go_router.dart';
 
 class QuickActionPage extends ConsumerStatefulWidget {
   final QuickActionType actionType;
@@ -47,20 +48,36 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
         child: Center(
           child: GestureDetector(
             onTap: () {},
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHeader(),
-                  Expanded(child: _buildContent()),
-                ],
-              ),
+            child: Builder(
+              builder: (context) {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+
+                return Container(
+                  constraints:
+                      const BoxConstraints(maxWidth: 400, maxHeight: 500),
+                  margin: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.darkSurfaceVariant
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildHeader(),
+                      Expanded(child: _buildContent()),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -236,22 +253,19 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
     debugPrint('开始复制，summaryId: $summaryId');
 
     // 首先复制到剪贴板
-    Clipboard.setData(ClipboardData(text: text));
+    await Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('已复制到剪贴板')),
     );
-
-    bool accessRecorded = false;
 
     // 如果是摘要，记录访问次数
     if (summaryId != null) {
       try {
         debugPrint('正在记录访问次数...');
-        // 先尝试直接操作 repository，不依赖 notifier
-        final repository = ref.read(summaryUseCasesProvider);
-        await repository.recordAccess(summaryId);
+        await ref
+            .read(summaryEntityNotifierProvider.notifier)
+            .recordAccess(summaryId);
         debugPrint('访问次数记录完成');
-        accessRecorded = true;
       } catch (e) {
         debugPrint('记录访问次数失败: $e');
       }
@@ -290,51 +304,10 @@ class _QuickTemplateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      height: 72,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  template.title.length > 20
-                      ? '${template.title.substring(0, 20)}...'
-                      : template.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? AppColors.darkTextPrimary : null,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  template.content.length > 50
-                      ? '${template.content.substring(0, 50)}...'
-                      : template.content,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? AppColors.darkTextMuted : null,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return CommonTemplateCard(
+      template: template,
+      onTap: onTap,
+      showActions: false,
     );
   }
 }

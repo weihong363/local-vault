@@ -37,6 +37,28 @@ class SummaryEntityNotifier extends StateNotifier<AsyncValue<List<SummaryEntity>
     }
   }
 
+  Future<void> addWithDeduplication(SummaryEntity summary) async {
+    state = const AsyncLoading();
+    try {
+      await useCases.addWithDeduplication(summary);
+      final summaries = useCases.getAllSummaries();
+      state = AsyncData(summaries);
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+    }
+  }
+
+  Future<void> addSessionMemory(SummaryEntity summary) async {
+    state = const AsyncLoading();
+    try {
+      await useCases.addSessionMemory(summary);
+      final summaries = useCases.getAllSummaries();
+      state = AsyncData(summaries);
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+    }
+  }
+
   Future<void> updateSummary(SummaryEntity summary) async {
     state = const AsyncLoading();
     try {
@@ -107,16 +129,6 @@ class SummaryEntityNotifier extends StateNotifier<AsyncValue<List<SummaryEntity>
     try {
       final summaries = useCases.getSummariesByType(type);
       state = AsyncData(summaries);
-    } catch (e) {
-      state = AsyncError(e, StackTrace.current);
-    }
-  }
-
-  Future<void> addWithDeduplication(SummaryEntity summary) async {
-    state = const AsyncLoading();
-    try {
-      await useCases.addWithDeduplication(summary);
-      await _loadSummaries();
     } catch (e) {
       state = AsyncError(e, StackTrace.current);
     }

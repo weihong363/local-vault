@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:local_vault/core/constants/app_theme.dart';
-import 'package:local_vault/core/providers/template_entities_provider.dart';
 import 'package:local_vault/core/domain/entities/template_entity.dart';
+import 'package:local_vault/core/providers/template_entities_provider.dart';
+import 'package:local_vault/core/widgets/common_template_card.dart';
 
 class TemplatePage extends ConsumerWidget {
   const TemplatePage({super.key});
@@ -45,7 +45,7 @@ class TemplatePage extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               itemCount: templates.length,
               itemBuilder: (context, index) {
-                return TemplateCard(
+                return CommonTemplateCard(
                   template: templates[index],
                   onTap: () {
                     _copyToClipboard(context, templates[index].content);
@@ -160,80 +160,6 @@ class TemplatePage extends ConsumerWidget {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('已复制到剪贴板')),
-    );
-  }
-}
-
-class TemplateCard extends StatelessWidget {
-  final TemplateEntity template;
-  final VoidCallback onTap;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const TemplateCard({
-    super.key,
-    required this.template,
-    required this.onTap,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        title: Text(
-          template.title,
-          style: TextStyle(
-            color: isDark ? AppColors.darkTextPrimary : null,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              template.content.length > 100
-                  ? '${template.content.substring(0, 100)}...'
-                  : template.content,
-              style: TextStyle(
-                color: isDark ? AppColors.darkTextMuted : null,
-              ),
-            ),
-            if (template.tags.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Wrap(
-                  spacing: 4,
-                  children: template.tags.map((tag) => Chip(
-                    label: Text(
-                      tag,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  )).toList(),
-                ),
-              ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: onEdit,
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-            ),
-          ],
-        ),
-        onTap: onTap,
-      ),
     );
   }
 }

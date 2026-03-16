@@ -105,3 +105,9 @@
   - `summary_detail_page.dart` 有 undefined name 错误
 - **解决方案**: 修复核心数据模型和存储层的代码
 - **状态**: 已解决！所有错误都已修复，只剩警告了
+
+## 卡点19: 快捷方式弹窗出现黑色色块
+
+- **问题**: 快捷操作弹窗（QuickActionActivity）在透明主题下仍出现黑色背景块
+- **解决方案**: 在 `QuickActionActivity` 强制使用 `RenderMode.texture` 并启用透明模式，确保 Flutter Surface 走透明通道
+- **状态**: 已解决

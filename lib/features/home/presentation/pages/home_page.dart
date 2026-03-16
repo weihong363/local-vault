@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/features/summary/presentation/widgets/empty_state.dart';
 import 'package:local_vault/features/summary/presentation/widgets/summary_card.dart';
 
@@ -277,7 +277,6 @@ class _BuildReorderableItemState extends State<_BuildReorderableItem>
   late AnimationController _elevationController;
   late Animation<double> _elevationAnimation;
   bool _isLongPressed = false;
-  bool _isDragging = false;
 
   @override
   void initState() {
@@ -355,27 +354,27 @@ class _BuildReorderableItemState extends State<_BuildReorderableItem>
                 ),
               ),
               Positioned(
-                top: -8,
-                left: -8,
+                top: 8,
+                right: 8,
                 child: GestureDetector(
                   onTap: widget.onDelete,
                   child: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Colors.red,
+                      color: Colors.red.withValues(alpha: 0.9),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                     child: const Icon(
-                      Icons.delete_outline,
+                      Icons.close,
                       color: Colors.white,
-                      size: 18,
+                      size: 14,
                     ),
                   ),
                 ),
