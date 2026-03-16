@@ -49,7 +49,7 @@
 - [x] 手势配置页面
 - [x] 应用白名单页面
 
-### 7. 悬浮窗服务
+### 7. ~~悬浮窗服务~~
 - [x] FloatingWindowService 实现
 - [x] 悬浮窗显示/隐藏
 - [x] 手势监听
@@ -81,35 +81,46 @@
 - **build_runner** - 代码生成
 - **flutter_test** - 测试框架
 
-## 项目结构
+## 项目结构（更新为DDD架构）
 
 ```
 lib/
 ├── main.dart                    # 应用入口
 ├── core/                        # 核心模块
-│   ├── constants/              # 常量定义
-│   ├── services/               # 服务层
-│   ├── theme/                  # 主题配置
-│   └── widgets/                # 通用组件
+│   ├── constants/              # 常量定义 (主题、路由、配置等)
+│   ├── di/                     # 依赖注入 (Riverpod providers)
+│   ├── domain/                 # 领域层 (实体、用例、仓库接口)
+│   ├── providers/              # 状态管理 (Riverpod notifiers)
+│   ├── services/               # 服务层 (OCR、分享、剪贴板等)
+│   ├── utils/                  # 工具类 (验证、格式化、日志等)
+│   └── widgets/                # 通用组件 (卡片、按钮、对话框等)
 ├── features/                    # 功能模块
-│   ├── home/                   # 首页
-│   ├── template/               # 模板模块
-│   ├── settings/               # 设置模块
+│   ├── app_whitelist/          # 应用白名单
+│   ├── gesture_config/         # 手势配置
+│   ├── home/                   # 首页 (摘要列表)
+│   ├── inject/                 # 内容注入
+│   ├── memory/                 # 记忆管理
 │   ├── quick_action/           # 快捷操作
 │   ├── save/                   # 保存功能
-│   └── search/                 # 搜索功能
-└── shared/                      # 共享模块
+│   ├── search/                 # 搜索功能
+│   ├── settings/               # 设置页面
+│   ├── summary/                # 摘要详情
+│   └── template/               # 模板管理
+└── infrastructure/              # 基础设施层
+    └── repositories/           # 数据仓库实现 (Hive)
 
 android/
 ├── app/src/main/kotlin/
-│   └── com/ironion/local_vault/
-│       ├── MainActivity.kt
-│       ├── QuickSaveActivity.kt
-│       ├── FloatingWindowService.kt
-│       ├── TemplateTileService.kt
-│       ├── SummariesTileService.kt
-│       ├── QuickSaveTileService.kt
-│       └── InjectTileService.kt
+│   └── com/ironion/localvault/
+│       ├── MainActivity.kt              # 主 Activity, MethodChannel
+│       ├── QuickActionActivity.kt       # 快捷操作选择界面
+│       ├── QuickSaveActivity.kt         # 快速保存 (透明 Activity)
+│       ├── BaseTileService.kt           # 磁贴服务基类
+│       ├── TemplateTileService.kt       # 模板快捷方式
+│       ├── SummariesTileService.kt      # 摘要快捷方式
+│       ├── SaveSummaryTileService.kt    # 快速保存快捷方式
+│       ├── InjectSummaryTileService.kt  # 智能注入快捷方式
+│       └── FloatingWindowService.kt     # 悬浮窗服务 (手势监听)
 ```
 
 ## 待优化/待开发功能
