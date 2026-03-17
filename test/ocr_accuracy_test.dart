@@ -1,7 +1,8 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+
 import 'utils/ocr_accuracy_tester.dart';
 
 /// ML Kit OCR 准确率测试
@@ -132,3 +133,4 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 5)));
   });
 }
+// ignore_for_file: avoid_print

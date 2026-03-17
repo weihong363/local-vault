@@ -168,6 +168,7 @@ typedef SaveCallback = Future<bool> Function(
 /// 摘要保存服务 - 统一管理不同触发方式的保存逻辑
 class SummarySaveService {
   static final SummarySaveService _instance = SummarySaveService._internal();
+  static const Duration _rapidDuplicateWindow = Duration(seconds: 30);
   factory SummarySaveService() => _instance;
   SummarySaveService._internal();
 
@@ -178,6 +179,7 @@ class SummarySaveService {
   final List<
           void Function(SavePayload payload, SaveContext context, bool success)>
       _afterSaveHooks = [];
+  final Map<String, DateTime> _recentSaveFingerprints = <String, DateTime>{};
 
   /// 注册保存前钩子
   void registerBeforeSave(SaveCallback callback) {
@@ -232,6 +234,11 @@ class SummarySaveService {
 
         // 将 Payload 转换为 SummaryEntity
         final summary = _payloadToSummaryEntity(payload, context);
+        if (_isRapidDuplicate(summary)) {
+          debugPrint('♻️ [SummarySaveService] 检测到短时间重复保存，跳过落库');
+          saveSuccess = true;
+          return true;
+        }
 
         // 使用新架构的 UseCases 保存
         final useCases = sl<SummaryUseCases>();
@@ -240,6 +247,7 @@ class SummarySaveService {
         } else {
           await useCases.addWithDeduplication(summary);
         }
+        _rememberSaveFingerprint(summary);
 
         debugPrint('✅ [SummarySaveService] 静默保存成功：${summary.id}');
         saveSuccess = true;
@@ -267,6 +275,7 @@ class SummarySaveService {
   void clearHooks() {
     _beforeSaveHooks.clear();
     _afterSaveHooks.clear();
+    _recentSaveFingerprints.clear();
     debugPrint('🧹 [SummarySaveService] 已清除所有钩子');
   }
 
@@ -301,5 +310,35 @@ class SummarySaveService {
       source: '${payload.sourceType}_${context.triggerType.name}',
       type: memoryType,
     );
+  }
+
+  bool _isRapidDuplicate(SummaryEntity summary) {
+    _pruneRecentFingerprints();
+    final fingerprint = _buildFingerprint(summary);
+    final lastSavedAt = _recentSaveFingerprints[fingerprint];
+    if (lastSavedAt == null) {
+      return false;
+    }
+    return DateTime.now().difference(lastSavedAt) <= _rapidDuplicateWindow;
+  }
+
+  void _rememberSaveFingerprint(SummaryEntity summary) {
+    _pruneRecentFingerprints();
+    _recentSaveFingerprints[_buildFingerprint(summary)] = DateTime.now();
+  }
+
+  void _pruneRecentFingerprints() {
+    final now = DateTime.now();
+    _recentSaveFingerprints.removeWhere(
+      (_, savedAt) => now.difference(savedAt) > _rapidDuplicateWindow,
+    );
+  }
+
+  String _buildFingerprint(SummaryEntity summary) {
+    final normalizedTitle =
+        summary.title.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+    final normalizedContent =
+        summary.content.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+    return '$normalizedTitle::$normalizedContent::${summary.type.name}';
   }
 }

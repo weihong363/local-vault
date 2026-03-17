@@ -10,7 +10,8 @@ final summaryUseCasesProvider = Provider<SummaryUseCases>((ref) {
 });
 
 /// Summary List Provider - 新架构
-class SummaryEntityNotifier extends StateNotifier<AsyncValue<List<SummaryEntity>>> {
+class SummaryEntityNotifier
+    extends StateNotifier<AsyncValue<List<SummaryEntity>>> {
   final SummaryUseCases useCases;
 
   SummaryEntityNotifier(this.useCases) : super(const AsyncLoading()) {
@@ -29,7 +30,7 @@ class SummaryEntityNotifier extends StateNotifier<AsyncValue<List<SummaryEntity>
   Future<void> addSummary(SummaryEntity summary) async {
     state = const AsyncLoading();
     try {
-      await useCases.addSummary(summary);
+      await useCases.addWithDeduplication(summary);
       final summaries = useCases.getAllSummaries();
       state = AsyncData(summaries);
     } catch (e) {
@@ -152,6 +153,15 @@ class SummaryEntityNotifier extends StateNotifier<AsyncValue<List<SummaryEntity>
     }
   }
 
+  Future<void> checkAndMergeSessionBatches() async {
+    try {
+      await useCases.checkAndMergeSessionBatches();
+      await _loadSummaries();
+    } catch (e) {
+      debugPrint('检查并合并会话批次失败: $e');
+    }
+  }
+
   List<SummaryEntity> findSimilarMemories(SummaryEntity target) {
     try {
       return useCases.findSimilarMemories(target);
@@ -172,8 +182,8 @@ class SummaryEntityNotifier extends StateNotifier<AsyncValue<List<SummaryEntity>
   }
 }
 
-final summaryEntityNotifierProvider =
-    StateNotifierProvider<SummaryEntityNotifier, AsyncValue<List<SummaryEntity>>>((ref) {
+final summaryEntityNotifierProvider = StateNotifierProvider<
+    SummaryEntityNotifier, AsyncValue<List<SummaryEntity>>>((ref) {
   final useCases = ref.watch(summaryUseCasesProvider);
   return SummaryEntityNotifier(useCases);
 });

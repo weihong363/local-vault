@@ -153,6 +153,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.4"
+  cli_config:
+    dependency: transitive
+    description:
+      name: cli_config
+      sha256: "65c7830649e1f8247660f1b783effb460255d6e2c1ac94eb823cf1f84e59b288"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.2"
   clipboard:
     dependency: "direct main"
     description:
@@ -169,14 +177,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.2"
-  code_assets:
-    dependency: transitive
-    description:
-      name: code_assets
-      sha256: "83ccdaa064c980b5596c35dd64a8d3ecc68620174ab9b90b6343b753aa721687"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   code_builder:
     dependency: transitive
     description:
@@ -241,6 +241,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.6"
+  equatable:
+    dependency: transitive
+    description:
+      name: equatable
+      sha256: "3e0141505477fd8ad55d6eb4e7776d3fe8430be8e497ccb1521370c3f21a3e2b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.8"
   fake_async:
     dependency: transitive
     description:
@@ -543,16 +551,8 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
-  hooks:
-    dependency: transitive
-    description:
-      name: hooks
-      sha256: e79ed1e8e1929bc6ecb6ec85f0cb519c887aa5b423705ded0d0f2d9226def388
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.2"
   http:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: http
       sha256: "87721a4a50b19c7f1d49001e51409bddc46303966ce89a65af4f4e6004896412"
@@ -748,6 +748,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.13.0"
+  mediapipe_core:
+    dependency: "direct main"
+    description:
+      name: mediapipe_core
+      sha256: "94979453c4d2123989943a30fb6d55b6ee966806273c52ec1a23bfd7e561fb23"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1"
+  mediapipe_genai:
+    dependency: "direct main"
+    description:
+      name: mediapipe_genai
+      sha256: a6200550bbb3921b64eeb9e3ace77e9a8ada21886a6a057341ea4e77d0bb30b2
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1"
   meta:
     dependency: "direct main"
     description:
@@ -772,22 +788,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.4.4"
+  native_assets_cli:
+    dependency: transitive
+    description:
+      name: native_assets_cli
+      sha256: "3119600043214157fb54f4ef05717a82a7858f35625fe767799c60f3039361c8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.2"
   native_toolchain_c:
     dependency: transitive
     description:
       name: native_toolchain_c
-      sha256: "92b2ca62c8bd2b8d2f267cdfccf9bfbdb7322f778f8f91b3ce5b5cda23a3899f"
+      sha256: "26579e00aafdbcccdbe0cb095a1d7e32da6210aa6dc35864f58d11a20ca9942e"
       url: "https://pub.dev"
     source: hosted
-    version: "0.17.5"
-  objective_c:
-    dependency: transitive
-    description:
-      name: objective_c
-      sha256: "100a1c87616ab6ed41ec263b083c0ef3261ee6cd1dc3b0f35f8ddfa4f996fe52"
-      url: "https://pub.dev"
-    source: hosted
-    version: "9.3.0"
+    version: "0.3.3"
   octo_image:
     dependency: transitive
     description:
@@ -840,10 +856,10 @@ packages:
     dependency: transitive
     description:
       name: path_provider_foundation
-      sha256: "2a376b7d6392d80cd3705782d2caa734ca4727776db0b6ec36ef3f1855197699"
+      sha256: "6d13aece7b3f5c5a9731eaf553ff9dcbc2eff41087fd2df587fd0fed9a3eb0c4"
       url: "https://pub.dev"
     source: hosted
-    version: "2.6.0"
+    version: "2.5.1"
   path_provider_linux:
     dependency: transitive
     description:
@@ -1409,6 +1425,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.3"
+  yaml_edit:
+    dependency: transitive
+    description:
+      name: yaml_edit
+      sha256: "07c9e63ba42519745182b88ca12264a7ba2484d8239958778dfe4d44fe760488"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.4"
 sdks:
-  dart: ">=3.10.3 <4.0.0"
-  flutter: ">=3.38.4"
+  dart: ">=3.10.0 <4.0.0"
+  flutter: ">=3.38.0"

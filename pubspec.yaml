@@ -16,6 +16,9 @@ dependencies:
   hive_flutter: ^1.1.0
   hive: ^2.2.3
   path_provider: ^2.1.3
+  http: ^1.2.0
+  mediapipe_core: ^0.0.1
+  mediapipe_genai: ^0.0.1
   cupertino_icons: ^1.0.6
   flutter_secure_storage: ^9.2.2
   shared_preferences: ^2.2.3
@@ -53,3 +56,5 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/models/
+    - assets/models/qwen2.5-1.5b-instruct-q4_k_m.gguf

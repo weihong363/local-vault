@@ -50,6 +50,10 @@ android {
             // )
         }
     }
+
+    sourceSets {
+        getByName("main").assets.srcDirs("src/main/assets")
+    }
 }
 
 dependencies {
@@ -60,4 +64,14 @@ dependencies {
 
 flutter {
     source = "../.."
+}
+
+val syncModelAssets by tasks.registering(Copy::class) {
+    from(rootProject.projectDir.parentFile.resolve("assets/models"))
+    into(projectDir.resolve("src/main/assets/models"))
+    include("*.gguf")
+}
+
+tasks.named("preBuild") {
+    dependsOn(syncModelAssets)
 }

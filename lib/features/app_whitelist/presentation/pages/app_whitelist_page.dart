@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:local_vault/features/app_whitelist/models/app_info.dart';
 import 'package:local_vault/features/app_whitelist/domain/providers/app_whitelist_provider.dart';
+import 'package:local_vault/features/app_whitelist/models/app_info.dart';
 
 class AppWhitelistPage extends ConsumerStatefulWidget {
   const AppWhitelistPage({super.key});
@@ -140,7 +140,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -230,7 +230,9 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.grey[200],
+              color: isSelected
+                  ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                  : Colors.grey[200],
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

@@ -163,18 +163,6 @@ class OcrService {
     }
   }
 
-  /// 读取 content:// URI 的内容
-  /// 注意：此方法已废弃，主要使用 _readContentUriViaMethodChannel 通过原生端读取
-  Future<Uint8List?> _readContentUri(Uri uri) async {
-    try {
-      debugPrint('⚠️ [OcrService] _readContentUri 已废弃，请使用原生端读取方式');
-      return null;
-    } catch (e) {
-      debugPrint('❌ [OcrService] 读取 URI 失败：$e');
-      return null;
-    }
-  }
-
   /// 通过 MethodChannel 读取 content URI（Android）
   Future<String?> _readContentUriViaMethodChannel(Uri uri) async {
     try {

@@ -1,14 +1,18 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_vault/features/gesture_config/models/gesture_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-final gestureConfigProvider = StateNotifierProvider<GestureConfigNotifier, AsyncValue<List<GestureConfig>>>((ref) {
+final gestureConfigProvider = StateNotifierProvider<GestureConfigNotifier,
+    AsyncValue<List<GestureConfig>>>((ref) {
   return GestureConfigNotifier();
 });
 
-class GestureConfigNotifier extends StateNotifier<AsyncValue<List<GestureConfig>>> {
+class GestureConfigNotifier
+    extends StateNotifier<AsyncValue<List<GestureConfig>>> {
   static const String _prefsKey = 'gesture_configs';
 
   GestureConfigNotifier() : super(const AsyncLoading()) {
@@ -19,14 +23,15 @@ class GestureConfigNotifier extends StateNotifier<AsyncValue<List<GestureConfig>
     try {
       final prefs = await SharedPreferences.getInstance();
       final configsJson = prefs.getStringList(_prefsKey);
-      
+
       if (configsJson == null || configsJson.isEmpty) {
         final defaultConfigs = GestureConfig.getDefaultConfigs();
         await _saveConfigs(defaultConfigs);
         state = AsyncData(defaultConfigs);
       } else {
         final configs = configsJson.map((json) {
-          return GestureConfig.fromJson(jsonDecode(json) as Map<String, dynamic>);
+          return GestureConfig.fromJson(
+              jsonDecode(json) as Map<String, dynamic>);
         }).toList();
         state = AsyncData(configs);
       }
@@ -37,7 +42,8 @@ class GestureConfigNotifier extends StateNotifier<AsyncValue<List<GestureConfig>
 
   Future<void> _saveConfigs(List<GestureConfig> configs) async {
     final prefs = await SharedPreferences.getInstance();
-    final configsJson = configs.map((config) => jsonEncode(config.toJson())).toList();
+    final configsJson =
+        configs.map((config) => jsonEncode(config.toJson())).toList();
     await prefs.setStringList(_prefsKey, configsJson);
   }
 
@@ -45,7 +51,8 @@ class GestureConfigNotifier extends StateNotifier<AsyncValue<List<GestureConfig>
     final currentState = state;
     if (currentState is! AsyncData<List<GestureConfig>>) return;
 
-    final configs = currentState.value.map((c) => c.id == config.id ? config : c).toList();
+    final configs =
+        currentState.value.map((c) => c.id == config.id ? config : c).toList();
     state = AsyncData(configs);
     await _saveConfigs(configs);
     await _syncToNative();
@@ -65,14 +72,13 @@ class GestureConfigNotifier extends StateNotifier<AsyncValue<List<GestureConfig>
     try {
       const MethodChannel channel = MethodChannel('local_vault/gesture_config');
       final configs = currentState.value;
-      
+
       for (final config in configs) {
         if (config.readOnly) continue;
-        
-        final gestureTypeString = _getGestureTypeString(config.gestureType);
         final actionIndex = _getActionIndex(config.action);
-        
-        if (config.gestureType == GestureType.tap2 || config.gestureType == GestureType.tap3) {
+
+        if (config.gestureType == GestureType.tap2 ||
+            config.gestureType == GestureType.tap3) {
           final tapCount = config.gestureType == GestureType.tap2 ? 2 : 3;
           await channel.invokeMethod('setTapGestureConfig', {
             'tapCount': tapCount,
@@ -81,15 +87,7 @@ class GestureConfigNotifier extends StateNotifier<AsyncValue<List<GestureConfig>
         }
       }
     } catch (e) {
-    }
-  }
-
-  String _getGestureTypeString(GestureType type) {
-    switch (type) {
-      case GestureType.tap2:
-        return 'tap_2';
-      case GestureType.tap3:
-        return 'tap_3';
+      debugPrint('同步手势配置到原生端失败: $e');
     }
   }
 

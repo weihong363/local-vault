@@ -1,34 +1,35 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/core/services/share_service.dart';
-import 'package:local_vault/core/services/save_coordinator.dart';
-import 'package:local_vault/core/utils/app_permission_manager.dart';
-import 'package:local_vault/features/summary/presentation/pages/summary_detail_page.dart';
-import 'package:local_vault/core/utils/storage_initializer.dart';
-import 'package:local_vault/features/search/presentation/pages/search_page.dart';
-import 'package:local_vault/features/settings/presentation/pages/settings_page.dart';
-import 'package:local_vault/features/settings/presentation/pages/feedback_page.dart';
-import 'package:local_vault/features/save/presentation/pages/save_page.dart';
-import 'package:local_vault/features/inject/presentation/pages/inject_page.dart';
-import 'package:local_vault/features/template/presentation/pages/template_page.dart';
-import 'package:local_vault/features/quick_action/presentation/pages/quick_action_page.dart';
-import 'package:local_vault/features/quick_action/models/quick_action_type.dart';
-import 'package:local_vault/features/gesture_config/presentation/pages/gesture_config_page.dart';
-import 'package:local_vault/features/app_whitelist/presentation/pages/app_whitelist_page.dart';
-import 'package:local_vault/features/memory/presentation/pages/memory_management_page.dart';
-import 'package:local_vault/core/widgets/bottom_navigation.dart';
-import 'package:local_vault/core/widgets/quick_action_activity_page.dart';
-import 'package:local_vault/core/providers/theme_provider.dart';
-import 'package:local_vault/core/providers/locale_provider.dart';
+import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/providers/locale_provider.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:local_vault/core/providers/theme_provider.dart';
+import 'package:local_vault/core/services/save_coordinator.dart';
+import 'package:local_vault/core/services/share_service.dart';
+import 'package:local_vault/core/utils/app_permission_manager.dart';
+import 'package:local_vault/core/utils/storage_initializer.dart';
+import 'package:local_vault/core/widgets/bottom_navigation.dart';
+import 'package:local_vault/core/widgets/quick_action_activity_page.dart';
+import 'package:local_vault/features/app_whitelist/presentation/pages/app_whitelist_page.dart';
+import 'package:local_vault/features/gesture_config/presentation/pages/gesture_config_page.dart';
+import 'package:local_vault/features/inject/presentation/pages/inject_page.dart';
+import 'package:local_vault/features/memory/presentation/pages/memory_management_page.dart';
+import 'package:local_vault/features/quick_action/models/quick_action_type.dart';
+import 'package:local_vault/features/quick_action/presentation/pages/quick_action_page.dart';
+import 'package:local_vault/features/save/presentation/pages/save_page.dart';
+import 'package:local_vault/features/search/presentation/pages/search_page.dart';
+import 'package:local_vault/features/settings/presentation/pages/feedback_page.dart';
+import 'package:local_vault/features/settings/presentation/pages/settings_page.dart';
+import 'package:local_vault/features/summary/presentation/pages/summary_detail_page.dart';
+import 'package:local_vault/features/template/presentation/pages/template_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,12 +45,16 @@ class LocalVaultApp extends ConsumerStatefulWidget {
   ConsumerState<LocalVaultApp> createState() => _LocalVaultAppState();
 }
 
-class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindingObserver {
+class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
+    with WidgetsBindingObserver {
   bool _initialized = false;
+  final GlobalKey<NavigatorState> _rootNavigatorKey =
+      GlobalKey<NavigatorState>();
   late final GoRouter _router;
   StreamSubscription<SharedText>? _shareSubscription;
   StreamSubscription<SharedImage>? _imageSubscription;
-  static const MethodChannel _quickSaveChannel = MethodChannel('com.ironion.localvault/quick_save');
+  static const MethodChannel _quickSaveChannel =
+      MethodChannel('com.ironion.localvault/quick_save');
 
   @override
   void initState() {
@@ -105,7 +110,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
         content: content,
         actionId: 'quick_save_from_clipboard',
       );
-      
+
       if (success) {
         debugPrint('✅ [main] 静默保存成功');
       } else {
@@ -121,19 +126,21 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
   /// 初始化分享服务
   void _initializeShareService() {
     debugPrint('🚀 [main] 开始初始化分享服务...');
-    
+
     // 初始化 ShareService
     final shareService = ShareService();
     shareService.initialize();
-    
+
     // 监听分享文本流
     _shareSubscription = shareService.shareStream.listen((sharedText) {
       if (mounted) {
         debugPrint('✨ [main] 从 Stream 收到分享，来源：${sharedText.source}');
-        debugPrint('✨ [main] 文本内容：${sharedText.text.substring(0, sharedText.text.length.clamp(0, 50))}...');
-        
+        debugPrint(
+            '✨ [main] 文本内容：${sharedText.text.substring(0, sharedText.text.length.clamp(0, 50))}...');
+
         // 根据来源决定处理方式
-        if (sharedText.source == 'quick_save' || sharedText.source == 'silent_save_from_tile') {
+        if (sharedText.source == 'quick_save' ||
+            sharedText.source == 'silent_save_from_tile') {
           // 快捷方式保存，静默保存
           debugPrint('🤫 [main] 快捷方式保存，执行静默保存');
           _handleSilentSave(sharedText.text);
@@ -144,7 +151,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
         }
       }
     });
-    
+
     // 监听分享图片流
     _imageSubscription = shareService.imageStream.listen((sharedImage) {
       if (mounted) {
@@ -152,7 +159,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
         _handleShareImage(sharedImage.uris);
       }
     });
-    
+
     // 同时尝试获取待处理的分享文本（兼容旧模式）
     shareService.getPendingShareText().then((text) {
       if (text != null && mounted) {
@@ -160,7 +167,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
         _handleShareText(text);
       }
     });
-    
+
     debugPrint('✅ [main] 分享服务初始化完成');
   }
 
@@ -173,7 +180,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
         content: text,
         actionId: 'quick_save_from_share_stream',
       );
-      
+
       if (success) {
         debugPrint('✅ [main] 静默保存成功');
       } else {
@@ -188,13 +195,14 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
 
   void _handleShareText(String text) {
     debugPrint('📝 [main] Flutter 收到分享文本，长度：${text.length}');
-    debugPrint('📝 [main] 文本内容：${text.substring(0, text.length.clamp(0, 100))}${text.length > 100 ? '...' : ''}');
+    debugPrint(
+        '📝 [main] 文本内容：${text.substring(0, text.length.clamp(0, 100))}${text.length > 100 ? '...' : ''}');
     // 直接导航到保存页面，并传递文本
     debugPrint('🚀 [main] 准备导航到保存页面...');
     _router.push(AppRoutes.save, extra: text);
     debugPrint('✅ [main] 导航完成');
   }
-  
+
   void _handleShareImage(List<String> uris) {
     debugPrint('Flutter 收到分享图片：${uris.length} 张');
     // 导航到保存页面，传递图片 URIs
@@ -203,13 +211,14 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
 
   Future<void> _checkPermissions() async {
     if (!mounted) return;
-    
+
     // 延迟检查，确保 UI 完全加载
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
-    
-    final hasUsageStats = await AppPermissionManager.checkUsageStatsPermission();
-    
+
+    final hasUsageStats =
+        await AppPermissionManager.checkUsageStatsPermission();
+
     if (!hasUsageStats && mounted) {
       try {
         _showUsageStatsPermissionDialog();
@@ -220,10 +229,11 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
   }
 
   void _showUsageStatsPermissionDialog() {
-    if (!mounted) return;
-    
+    final dialogContext = _rootNavigatorKey.currentContext;
+    if (dialogContext == null) return;
+
     showDialog(
-      context: context,
+      context: dialogContext,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('⚠️ 需要重要权限'),
@@ -284,6 +294,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
 
   GoRouter _createRouter() {
     return GoRouter(
+      navigatorKey: _rootNavigatorKey,
       routes: [
         GoRoute(
           path: AppRoutes.quickActionActivity,
@@ -323,7 +334,9 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
             if (initialData is SummaryEntity) {
               editingSummary = initialData;
             }
-            return SavePage(initialData: editingSummary != null ? null : initialData, editingSummary: editingSummary);
+            return SavePage(
+                initialData: editingSummary != null ? null : initialData,
+                editingSummary: editingSummary);
           },
         ),
         GoRoute(
@@ -360,20 +373,24 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> with WidgetsBindi
   Future<void> _loadPreferences() async {
     final themeMode = await ThemeManager.loadThemeMode();
     final locale = await LocaleManager.loadLocale();
-    
+
     ref.read(themeModeProvider.notifier).state = themeMode;
     ref.read(appLocaleProvider.notifier).state = locale;
-    
+
     setState(() {
       _initialized = true;
     });
-    
-    // 等待两帧，确保 MaterialLocalizations 完全加载
-    await Future.delayed(const Duration(milliseconds: 100));
-    if (mounted) {
-      _checkPermissions();
-      _initializeShareService();
-    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_runPostInitialization());
+    });
+  }
+
+  Future<void> _runPostInitialization() async {
+    await _checkPermissions();
+    _initializeShareService();
+    await _runMemoryCleanup();
   }
 
   @override

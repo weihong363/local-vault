@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:local_vault/features/gesture_config/models/gesture_config.dart';
 import 'package:local_vault/features/gesture_config/domain/providers/gesture_config_provider.dart';
+import 'package:local_vault/features/gesture_config/models/gesture_config.dart';
 
 class GestureConfigPage extends ConsumerStatefulWidget {
   const GestureConfigPage({super.key});
@@ -36,20 +36,20 @@ class _GestureConfigPageState extends ConsumerState<GestureConfigPage> {
             ElevatedButton(
               onPressed: () async {
                 if (_tempConfigs != null) {
+                  final messenger = ScaffoldMessenger.of(context);
                   for (final config in _tempConfigs!) {
                     await ref
                         .read(gestureConfigProvider.notifier)
                         .updateConfig(config);
                   }
+                  if (!context.mounted) return;
                   setState(() {
                     _tempConfigs = null;
                     _hasChanges = false;
                   });
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已保存配置')),
-                    );
-                  }
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('已保存配置')),
+                  );
                 }
               },
               child: const Text('保存'),
@@ -74,9 +74,7 @@ class _GestureConfigPageState extends ConsumerState<GestureConfigPage> {
                     ? null
                     : (updatedConfig) {
                         setState(() {
-                          if (_tempConfigs == null) {
-                            _tempConfigs = List.from(configs);
-                          }
+                          _tempConfigs ??= List.from(configs);
 
                           final newConfigs = _tempConfigs!.map((c) {
                             if (c.id == updatedConfig.id) {
@@ -117,14 +115,16 @@ class _GestureConfigPageState extends ConsumerState<GestureConfigPage> {
             child: const Text('取消'),
           ),
           ElevatedButton(
-            onPressed: () {
-              ref.read(gestureConfigProvider.notifier).resetToDefaults();
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              await ref.read(gestureConfigProvider.notifier).resetToDefaults();
+              if (!context.mounted) return;
               setState(() {
                 _tempConfigs = null;
                 _hasChanges = false;
               });
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(content: Text('已重置为默认设置')),
               );
             },
@@ -167,7 +167,8 @@ class GestureConfigCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -286,48 +287,53 @@ class _ActionSelector extends StatelessWidget {
               ),
         ),
         const SizedBox(height: 12),
-        ...GestureAction.values.map((action) {
-          final isUsed = usedActions.contains(action) && action != value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: RadioListTile<GestureAction>(
-              value: action,
-              groupValue: value,
-              onChanged: isUsed
-                  ? null
-                  : (onChanged != null
-                      ? (newValue) {
-                          if (newValue != null) {
-                            onChanged!(newValue);
-                          }
-                        }
-                      : null),
-              title: Text(
-                _getActionLabel(action),
-                style: TextStyle(
-                  color: isUsed ? Colors.grey[400] : null,
-                ),
-              ),
-              subtitle: isUsed
-                  ? Text(
-                      '已被其他手势使用',
+        RadioGroup<GestureAction>(
+          groupValue: value,
+          onChanged: onChanged != null
+              ? (selected) {
+                  if (selected != null) {
+                    onChanged!(selected);
+                  }
+                }
+              : (_) {},
+          child: Column(
+            children: [
+              ...GestureAction.values.map((action) {
+                final isUsed = usedActions.contains(action) && action != value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: RadioListTile<GestureAction>(
+                    value: action,
+                    enabled: !isUsed && onChanged != null,
+                    title: Text(
+                      _getActionLabel(action),
                       style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 12,
+                        color: isUsed ? Colors.grey[400] : null,
                       ),
-                    )
-                  : null,
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              tileColor: action == value
-                  ? Theme.of(context).primaryColor.withOpacity(0.1)
-                  : null,
-            ),
-          );
-        }).toList(),
+                    ),
+                    subtitle: isUsed
+                        ? Text(
+                            '已被其他手势使用',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                            ),
+                          )
+                        : null,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    tileColor: action == value
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
+                        : null,
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
       ],
     );
   }

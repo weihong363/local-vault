@@ -15,7 +15,8 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver {
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -47,7 +48,7 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
 
   void _handleSearch(String query) {
     final notifier = ref.read(summaryEntityNotifierProvider.notifier);
-    
+
     if (query.isEmpty) {
       notifier.refresh();
       return;
@@ -57,7 +58,8 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
   }
 
   /// 显示确认删除对话框
-  Future<void> _showDeleteConfirmationDialog(BuildContext context, SummaryEntity summary) async {
+  Future<void> _showDeleteConfirmationDialog(
+      BuildContext context, SummaryEntity summary) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -79,10 +81,12 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (confirmed == true && context.mounted) {
       try {
-        await ref.read(summaryEntityNotifierProvider.notifier).deleteSummary(summary.id);
-        if (mounted) {
+        await ref
+            .read(summaryEntityNotifierProvider.notifier)
+            .deleteSummary(summary.id);
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('已删除'),
@@ -91,7 +95,7 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
           );
         }
       } catch (e) {
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('删除失败：$e'),
@@ -112,11 +116,13 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
-    
+
     final item = summaries.removeAt(oldIndex);
     summaries.insert(newIndex, item);
-    
-    await ref.read(summaryEntityNotifierProvider.notifier).updateSortOrders(summaries);
+
+    await ref
+        .read(summaryEntityNotifierProvider.notifier)
+        .updateSortOrders(summaries);
   }
 
   @override
@@ -188,7 +194,8 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
             child: ReorderableListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: summaries.length,
-              onReorder: (oldIndex, newIndex) => _handleReorder(oldIndex, newIndex),
+              onReorder: (oldIndex, newIndex) =>
+                  _handleReorder(oldIndex, newIndex),
               buildDefaultDragHandles: false,
               itemBuilder: (context, index) {
                 final summary = summaries[index];
@@ -202,7 +209,8 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
                       extra: summary,
                     );
                   },
-                  onDelete: () => _showDeleteConfirmationDialog(context, summary),
+                  onDelete: () =>
+                      _showDeleteConfirmationDialog(context, summary),
                 );
               },
             ),
@@ -231,14 +239,16 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
                   Text(
                     '错误: $error',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                          color: Colors.grey[600],
+                        ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      ref.read(summaryEntityNotifierProvider.notifier).refresh();
+                      ref
+                          .read(summaryEntityNotifierProvider.notifier)
+                          .refresh();
                     },
                     child: const Text('重试'),
                   ),

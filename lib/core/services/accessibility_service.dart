@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AccessibilityService {
   AccessibilityService._();
 
@@ -14,6 +16,6 @@ class AccessibilityService {
   }
 
   Future<void> injectText(String text) async {
-    print('注入文本: $text');
+    debugPrint('注入文本: $text');
   }
 }

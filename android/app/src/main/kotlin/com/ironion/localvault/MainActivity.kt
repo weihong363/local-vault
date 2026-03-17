@@ -24,6 +24,7 @@ class MainActivity : FlutterActivity() {
   private val GESTURE_CONFIG_CHANNEL = "local_vault/gesture_config"
   private val PERMISSIONS_CHANNEL = "local_vault/permissions"
   private val SHARE_CHANNEL = "local_vault/share"
+    private val MODEL_ASSET_CHANNEL = "local_vault/model_assets"
   private val APPS_CHANNEL = "local_vault/apps"
   private val QUICK_ACTION_CHANNEL = "com.ironion.localvault/quick_action"
   private var pendingAction: String? = null
@@ -315,6 +316,35 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            MODEL_ASSET_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "copyBundledModelToFiles" -> {
+                    val assetPath = call.argument<String>("assetPath")
+                    val fileName = call.argument<String>("fileName")
+
+                    if (assetPath.isNullOrEmpty() || fileName.isNullOrEmpty()) {
+                        result.error("INVALID_ARGUMENT", "Missing assetPath or fileName", null)
+                        return@setMethodCallHandler
+                    }
+
+                    try {
+                        val copiedFile = copyModelAssetToFiles(assetPath, fileName)
+                        result.success(copiedFile.absolutePath)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "复制模型资源失败: ${e.message}", e)
+                        result.error("MODEL_COPY_FAILED", e.message, null)
+                    }
+                }
+
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, APPS_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getInstalledApps" -> {
@@ -416,6 +446,25 @@ class MainActivity : FlutterActivity() {
             )
             startActivityForResult(intent, 1001)
         }
+    }
+
+    private fun copyModelAssetToFiles(assetPath: String, fileName: String): File {
+        val targetDir = File(filesDir, "models")
+        if (!targetDir.exists()) {
+            targetDir.mkdirs()
+        }
+
+        val targetFile = File(targetDir, fileName)
+        if (targetFile.exists() && targetFile.length() > 0L) {
+            return targetFile
+        }
+
+        assets.open(assetPath).use { input ->
+            FileOutputStream(targetFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+        return targetFile
     }
 
     /**

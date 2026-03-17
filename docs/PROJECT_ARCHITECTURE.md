@@ -84,14 +84,16 @@ lib/
 │   ├── services/                              # 核心服务
 │   │   ├── summary_save_service.dart          # 摘要保存服务
 │   │   ├── share_service.dart                # 分享服务
-│   │   └── floating_window_service.dart       # 悬浮窗服务
+│   │   ├── floating_window_service.dart       # 悬浮窗服务
+│   │   └── memory_slm_service.dart           # SLM 记忆处理服务（新增）
 │   │
 │   ├── utils/                                 # 工具类
 │   │   ├── storage_initializer.dart           # 存储初始化
 │   │   ├── app_permission_manager.dart        # 权限管理
 │   │   ├── summary_adapter.dart              # Summary 新旧模型适配器
 │   │   ├── template_adapter.dart             # Template 新旧模型适配器
-│   │   └── architecture_verifier.dart        # 架构验证工具
+│   │   ├── architecture_verifier.dart        # 架构验证工具
+│   │   └── similarity_utils.dart             # 相似度计算工具
 │   │
 │   └── widgets/                               # 通用组件
 │       ├── bottom_navigation.dart             # 底部导航
@@ -170,7 +172,102 @@ lib/
 │       ├── hive_summary_repository.dart       # Hive 摘要仓库实现
 │       └── hive_template_repository.dart      # Hive 模板仓库实现
 │
+├── models/                                    # AI 模型文件（新增）
+│   └── qwen2.5-1.5b-instruct.gguf            # Qwen2.5 SLM 模型 (~1GB)
+│
 └── ... 其他文件
+```
+
+---
+
+## 🧠 记忆三层架构（SLM 增强版）
+
+### 架构图
+
+```
+┌─────────────────────────────────────────────┐
+│ Layer 3: Core Memory (核心记忆)              │
+│ - 永久保存，不受遗忘曲线影响                  │
+│ - 访问次数 ≥ 10 或重要性 ≥ 0.8               │
+│ - 用户手动升级                               │
+│ - 搜索优先级最高                             │
+│ - SLM 生成升级理由                           │
+└─────────────────────────────────────────────┘
+                ↑ ↓ 自动/手动升级
+┌─────────────────────────────────────────────┐
+│ Layer 2: Fact Memory (普通事实)              │
+│ - 持久化存储，受遗忘曲线影响                  │
+│ - 主动保存的重要信息                         │
+│ - 30 天后开始重要性衰减                      │
+│ - 可升级为 Core                              │
+│ - SLM 智能合并 Session                       │
+└─────────────────────────────────────────────┘
+                ↑ 自动合并
+┌─────────────────────────────────────────────┐
+│ Layer 1: Session Memory (会话记忆)           │
+│ - 临时工作记忆                               │
+│ - 2 小时自动清理                             │
+│ - 相同 Topic ≥ 3 条自动合并为 Fact            │
+│ - SLM 提取 Topic 和语义判断                   │
+└─────────────────────────────────────────────┘
+```
+
+### 各层特性对比
+
+| 特性       | Session  | Fact  | Core |
+|----------|----------|-------|------|
+| **保存时间** | 2 小时     | 永久    | 永久   |
+| **遗忘曲线** | ❌ 不适用    | ✅ 受影响 | ❌ 免疫 |
+| **清理方式** | 自动       | 手动    | 保护   |
+| **触发来源** | 快速操作     | 分享/手动 | 升级   |
+| **合并策略** | SLM 智能合并 | 用户主导  | 不可变  |
+| **搜索权重** | 低        | 中     | 高    |
+| **显示位置** | 普通       | 正常    | 置顶   |
+| **数量限制** | 无        | 无     | ≤ 50 |
+
+### 升级机制
+
+#### Session → Fact（自动）
+
+```dart
+条件：
+1. 相同 Topic ≥ 3 条
+2. 时间窗口：24 小时内
+3. 总字符数 ≥ 100
+4. 至少有一条被访问过
+
+执行:
+- SLM 提取公共 Topic
+- SLM 智能合并内容
+- 生成结构化 Fact
+- 删除原始 Sessions
+```
+
+#### Fact → Core（半自动）
+
+```dart
+条件（满足任一即可）:
+1. 访问次数 ≥ 10 次
+2. 重要性 ≥ 0.8
+3. 用户手动升级
+4. 被引用/分享 ≥ 5 次
+
+执行:
+- SLM 生成升级理由
+- 显示升级对话框
+- 用户确认后升级
+- 设置 importance = 0.8
+```
+
+### SLM 在三层架构中的作用
+
+```
+MemorySLMService
+├── extractTopic()        → Session 聚类
+├── isSameTopic()         → Topic 判断
+├── mergeSessions()       → Session → Fact
+├── generateUpgradeReason() → Fact → Core
+└── (未来) summarizeFact()  → Fact 摘要优化
 ```
 
 ---

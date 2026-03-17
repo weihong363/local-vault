@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
-import 'package:local_vault/features/summary/presentation/widgets/summary_card.dart';
 import 'package:local_vault/features/summary/presentation/widgets/empty_state.dart';
+import 'package:local_vault/features/summary/presentation/widgets/summary_card.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -78,7 +76,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       summary: _results[index],
                       onTap: () {
                         context.push(
-                          AppRoutes.summaryDetail,
+                          '/summary-detail',
                           extra: _results[index],
                         );
                       },

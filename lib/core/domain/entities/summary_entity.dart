@@ -2,9 +2,58 @@ import 'dart:math';
 
 /// 记忆类型
 enum MemoryType {
-  fact,        // 用户事实（持久化）
-  session,     // 会话记忆（临时）
-  template,    // 模板记忆
+  session, // 会话记忆（临时）
+  fact, // 普通事实（持久化）
+  core, // 核心记忆（持久化，免受遗忘曲线影响）
+  template, // 模板记忆（兼容现有模板功能）
+}
+
+extension MemoryTypeX on MemoryType {
+  int get storageValue {
+    switch (this) {
+      case MemoryType.fact:
+        return 0;
+      case MemoryType.session:
+        return 1;
+      case MemoryType.template:
+        return 2;
+      case MemoryType.core:
+        return 3;
+    }
+  }
+
+  static MemoryType fromStorage(dynamic rawValue) {
+    if (rawValue is String) {
+      switch (rawValue) {
+        case 'session':
+          return MemoryType.session;
+        case 'fact':
+          return MemoryType.fact;
+        case 'core':
+          return MemoryType.core;
+        case 'template':
+          return MemoryType.template;
+      }
+    }
+
+    final intValue = switch (rawValue) {
+      int value => value,
+      double value => value.toInt(),
+      _ => 0,
+    };
+
+    switch (intValue) {
+      case 1:
+        return MemoryType.session;
+      case 2:
+        return MemoryType.template;
+      case 3:
+        return MemoryType.core;
+      case 0:
+      default:
+        return MemoryType.fact;
+    }
+  }
 }
 
 /// 摘要实体 - 领域模型（增强版）
@@ -18,7 +67,9 @@ class SummaryEntity {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? lastAccessedAt;
+  final DateTime? protectedUntil;
   final String source;
+  final String? topic;
   final List<double> embedding;
   final double importance;
   final int accessCount;
@@ -34,7 +85,9 @@ class SummaryEntity {
     required this.createdAt,
     this.updatedAt,
     this.lastAccessedAt,
+    this.protectedUntil,
     this.source = 'manual',
+    this.topic,
     this.embedding = const [],
     this.importance = 0.5,
     this.accessCount = 0,
@@ -48,6 +101,7 @@ class SummaryEntity {
     List<String> tags = const [],
     MemoryType type = MemoryType.fact,
     String source = 'manual',
+    String? topic,
     List<double> embedding = const [],
     double importance = 0.5,
     int sortOrder = 0,
@@ -60,6 +114,7 @@ class SummaryEntity {
       type: type,
       createdAt: DateTime.now(),
       source: source,
+      topic: topic,
       embedding: embedding,
       importance: importance,
       sortOrder: sortOrder,
@@ -68,8 +123,9 @@ class SummaryEntity {
 
   /// 计算时效性分数（遗忘曲线）
   double get recencyScore {
+    if (type == MemoryType.core) return 1.0;
     if (lastAccessedAt == null) return 0.5;
-    
+
     final daysSinceAccess = DateTime.now().difference(lastAccessedAt!).inDays;
     // 每天衰减 5%
     return pow(0.95, daysSinceAccess).toDouble();
@@ -77,8 +133,20 @@ class SummaryEntity {
 
   /// 综合评分 = 重要性 * 时效性 * 访问频率
   double get combinedScore {
-    final frequencyScore = accessCount > 0 ? 1.0 - (1.0 / (accessCount + 1)) : 0.0;
+    if (type == MemoryType.core) return 1.0;
+    final frequencyScore =
+        accessCount > 0 ? 1.0 - (1.0 / (accessCount + 1)) : 0.0;
     return importance * 0.5 + recencyScore * 0.3 + frequencyScore * 0.2;
+  }
+
+  bool get shouldUpgradeToCore {
+    if (type != MemoryType.fact) return false;
+    return accessCount >= 10 || importance >= 0.8;
+  }
+
+  bool get isSessionProtected {
+    if (type != MemoryType.session || protectedUntil == null) return false;
+    return protectedUntil!.isAfter(DateTime.now());
   }
 
   SummaryEntity copyWith({
@@ -90,7 +158,11 @@ class SummaryEntity {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastAccessedAt,
+    DateTime? protectedUntil,
+    bool clearProtectedUntil = false,
     String? source,
+    String? topic,
+    bool clearTopic = false,
     List<double>? embedding,
     double? importance,
     int? accessCount,
@@ -106,7 +178,10 @@ class SummaryEntity {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      protectedUntil:
+          clearProtectedUntil ? null : protectedUntil ?? this.protectedUntil,
       source: source ?? this.source,
+      topic: clearTopic ? null : topic ?? this.topic,
       embedding: embedding ?? this.embedding,
       importance: importance ?? this.importance,
       accessCount: accessCount ?? this.accessCount,
@@ -121,11 +196,13 @@ class SummaryEntity {
       'title': title,
       'content': content,
       'tags': tags,
-      'type': type.index,
+      'type': type.storageValue,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'lastAccessedAt': lastAccessedAt?.toIso8601String(),
+      'protectedUntil': protectedUntil?.toIso8601String(),
       'source': source,
+      'topic': topic,
       'embedding': embedding,
       'importance': importance,
       'accessCount': accessCount,
@@ -140,7 +217,7 @@ class SummaryEntity {
       title: json['title'] as String,
       content: json['content'] as String,
       tags: List<String>.from(json['tags'] ?? []),
-      type: MemoryType.values[json['type'] as int? ?? 0],
+      type: MemoryTypeX.fromStorage(json['type']),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
@@ -148,10 +225,22 @@ class SummaryEntity {
       lastAccessedAt: json['lastAccessedAt'] != null
           ? DateTime.parse(json['lastAccessedAt'] as String)
           : null,
+      protectedUntil: json['protectedUntil'] != null
+          ? DateTime.parse(json['protectedUntil'] as String)
+          : null,
       source: json['source'] as String? ?? 'manual',
+      topic: json['topic'] as String?,
       embedding: List<double>.from(json['embedding'] ?? []),
-      importance: json['importance'] as double? ?? 0.5,
-      accessCount: json['accessCount'] as int? ?? 0,
+      importance: switch (json['importance']) {
+        int value => value.toDouble(),
+        double value => value,
+        _ => 0.5,
+      },
+      accessCount: switch (json['accessCount']) {
+        int value => value,
+        double value => value.toInt(),
+        _ => 0,
+      },
       isAutoExtracted: json['isAutoExtracted'] as bool? ?? false,
       sortOrder: json['sortOrder'] as int? ?? 0,
     );

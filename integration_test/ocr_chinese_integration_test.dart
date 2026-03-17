@@ -1,9 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:local_vault/core/services/ocr_service.dart';
 
 /// 集成测试：在真实设备上测试 OCR 中文识别功能
 void main() {
@@ -46,16 +43,4 @@ void main() {
       debugPrint('✅ 英文文本不会被误判为中文');
     });
   });
-}
-
-/// 提取中文样本用于日志显示
-String _extractChineseSample(String text) {
-  final chineseChars = text
-      .split('')
-      .where((char) {
-        return char.codeUnitAt(0) >= 0x4e00 && char.codeUnitAt(0) <= 0x9fff;
-      })
-      .take(20)
-      .join('');
-  return '$chineseChars${text.length > 20 ? "..." : ""}';
 }

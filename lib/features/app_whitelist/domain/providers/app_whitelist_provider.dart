@@ -1,10 +1,14 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:local_vault/features/app_whitelist/models/app_info.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-final appWhitelistProvider = StateNotifierProvider<AppWhitelistNotifier, AsyncValue<List<AppInfo>>>((ref) {
+final appWhitelistProvider =
+    StateNotifierProvider<AppWhitelistNotifier, AsyncValue<List<AppInfo>>>(
+        (ref) {
   return AppWhitelistNotifier();
 });
 
@@ -38,7 +42,7 @@ class AppWhitelistNotifier extends StateNotifier<AsyncValue<List<AppInfo>>> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final whitelistJson = prefs.getStringList(_prefsKey);
-      
+
       if (whitelistJson == null || whitelistJson.isEmpty) {
         state = const AsyncData([]);
       } else {
@@ -67,7 +71,8 @@ class AppWhitelistNotifier extends StateNotifier<AsyncValue<List<AppInfo>>> {
 
   Future<void> _saveWhitelist(List<AppInfo> whitelist) async {
     final prefs = await SharedPreferences.getInstance();
-    final whitelistJson = whitelist.map((app) => jsonEncode(app.toJson())).toList();
+    final whitelistJson =
+        whitelist.map((app) => jsonEncode(app.toJson())).toList();
     await prefs.setStringList(_prefsKey, whitelistJson);
     await _syncToNative(whitelist);
   }
@@ -78,6 +83,7 @@ class AppWhitelistNotifier extends StateNotifier<AsyncValue<List<AppInfo>>> {
       final packageNames = whitelist.map((app) => app.packageName).toList();
       await channel.invokeMethod('setWhitelist', {'packages': packageNames});
     } catch (e) {
+      debugPrint('同步白名单到原生端失败: $e');
     }
   }
 

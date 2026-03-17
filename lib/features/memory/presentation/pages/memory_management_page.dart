@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
-import 'package:intl/intl.dart';
 
 /// 记忆管理页面
 class MemoryManagementPage extends ConsumerStatefulWidget {
@@ -70,6 +70,10 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
           ButtonSegment(
             value: MemoryType.fact,
             label: Text('事实'),
+          ),
+          ButtonSegment(
+            value: MemoryType.core,
+            label: Text('核心'),
           ),
           ButtonSegment(
             value: MemoryType.session,
@@ -173,9 +177,9 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   Color _getImportanceColor(double importance) {
-    if (importance >= 0.8) return Colors.green.withOpacity(0.3);
-    if (importance >= 0.5) return Colors.yellow.withOpacity(0.3);
-    return Colors.red.withOpacity(0.3);
+    if (importance >= 0.8) return Colors.green.withValues(alpha: 0.3);
+    if (importance >= 0.5) return Colors.yellow.withValues(alpha: 0.3);
+    return Colors.red.withValues(alpha: 0.3);
   }
 
   Widget _buildMemoryActions(SummaryEntity summary) {
@@ -234,8 +238,12 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
 
   Future<void> _refreshAndCleanup() async {
     await ref.read(summaryEntityNotifierProvider.notifier).refresh();
-    await ref.read(summaryEntityNotifierProvider.notifier).applyForgettingCurve();
-    await ref.read(summaryEntityNotifierProvider.notifier).cleanupSessionMemories();
+    await ref
+        .read(summaryEntityNotifierProvider.notifier)
+        .applyForgettingCurve();
+    await ref
+        .read(summaryEntityNotifierProvider.notifier)
+        .cleanupSessionMemories();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -323,7 +331,9 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
     );
 
     if (confirmed == true) {
-      await ref.read(summaryEntityNotifierProvider.notifier).deleteSummary(summary.id);
+      await ref
+          .read(summaryEntityNotifierProvider.notifier)
+          .deleteSummary(summary.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已删除')),

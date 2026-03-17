@@ -35,12 +35,13 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
       backgroundColor: Colors.transparent,
       body: GestureDetector(
         onTap: () async {
+          final navigator = Navigator.of(context);
           try {
             await _channel.invokeMethod('finishActivity');
           } catch (e) {
             debugPrint('调用 finishActivity 失败: $e');
             if (mounted) {
-              Navigator.pop(context);
+              navigator.pop();
             }
           }
         },
@@ -117,12 +118,13 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
                 ? AppColors.darkTextPrimary
                 : Theme.of(context).colorScheme.onPrimaryContainer,
             onPressed: () async {
+              final navigator = Navigator.of(context);
               try {
                 await _channel.invokeMethod('finishActivity');
               } catch (e) {
                 debugPrint('调用 finishActivity 失败: $e');
                 if (mounted) {
-                  Navigator.pop(context);
+                  navigator.pop();
                 }
               }
             },
@@ -177,18 +179,21 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
         children: [
           ElevatedButton.icon(
             onPressed: () async {
+              final navigator = Navigator.of(context);
+              final router = GoRouter.of(context);
               // 尝试从剪贴板读取内容
               final clipboardData =
                   await Clipboard.getData(Clipboard.kTextPlain);
+              if (!mounted) return;
               if (clipboardData?.text != null &&
                   clipboardData!.text!.isNotEmpty) {
                 // 有剪贴板内容，直接保存到摘要
-                Navigator.pop(context);
-                context.push(AppRoutes.save, extra: clipboardData.text);
+                navigator.pop();
+                router.push(AppRoutes.save, extra: clipboardData.text);
               } else {
                 // 剪贴板为空，打开空白保存页面
-                Navigator.pop(context);
-                context.push(AppRoutes.save);
+                navigator.pop();
+                router.push(AppRoutes.save);
               }
             },
             icon: const Icon(Icons.save_alt),
@@ -251,10 +256,13 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
 
   void _copyToClipboard(String text, {String? summaryId}) async {
     debugPrint('开始复制，summaryId: $summaryId');
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
 
     // 首先复制到剪贴板
     await Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
+    if (!mounted) return;
+    messenger.showSnackBar(
       const SnackBar(content: Text('已复制到剪贴板')),
     );
 
@@ -285,7 +293,7 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
           debugPrint('调用 finishActivity 失败: $e');
           // 备用方案
           if (mounted) {
-            Navigator.pop(context);
+            navigator.pop();
           }
         }
       }

@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:local_vault/core/services/ocr_service.dart';
 
@@ -260,3 +261,4 @@ class OcrAccuracyTester {
     }
   }
 }
+// ignore_for_file: avoid_print

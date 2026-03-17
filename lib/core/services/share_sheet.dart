@@ -19,13 +19,7 @@ class ShareSheet {
 }
 
 abstract class ShareSheetPlatform {
-  static ShareSheetPlatform _instance = ShareSheetPlatformAndroid();
-
-  static ShareSheetPlatform get instance => _instance;
-
-  static set instance(ShareSheetPlatform platform) {
-    _instance = platform;
-  }
+  static ShareSheetPlatform instance = ShareSheetPlatformAndroid();
 
   Future<void> share(String text, {String? subject});
 }
@@ -41,7 +35,7 @@ class ShareSheetPlatformAndroid extends ShareSheetPlatform {
         'subject': subject,
       });
     } on PlatformException catch (e) {
-      print('分享失败: ${e.message}');
+      debugPrint('分享失败: ${e.message}');
     }
   }
 }
