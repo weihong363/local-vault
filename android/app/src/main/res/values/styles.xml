@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <!-- Show a splash screen on the activity. Automatically removed when
+             the Flutter engine draws its first frame -->
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <!-- Theme applied to the Android Window as soon as the process has started.
+         This theme determines the color of the Android Window while your
+         Flutter UI initializes, as well as behind your Flutter UI while its
+         running.
+
+         This Theme is only used starting with V2 of Flutter's Android embedding. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+    
+    <!-- 透明主题 - 用于快速保存 Activity -->
+   <style name="TransparentTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+       <!-- 完全透明的背景 -->
+       <item name="android:windowBackground">@android:color/transparent</item>
+       <item name="android:windowIsTranslucent">true</item>
+       <item name="android:windowAnimationStyle">@null</item>
+       
+       <!-- 移除所有装饰 -->
+       <item name="android:windowNoTitle">true</item>
+       <item name="android:windowFullscreen">false</item>
+       <item name="android:windowIsFloating">true</item>
+       
+       <!-- 点击外部不关闭 -->
+       <item name="android:backgroundDimEnabled">false</item>
+   </style>
+   
+   <!-- 透明对话框主题 - 用于快捷操作 Activity -->
+   <style name="TransparentDialogTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+       <!-- 完全透明的背景 -->
+       <item name="android:windowBackground">@android:color/transparent</item>
+       <item name="android:windowIsTranslucent">true</item>
+       <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+       
+       <!-- 移除所有装饰 -->
+       <item name="android:windowNoTitle">true</item>
+       <item name="android:windowFullscreen">false</item>
+       <item name="android:windowIsFloating">true</item>
+       
+       <!-- 背景完全透明，没有黑色遮罩 -->
+       <item name="android:backgroundDimEnabled">false</item>
+   </style>
+   
+   <!-- 优化的透明主题 - 消除黑色区域 -->
+   <style name="OptimizedTransparentTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+       <!-- 完全透明的背景 -->
+       <item name="android:windowBackground">@android:color/transparent</item>
+       <item name="android:windowIsTranslucent">true</item>
+       <item name="android:windowAnimationStyle">@null</item>
+       <item name="android:windowContentOverlay">@null</item>
+       
+       <!-- 移除所有装饰 -->
+       <item name="android:windowNoTitle">true</item>
+       <item name="android:windowFullscreen">false</item>
+       <item name="android:windowIsFloating">true</item>
+       
+       <!-- 背景完全透明，没有黑色遮罩 -->
+       <item name="android:backgroundDimEnabled">false</item>
+       
+       <!-- 不显示状态栏和导航栏背景 -->
+       <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+   </style>
+</resources>

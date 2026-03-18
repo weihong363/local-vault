@@ -1,0 +1,493 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:local_vault/core/constants/app_routes.dart';
+import 'package:local_vault/core/di/service_locator.dart';
+import 'package:local_vault/core/providers/locale_provider.dart';
+import 'package:local_vault/core/providers/theme_provider.dart';
+import 'package:local_vault/core/services/app_settings_service.dart';
+import 'package:local_vault/core/services/floating_window_service.dart';
+import 'package:local_vault/core/services/storage_management_service.dart';
+import 'package:local_vault/core/utils/app_permission_manager.dart';
+import 'package:local_vault/core/utils/architecture_verifier.dart';
+import 'package:local_vault/features/settings/presentation/pages/backup_data_page.dart';
+import 'package:local_vault/features/settings/presentation/pages/storage_space_page.dart';
+
+class SettingsPage extends ConsumerStatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  bool _floatingWindowEnabled = false;
+  bool _slmSummaryMetadataEnabled = false;
+  bool _isLoading = true;
+  String _storageSummary = '点击查看明细';
+  String _backupSummary = '创建、分享与恢复本地备份';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final settingsService = sl<AppSettingsService>();
+    final storageService = sl<StorageManagementService>();
+    final floatingWindowEnabled =
+        await settingsService.isFloatingWindowEnabled();
+    final slmSummaryMetadataEnabled =
+        await settingsService.isSlmSummaryMetadataEnabled();
+    String storageSummary = '点击查看明细';
+    String backupSummary = '创建、分享与恢复本地备份';
+
+    try {
+      final usage = await storageService.inspectStorage();
+      storageSummary =
+          '${StorageManagementService.formatBytes(usage.totalBytes)} · '
+          '${usage.summaryCount} 条摘要 · ${usage.templateCount} 个模板';
+      backupSummary = usage.backupFileCount == 0
+          ? '暂无本地备份，点击创建'
+          : '已保存 ${usage.backupFileCount} 个本地备份';
+    } catch (_) {}
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _floatingWindowEnabled = floatingWindowEnabled;
+      _slmSummaryMetadataEnabled = slmSummaryMetadataEnabled;
+      _storageSummary = storageSummary;
+      _backupSummary = backupSummary;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _openStorageSpacePage() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const StorageSpacePage(),
+      ),
+    );
+    await _loadSettings();
+  }
+
+  Future<void> _openBackupDataPage() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const BackupDataPage(),
+      ),
+    );
+    await _loadSettings();
+  }
+
+  Future<void> _toggleFloatingWindow(bool value) async {
+    final settingsService = sl<AppSettingsService>();
+
+    if (value) {
+      // 检查并请求所有必需的权限
+      final allGranted = await AppPermissionManager.requestAllPermissions();
+
+      if (!allGranted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('权限未完全授予，手势功能可能无法正常工作'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+
+      try {
+        await FloatingWindowService.startFloatingService();
+        await settingsService.setFloatingWindowEnabled(true);
+        setState(() {
+          _floatingWindowEnabled = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('悬浮窗服务已启动'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+
+          // 显示权限提示
+          _showPermissionTips();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('启动失败：$e')),
+          );
+        }
+      }
+    } else {
+      try {
+        await FloatingWindowService.stopFloatingService();
+        await settingsService.setFloatingWindowEnabled(false);
+        setState(() {
+          _floatingWindowEnabled = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('悬浮窗服务已关闭')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('关闭失败：$e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _toggleSlmSummaryMetadata(bool value) async {
+    final settingsService = sl<AppSettingsService>();
+    await settingsService.setSlmSummaryMetadataEnabled(value);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _slmSummaryMetadataEnabled = value;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value ? '已切换为大模型生成标题和标签' : '已切换为本地规则生成标题和标签',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final themeMode = ref.watch(themeModeProvider);
+    final appLocale = ref.watch(appLocaleProvider);
+
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(loc.settings),
+      ),
+      body: ListView(
+        children: [
+          _buildSectionHeader('快捷操作'),
+          _buildFloatingWindowSwitch(),
+          _buildGestureConfig(),
+          _buildAppWhitelist(),
+          _buildDiagnostics(),
+          _buildSectionHeader(loc.generalSettings),
+          _buildSummaryMetadataSwitch(),
+          _buildThemeSelector(loc, themeMode, ref),
+          _buildLanguageSelector(loc, appLocale, ref),
+          _buildSectionHeader(loc.storageSettings),
+          _buildStorageSpace(loc),
+          _buildBackupData(loc),
+          _buildSectionHeader('架构测试 - DEBUG ONLY'),
+          _buildArchitectureVerification(),
+          _buildDatabaseInspector(),
+          _buildSectionHeader(loc.about),
+          _buildVersionInfo(loc),
+          _buildFeedback(loc, context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArchitectureVerification() {
+    return ListTile(
+      title: const Text('运行架构验证'),
+      subtitle: const Text('验证新架构是否正常工作'),
+      trailing: const Icon(Icons.play_arrow),
+      onTap: () async {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('正在运行架构验证...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        await verifyNewArchitecture();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('架构验证完成！请查看控制台输出'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildDatabaseInspector() {
+    return ListTile(
+      title: const Text('查询数据库'),
+      subtitle: const Text('查看摘要库与模板库原始记录'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        context.push(AppRoutes.databaseInspector);
+      },
+    );
+  }
+
+  Widget _buildFloatingWindowSwitch() {
+    return ListTile(
+      title: const Text('悬浮窗手势唤醒'),
+      subtitle: const Text('在其他应用中通过手势快速打开'),
+      trailing: Switch(
+        value: _floatingWindowEnabled,
+        onChanged: _toggleFloatingWindow,
+      ),
+    );
+  }
+
+  Widget _buildGestureConfig() {
+    return ListTile(
+      title: const Text('手势配置'),
+      subtitle: const Text('自定义手势'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        context.push(AppRoutes.gestureConfig);
+      },
+    );
+  }
+
+  Widget _buildAppWhitelist() {
+    return ListTile(
+      title: const Text('应用白名单'),
+      subtitle: const Text('手势仅在选中的应用中生效'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        context.push(AppRoutes.appWhitelist);
+      },
+    );
+  }
+
+  Widget _buildDiagnostics() {
+    return ListTile(
+      title: const Text('诊断'),
+      subtitle: const Text('查看手势权限、服务和同步状态'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        context.push(AppRoutes.diagnostics);
+      },
+    );
+  }
+
+  Widget _buildSummaryMetadataSwitch() {
+    return ListTile(
+      title: const Text('保存时使用大模型生成标题和标签'),
+      subtitle: const Text(
+        '开启后，保存摘要时将跳过默认规则，直接调用内置模型精炼标题并生成标签',
+      ),
+      trailing: Switch(
+        value: _slmSummaryMetadataEnabled,
+        onChanged: _toggleSlmSummaryMetadata,
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.5,
+          color: Colors.grey[600],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeSelector(
+    AppLocalizations loc,
+    ThemeMode currentTheme,
+    WidgetRef ref,
+  ) {
+    final currentAppTheme = ThemeManager.getAppThemeMode(currentTheme);
+    return ListTile(
+      title: Text(loc.themeSettings),
+      subtitle: Text(_getThemeLabel(loc, currentAppTheme)),
+      trailing: DropdownButtonHideUnderline(
+        child: DropdownButton<AppThemeMode>(
+          value: currentAppTheme,
+          icon: const Icon(Icons.arrow_drop_down),
+          onChanged: (AppThemeMode? newValue) {
+            if (newValue != null) {
+              ThemeMode themeMode;
+              switch (newValue) {
+                case AppThemeMode.system:
+                  themeMode = ThemeMode.system;
+                  break;
+                case AppThemeMode.light:
+                  themeMode = ThemeMode.light;
+                  break;
+                case AppThemeMode.dark:
+                  themeMode = ThemeMode.dark;
+                  break;
+              }
+              ref.read(themeModeProvider.notifier).state = themeMode;
+              ThemeManager.saveThemeMode(newValue);
+            }
+          },
+          items: AppThemeMode.values.map((AppThemeMode mode) {
+            return DropdownMenuItem<AppThemeMode>(
+              value: mode,
+              child: Text(_getThemeLabel(loc, mode)),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  String _getThemeLabel(AppLocalizations loc, AppThemeMode mode) {
+    switch (mode) {
+      case AppThemeMode.system:
+        return loc.systemMode;
+      case AppThemeMode.light:
+        return loc.lightMode;
+      case AppThemeMode.dark:
+        return loc.darkMode;
+    }
+  }
+
+  Widget _buildLanguageSelector(
+    AppLocalizations loc,
+    AppLocale currentLocale,
+    WidgetRef ref,
+  ) {
+    return ListTile(
+      title: Text(loc.language),
+      subtitle: Text(_getLanguageLabel(loc, currentLocale)),
+      trailing: DropdownButtonHideUnderline(
+        child: DropdownButton<AppLocale>(
+          value: currentLocale,
+          icon: const Icon(Icons.arrow_drop_down),
+          onChanged: (AppLocale? newValue) {
+            if (newValue != null) {
+              ref.read(appLocaleProvider.notifier).state = newValue;
+              LocaleManager.saveLocale(newValue);
+            }
+          },
+          items: AppLocale.values.map((AppLocale locale) {
+            return DropdownMenuItem<AppLocale>(
+              value: locale,
+              child: Text(_getLanguageLabel(loc, locale)),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  String _getLanguageLabel(AppLocalizations loc, AppLocale locale) {
+    switch (locale) {
+      case AppLocale.system:
+        return loc.systemMode;
+      case AppLocale.en:
+        return 'English';
+      case AppLocale.zh:
+        return '中文';
+      case AppLocale.ja:
+        return '日本語';
+      case AppLocale.ko:
+        return '한국어';
+      case AppLocale.es:
+        return 'Español';
+      case AppLocale.fr:
+        return 'Français';
+      case AppLocale.de:
+        return 'Deutsch';
+    }
+  }
+
+  Widget _buildStorageSpace(AppLocalizations loc) {
+    return ListTile(
+      title: Text(loc.storageSpace),
+      subtitle: Text(_storageSummary),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _openStorageSpacePage,
+    );
+  }
+
+  Widget _buildBackupData(AppLocalizations loc) {
+    return ListTile(
+      title: Text(loc.backupData),
+      subtitle: Text(_backupSummary),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _openBackupDataPage,
+    );
+  }
+
+  Widget _buildVersionInfo(AppLocalizations loc) {
+    return ListTile(
+      title: Text(loc.versionInfo),
+      subtitle: const Text('v1.0.0'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {},
+    );
+  }
+
+  Widget _buildFeedback(AppLocalizations loc, BuildContext context) {
+    return ListTile(
+      title: Text(loc.feedback),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        context.push('/feedback');
+      },
+    );
+  }
+
+  void _showPermissionTips() {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('✅ 服务已启动'),
+        content: const Text(
+          '悬浮窗手势服务已成功启动！\n\n'
+          '📝 使用提示：\n'
+          '1. 在屏幕左右边缘可以看到半透明的紫色区域\n'
+          '2. 在这些区域滑动手势即可快速打开应用\n'
+          '3. 如果看不到悬浮窗，请检查是否授予了所有权限\n\n'
+          '⚠️ 重要：\n'
+          '如果切换到其他应用后手势失效，请检查:\n'
+          '• 该应用是否在白名单中\n'
+          '• 是否授予了"使用情况统计"权限',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('好的'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.push(AppRoutes.appWhitelist);
+            },
+            child: const Text('配置白名单'),
+          ),
+        ],
+      ),
+    );
+  }
+}

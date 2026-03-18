@@ -1,0 +1,4 @@
+{
+  "test/resource/ocr_test_resorce.jpg": "这是一个示例中文文本，用于测试 OCR 识别的准确率",
+  "description": "ground truth 数据 - 图片路径到预期文本的映射"
+}

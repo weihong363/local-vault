@@ -1,0 +1,147 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"/>
+    
+    <application
+        android:label="LocalVault"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter android:label="保存到 Local Vault">
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+            <!-- 支持图片分享 -->
+            <intent-filter android:label="保存到 Local Vault">
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
+            <intent-filter android:label="保存到 Local Vault">
+                <action android:name="android.intent.action.SEND_MULTIPLE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+            <!-- 支持多张图片分享 -->
+            <intent-filter android:label="保存到 Local Vault">
+                <action android:name="android.intent.action.SEND_MULTIPLE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
+        </activity>
+       
+       <!-- 快速保存 Activity - 透明无感知 -->
+       <activity
+          android:name=".QuickSaveActivity"
+          android:exported="true"
+          android:launchMode="singleTask"
+          android:excludeFromRecents="true"
+          android:taskAffinity=""
+          android:theme="@style/TransparentTheme">
+       </activity>
+       
+       <!-- 快捷操作 Activity - 用于模板和摘要选择 -->
+       <activity
+          android:name=".QuickActionActivity"
+          android:exported="true"
+          android:launchMode="singleTask"
+          android:excludeFromRecents="true"
+          android:taskAffinity=".QuickAction"
+          android:theme="@style/OptimizedTransparentTheme">
+       </activity>
+        <service
+            android:name=".FloatingWindowService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="floatingWidget"/>
+        </service>
+        
+        <!-- Android 系统控制中心快捷服务 -->
+        <service
+            android:name=".SaveSummaryTileService"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:icon="@mipmap/ic_launcher"
+            android:label="保存记忆">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        
+        <service
+            android:name=".TemplateTileService"
+            android:theme="@style/Theme.BApp.Dialog.Picker"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:icon="@mipmap/ic_launcher"
+            android:label="摘要模板">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        
+<!--        <service-->
+<!--            android:name=".InjectSummaryTileService"-->
+<!--            android:theme="@style/Theme.BApp.Dialog.Picker"-->
+<!--            android:exported="true"-->
+<!--            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"-->
+<!--            android:icon="@mipmap/ic_launcher"-->
+<!--            android:label="引用摘要">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.service.quicksettings.action.QS_TILE" />-->
+<!--            </intent-filter>-->
+<!--        </service>-->
+        
+        <service
+            android:name=".SummariesTileService"
+            android:theme="@style/Theme.BApp.Dialog.Picker"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:icon="@mipmap/ic_launcher"
+            android:label="我的记忆">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.LAUNCHER"/>
+        </intent>
+    </queries>
+</manifest>

@@ -1,0 +1,18 @@
+{
+  "lightImportance": {
+    "highThreshold": 0.8,
+    "mediumThreshold": 0.5,
+    "alpha": 0.18,
+    "highColor": "#43A047",
+    "mediumColor": "#F9A825",
+    "lowColor": "#B00020"
+  },
+  "darkImportance": {
+    "highThreshold": 0.8,
+    "mediumThreshold": 0.5,
+    "alpha": 0.26,
+    "highColor": "#81C784",
+    "mediumColor": "#FFD54F",
+    "lowColor": "#EF9A9A"
+  }
+}
