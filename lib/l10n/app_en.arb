@@ -1,0 +1,670 @@
+{
+  "@@locale": "en",
+  "appTitle": "Local Vault",
+  "home": "Home",
+  "templates": "Templates",
+  "chooseTemplate": "Choose template",
+  "addTemplate": "Add template",
+  "editTemplate": "Edit template",
+  "memory": "Memory",
+  "myMemories": "My memories",
+  "settings": "Settings",
+  "search": "Search",
+  "save": "Save",
+  "saveSummaryQuickActionTitle": "Save summary",
+  "inject": "Inject",
+  "generalSettings": "General Settings",
+  "themeSettings": "Theme Settings",
+  "darkMode": "Dark Mode",
+  "lightMode": "Light Mode",
+  "systemMode": "System",
+  "language": "Language",
+  "languageEnglish": "English",
+  "languageChinese": "中文",
+  "languageJapanese": "日本語",
+  "languageKorean": "한국어",
+  "languageSpanish": "Español",
+  "languageFrench": "Français",
+  "languageGerman": "Deutsch",
+  "storageSettings": "Storage Settings",
+  "storageSpace": "Storage Space",
+  "backupData": "Backup Data",
+  "about": "About",
+  "versionInfo": "Version Info",
+  "feedback": "Feedback",
+  "inDevelopment": "In Development",
+  "comingSoon": "Coming Soon",
+  "title": "Title",
+  "content": "Content",
+  "tags": "Tags",
+  "saveToVault": "Save to Vault",
+  "copiedToClipboard": "Copied to Clipboard",
+  "savedToVault": "Saved to Local Vault",
+  "titleAndContentRequired": "Title and content are required",
+  "commaSeparatedTagsHint": "Tags (comma separated)",
+  "searchHint": "Search title, content or tags...",
+  "noSearchResults": "No search results",
+  "noData": "No data",
+  "noTemplatesYet": "No templates yet",
+  "noSummariesYet": "No memories yet",
+  "navHome": "Home",
+  "navTemplates": "Templates",
+  "navMemory": "Memory",
+  "navSettings": "Settings",
+  "refresh": "Refresh",
+  "cancelLabel": "Cancel",
+  "continueLabel": "Continue",
+  "deleteLabel": "Delete",
+  "deleteSummary": "Delete summary",
+  "deleteTemplate": "Delete template",
+  "shareLabel": "Share",
+  "restoreLabel": "Restore",
+  "retryLabel": "Retry",
+  "closeLabel": "Close",
+  "workingLabel": "Working...",
+  "okLabel": "OK",
+  "quickSave": "Quick save",
+  "manualInput": "Manual input",
+  "quickSaveClipboardTip": "Tip: clipboard text will be used for quick save automatically.\nIf it is empty, you can enter content manually.",
+  "invalidActionType": "Invalid action type",
+  "quickActions": "Quick Actions",
+  "enableFloatingGestureLauncher": "Enable floating gesture launcher",
+  "floatingGestureLauncherDescription": "Open the app quickly with gestures from other apps",
+  "gestureConfiguration": "Gesture configuration",
+  "gestureConfigurationDescription": "Customize gesture behavior",
+  "appAllowlist": "App allowlist",
+  "appAllowlistDescription": "Gestures are only active inside selected apps",
+  "diagnostics": "Diagnostics",
+  "diagnosticsDescription": "Review gesture permissions, services, and sync state",
+  "slmInferenceSettingTitle": "Enable SLM inference",
+  "slmInferenceSettingDescription": "Controls whether the app may enter the future SLM inference path. The current summary save flow still uses the local rule-based result until a compatible SLM provider is integrated.",
+  "slmInferenceEnabledMessage": "SLM inference enabled. The current summary save flow still uses local rules until a compatible SLM provider is integrated.",
+  "slmInferenceDisabledMessage": "SLM inference disabled. Summary save stays on the local rule path.",
+  "titleTagsUseBuiltInModel": "Title and tags now use the built-in model",
+  "titleTagsUseLocalRuleGenerator": "Title and tags now use the local rule-based generator",
+  "storageSummaryTapToView": "Tap to view storage details",
+  "createShareRestoreLocalBackups": "Create, share, and restore local backups",
+  "storageSummaryFormat": "{bytes} · {summaryCount} summaries · {templateCount} templates",
+  "@storageSummaryFormat": {
+    "placeholders": {
+      "bytes": {},
+      "summaryCount": {},
+      "templateCount": {}
+    }
+  },
+  "backupSummaryNone": "No local backups yet. Tap to create one",
+  "backupSummaryAvailable": "{backupCount} local backups available",
+  "@backupSummaryAvailable": {
+    "placeholders": {
+      "backupCount": {}
+    }
+  },
+  "architectureChecksDebugOnly": "Architecture Checks - DEBUG ONLY",
+  "runArchitectureVerification": "Run architecture verification",
+  "runArchitectureVerificationDescription": "Verify that the new architecture is functioning correctly",
+  "runningArchitectureVerification": "Running architecture verification...",
+  "architectureVerificationFinished": "Architecture verification finished. Check the console output.",
+  "inspectDatabase": "Inspect database",
+  "inspectDatabaseDescription": "View raw records from summary and template storage",
+  "notAllPermissionsGranted": "Not all permissions were granted. Gesture features may not work correctly.",
+  "floatingWindowServiceStarted": "Floating window service started",
+  "floatingWindowServiceStopped": "Floating window service stopped",
+  "failedToStartMessage": "Failed to start: {error}",
+  "@failedToStartMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "failedToStopMessage": "Failed to stop: {error}",
+  "@failedToStopMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "serviceStarted": "Service started",
+  "floatingWindowTips": "The floating gesture service is now running.\n\nUsage tips:\n1. Look for the semi-transparent gesture zones near the screen edges.\n2. Swipe inside those zones to launch the app quickly.\n3. If the overlay is missing, confirm that all required permissions were granted.\n\nImportant:\nIf gestures stop working after switching apps, check:\n- Whether the app is included in the allowlist\n- Whether Usage Access permission has been granted",
+  "openAllowlist": "Open allowlist",
+  "memoryManagement": "Memory Management",
+  "loadFailedMessage": "Load failed: {error}",
+  "@loadFailedMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "loadFailedLabel": "Load failed",
+  "errorWithDetails": "Error: {error}",
+  "@errorWithDetails": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "deleteSummaryConfirm": "Delete \"{title}\"?",
+  "@deleteSummaryConfirm": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "deleteTemplateConfirm": "Delete template \"{title}\"?",
+  "@deleteTemplateConfirm": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "deleteFailedMessage": "Delete failed: {error}",
+  "@deleteFailedMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "templateDeleted": "Template deleted",
+  "currentView": "Current view",
+  "allMemories": "All memories",
+  "searchFilter": "Search filter",
+  "itemCountLabel": "{count} items",
+  "@itemCountLabel": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "notFiltered": "Not filtered",
+  "filtered": "Filtered",
+  "memoryType": "Memory type",
+  "metaImportanceLabel": "Importance {percent}",
+  "@metaImportanceLabel": {
+    "placeholders": {
+      "percent": {}
+    }
+  },
+  "metaVisitsLabel": "Visits {count}",
+  "@metaVisitsLabel": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "metaUpdatedLabel": "Updated {date}",
+  "@metaUpdatedLabel": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "metaLastOpenedLabel": "Last opened {date}",
+  "@metaLastOpenedLabel": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "editLabel": "Edit",
+  "promoteToCore": "Promote to core",
+  "setAsCore": "Set as core",
+  "setAsCoreMemory": "Set as core memory",
+  "mergeSimilar": "Merge similar",
+  "importanceScore": "Importance score",
+  "refreshAndCleanup": "Refresh and clean up",
+  "refreshCleanupCompleted": "Refresh and cleanup completed",
+  "promoteToCoreMemory": "Promote to core memory",
+  "promotionDialogBody": "\"{title}\" will stop participating in regular forgetting decay and will be kept as a prioritized long-term memory.",
+  "@promotionDialogBody": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "promotionStatsLine": "Current visits {accessCount} · importance {importancePercent}",
+  "@promotionStatsLine": {
+    "placeholders": {
+      "accessCount": {},
+      "importancePercent": {}
+    }
+  },
+  "promotionThresholdMet": "This memory already meets the automatic promotion threshold.",
+  "promotionThresholdNotMet": "This memory does not meet the automatic threshold yet, but you can still pin it as a core memory manually.",
+  "promotionThresholdLine": "Current automatic threshold: visits >= {accessCountThreshold} or importance >= {importanceThreshold}",
+  "@promotionThresholdLine": {
+    "placeholders": {
+      "accessCountThreshold": {},
+      "importanceThreshold": {}
+    }
+  },
+  "generatingPromotionReason": "Generating promotion reason...",
+  "promotionReason": "Promotion reason",
+  "defaultPromotionReason": "This memory already has lasting value and is suitable to preserve as a long-term core memory.",
+  "upgradeReasonHighAccess": "This memory is accessed frequently and has demonstrated stable long-term value, making it a good candidate for promotion to core memory.",
+  "upgradeReasonHighImportance": "This memory has a high importance score and is worth retaining as a long-term core memory.",
+  "confirmPromotion": "Confirm promotion",
+  "confirmSetAsCore": "Confirm set as core",
+  "promotedToCoreMemory": "Promoted to core memory",
+  "setAsCoreSuccess": "Set as core memory",
+  "viewCore": "View core",
+  "noSimilarMemoriesFound": "No similar memories found",
+  "currentFactMemory": "Current fact memory",
+  "candidateFactMemory": "Candidate fact memory",
+  "mergeCompleted": "Merge completed",
+  "chooseMemoryToCompare": "Choose a memory to compare",
+  "mergeCandidateCount": "\"{title}\" has {count} merge candidate(s)",
+  "@mergeCandidateCount": {
+    "placeholders": {
+      "title": {},
+      "count": {}
+    }
+  },
+  "similarityWithContent": "Similarity {similarity} · {content}",
+  "@similarityWithContent": {
+    "placeholders": {
+      "similarity": {},
+      "content": {}
+    }
+  },
+  "deleteMemory": "Delete memory",
+  "deleteMemoryConfirm": "Delete \"{title}\"?",
+  "@deleteMemoryConfirm": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "deletedLabel": "Deleted",
+  "factMemories": "Fact memories",
+  "coreMemories": "Core memories",
+  "sessionMemories": "Session memories",
+  "factMemoryLabel": "Fact",
+  "coreMemoryLabel": "Core",
+  "sessionMemoryLabel": "Session",
+  "factMemoryDescription": "Ordinary facts and stable information that are worth keeping long term.",
+  "coreMemoryDescription": "The highest-priority long-term memories that do not participate in regular forgetting decay.",
+  "sessionMemoryDescription": "Temporary context from recent interactions that is useful for short-term organization.",
+  "relativeMinutesAgo": "{count} min ago",
+  "@relativeMinutesAgo": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "relativeHoursAgo": "{count} h ago",
+  "@relativeHoursAgo": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "relativeDaysAgo": "{count} d ago",
+  "@relativeDaysAgo": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "noMatchingMemories": "No matching memories",
+  "noFactMemoriesYet": "No fact memories yet",
+  "noCoreMemoriesYet": "No core memories yet",
+  "noSessionMemoriesYet": "No session memories yet",
+  "mergeFactMemories": "Merge fact memories",
+  "mergeFactMemoriesDescription": "Compare both versions and choose the final title, content, and tags to keep.",
+  "similarityPercent": "Similarity {percent}",
+  "@similarityPercent": {
+    "placeholders": {
+      "percent": {}
+    }
+  },
+  "mergedPreview": "Merged preview",
+  "noTags": "No tags",
+  "notNow": "Not now",
+  "mergingLabel": "Merging...",
+  "confirmMerge": "Confirm merge",
+  "keepOriginal": "Keep original",
+  "keepNew": "Keep new",
+  "smartMerge": "Smart merge",
+  "emptyValue": "Empty",
+  "candidateMemory": "Candidate memory",
+  "mergeFailedMessage": "Merge failed: {error}",
+  "@mergeFailedMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "clearModelCache": "Clear model cache",
+  "clearModelCacheMessage": "This removes local model inference cache files, but keeps summaries, templates, and the model file itself.",
+  "noModelCacheFilesToClear": "No model cache files to clear",
+  "clearedModelCacheResult": "Cleared {count} cache file(s) and freed {bytes}",
+  "@clearedModelCacheResult": {
+    "placeholders": {
+      "count": {},
+      "bytes": {}
+    }
+  },
+  "clearBackupFiles": "Clear backup files",
+  "clearBackupFilesMessage": "This removes locally generated backup files without changing the current summaries or templates in the database.",
+  "noBackupFilesToClear": "No backup files to clear",
+  "deletedBackupFilesResult": "Deleted {count} backup file(s) and freed {bytes}",
+  "@deletedBackupFilesResult": {
+    "placeholders": {
+      "count": {},
+      "bytes": {}
+    }
+  },
+  "failedToReadStorageUsage": "Failed to read storage usage: {error}",
+  "@failedToReadStorageUsage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "totalStorageUsed": "Total storage used",
+  "storageOverviewCounts": "{summaryCount} summaries · {templateCount} templates · {backupCount} backups",
+  "@storageOverviewCounts": {
+    "placeholders": {
+      "summaryCount": {},
+      "templateCount": {},
+      "backupCount": {}
+    }
+  },
+  "summaryDatabase": "Summary database",
+  "summaryDatabaseSubtitle": "{count} summaries",
+  "@summaryDatabaseSubtitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "templateDatabase": "Template database",
+  "templateDatabaseSubtitle": "{count} templates",
+  "@templateDatabaseSubtitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "backupFiles": "Backup files",
+  "backupFilesSubtitle": "{count} backups",
+  "@backupFilesSubtitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "modelFile": "Model file",
+  "bundledModelFootprint": "Bundled model footprint",
+  "modelCache": "Model cache",
+  "inferenceCacheAndIntermediateFiles": "Inference cache and intermediate files",
+  "cleanupTools": "Cleanup tools",
+  "clearLocalBackupFiles": "Clear local backup files",
+  "backupCreatedMessage": "Backup created: {fileName}",
+  "@backupCreatedMessage": {
+    "placeholders": {
+      "fileName": {}
+    }
+  },
+  "failedToCreateBackupMessage": "Failed to create backup: {error}",
+  "@failedToCreateBackupMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "importFailedMessage": "Import failed: {error}",
+  "@importFailedMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "importFailedUnableReadSelectedFile": "Import failed: unable to read the selected file",
+  "unknownValue": "Unknown",
+  "importBackup": "Import backup",
+  "backupImportPreviewMessage": "This backup contains {summaryCount} summaries and {templateCount} templates.\nExported at: {exportedAt}\n\nImporting it will overwrite the current summary and template data. Continue?",
+  "@backupImportPreviewMessage": {
+    "placeholders": {
+      "summaryCount": {},
+      "templateCount": {},
+      "exportedAt": {}
+    }
+  },
+  "importFinishedMessage": "Import finished: {summaryCount} summaries, {templateCount} templates",
+  "@importFinishedMessage": {
+    "placeholders": {
+      "summaryCount": {},
+      "templateCount": {}
+    }
+  },
+  "invalidBackupFileFormat": "Import failed: invalid backup file format",
+  "restoreBackupMessage": "Restoring will overwrite the current summary and template data. Continue?",
+  "restoreFinishedMessage": "Restore finished: {summaryCount} summaries, {templateCount} templates",
+  "@restoreFinishedMessage": {
+    "placeholders": {
+      "summaryCount": {},
+      "templateCount": {}
+    }
+  },
+  "restoreFailedMessage": "Restore failed: {error}",
+  "@restoreFailedMessage": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "deleteBackupConfirmMessage": "Delete backup {fileName}?",
+  "@deleteBackupConfirmMessage": {
+    "placeholders": {
+      "fileName": {}
+    }
+  },
+  "backupDeleted": "Backup deleted",
+  "failedToLoadBackupList": "Failed to load backup list: {error}",
+  "@failedToLoadBackupList": {
+    "placeholders": {
+      "error": {}
+    }
+  },
+  "noLocalBackupFilesYet": "No local backup files yet",
+  "localBackups": "Local backups",
+  "backupFilesAvailable": "{count} backup file(s) available",
+  "@backupFilesAvailable": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "backupOverviewDescription": "Creating a backup generates a JSON file and opens the share sheet. You can also import a backup file from outside the app.",
+  "createAndShareBackup": "Create and share backup",
+  "importBackupData": "Import backup data",
+  "shareBackupText": "Local Vault backup",
+  "shareBackupSubject": "Local Vault Backup",
+  "confirmLabel": "Confirm",
+  "clearLabel": "Clear",
+  "runningLabel": "Running...",
+  "unknownError": "Unknown error",
+  "statusEnabled": "Enabled",
+  "statusDisabled": "Disabled",
+  "statusGranted": "Granted",
+  "statusNotGranted": "Not granted",
+  "statusRunning": "Running",
+  "statusStopped": "Stopped",
+  "statusUnavailable": "Unavailable",
+  "statusAvailable": "Available",
+  "statusMissing": "Missing",
+  "statusReady": "Ready",
+  "statusCompatible": "Compatible",
+  "statusIncompatible": "Incompatible",
+  "statusInitialized": "Initialized",
+  "statusNotInitialized": "Not initialized",
+  "statusDetected": "Detected",
+  "statusNotDetected": "Not detected",
+  "statusModelUsed": "Model used",
+  "statusModelNotUsed": "Model not used",
+  "statusInitializationComplete": "Initialization complete",
+  "statusInitializationIncomplete": "Initialization incomplete",
+  "gestureConfigurationSaved": "Configuration saved",
+  "gestureConfigurationLoadFailed": "Failed to load gesture configuration: {error}",
+  "resetToDefaults": "Reset to defaults",
+  "resetGesturesToDefaultsMessage": "Reset all gestures back to the default configuration?",
+  "restoredDefaultSettings": "Restored default settings",
+  "gestureShareOnly": "Share only",
+  "gestureActionOpenTemplates": "Open prompt templates",
+  "gestureActionSaveSummary": "Save a summary from shared content",
+  "gestureActionOpenSavedContext": "Open saved context",
+  "gestureDoubleTap": "Double tap",
+  "gestureTripleTap": "Triple tap",
+  "triggerAction": "Trigger action",
+  "alreadyUsedByAnotherGesture": "Already used by another gesture",
+  "searchAppsHint": "Search apps...",
+  "appWhitelistLoadFailed": "Load failed: {error}",
+  "selectedAppsCount": "{count} app(s) selected",
+  "clearAllowlistTooltip": "Clear allowlist",
+  "gesturesActiveInAllApps": "Gestures are active in all apps",
+  "filterAll": "All",
+  "filterSelected": "Selected",
+  "filterUnselected": "Unselected",
+  "noAppsFound": "No apps found",
+  "noMatchingAppsFound": "No matching apps found",
+  "noSelectedAppsYet": "No selected apps yet",
+  "noUnselectedApps": "No unselected apps",
+  "clearAllowlistTitle": "Clear allowlist",
+  "clearAllowlistMessage": "Clear the app allowlist? Gestures will become active in all apps.",
+  "allowlistCleared": "Allowlist cleared",
+  "databaseInspector": "Database Inspector",
+  "failedToOpenDatabase": "Failed to open database: {error}",
+  "summariesTab": "Summaries",
+  "templatesTab": "Templates",
+  "noSummaryRecordsInBox": "No summary records in this box",
+  "noTemplateRecordsInBox": "No template records in this box",
+  "recordsWithIssues": "Records with issues: {count}",
+  "legacyTemplateTypes": "Legacy template types: {count}",
+  "defaultTemplatesCount": "Default templates: {count}",
+  "boxMetricLabel": "Box: {boxName}",
+  "recordsMetricLabel": "Records: {count}",
+  "keyMetricLabel": "Key: {key}",
+  "noObviousIssuesDetected": "No obvious issues detected",
+  "issuesMetricLabel": "Issues: {count}",
+  "copyJson": "Copy JSON",
+  "recordNotMapCorrupted": "Record is not a Map and may be corrupted",
+  "unparseableSummaryRecord": "Unparseable summary record",
+  "unparseableTemplateRecord": "Unparseable template record",
+  "rawTypeLabel": "Raw type: {type}",
+  "legacyTemplateRecordDetected": "Legacy template-type record detected and will be read as a fact",
+  "missingId": "Missing id",
+  "titleIsEmpty": "Title is empty",
+  "contentIsEmpty": "Content is empty",
+  "accessCountInvalid": "accessCount is not a valid number",
+  "accessCountBelowZero": "accessCount is below 0",
+  "createdAtCouldNotBeParsed": "createdAt could not be parsed",
+  "summaryDeserializationFailed": "SummaryEntity deserialization failed: {error}",
+  "templateDeserializationFailed": "TemplateEntity deserialization failed: {error}",
+  "unknownTime": "Unknown time",
+  "untitledSummary": "(Untitled summary)",
+  "untitledTemplate": "(Untitled template)",
+  "summaryRecordSubtitle": "Type: {type}  Access: {accessCount}  Created: {createdAt}",
+  "templateRecordSubtitle": "{templateKind}  Created: {createdAt}",
+  "defaultTemplateLabel": "Default template",
+  "customTemplateLabel": "Custom template",
+  "refreshDiagnostics": "Refresh diagnostics",
+  "failedToLoadDiagnostics": "Failed to load diagnostics",
+  "gestureDiagnosticsTitle": "Gesture diagnostics",
+  "gestureDiagnosticsDescription": "Pull down to refresh permission, service, and native sync state.",
+  "slmDiagnosticsTitle": "SLM diagnostics",
+  "slmDiagnosticsDescription": "Inspect the current model, cache, and initialization state, then run a sample self-check inference.",
+  "allowlistedAppsLabel": "Allowlisted apps",
+  "floatingGestureLauncherTitle": "Floating gesture launcher",
+  "floatingGestureLauncherEnabledDescription": "The master gesture toggle in settings is enabled.",
+  "floatingGestureLauncherDisabledDescription": "When the master toggle is off, double-tap and triple-tap gestures will not fire.",
+  "overlayPermissionTitle": "Overlay permission",
+  "overlayPermissionGrantedDescription": "The system allows the app to draw over other apps.",
+  "overlayPermissionDeniedDescription": "Without this permission, the floating overlay service cannot start normally.",
+  "usageAccessPermissionTitle": "Usage Access permission",
+  "usageAccessGrantedDescription": "The app can identify the current foreground app for allowlist checks.",
+  "usageAccessDeniedDescription": "Without this permission, allowlist matching and cross-app gesture triggers will fail.",
+  "floatingServiceStatusTitle": "Floating service status",
+  "floatingServiceRunningDescription": "The native floating service is currently listening for gestures.",
+  "floatingServiceEnabledButStoppedDescription": "The master toggle is enabled, but the native floating service is not running right now.",
+  "floatingServiceStoppedDescription": "When the master toggle is off, the service usually remains stopped.",
+  "floatingServiceUnavailableDescription": "The native service state could not be read.",
+  "doubleTapActionSyncTitle": "Double-tap action sync",
+  "doubleTapActionSyncedDescription": "The double-tap action is synced to the native layer.",
+  "doubleTapActionOutOfSyncDescription": "The current double-tap action does not match the native layer. Re-saving gesture settings is recommended.",
+  "tripleTapActionSyncTitle": "Triple-tap action sync",
+  "tripleTapActionSyncedDescription": "The triple-tap action is synced to the native layer.",
+  "tripleTapActionOutOfSyncDescription": "The current triple-tap action does not match the native layer. Re-saving gesture settings is recommended.",
+  "allowlistScopeTitle": "Allowlist scope",
+  "allAppsValue": "All apps",
+  "restrictedAppsValue": "Restricted to {count} app(s)",
+  "allowlistScopeAllAppsDescription": "Gestures currently attempt to work in every foreground app.",
+  "allowlistScopeRestrictedDescription": "Only allowlisted foreground apps currently respond to gestures.",
+  "allowlistNativeSyncTitle": "Allowlist native sync",
+  "flutterNativeCountLabel": "Flutter: {flutterCount} / Native: {nativeCount}",
+  "actionSyncValue": "Flutter: {flutterAction} / Native: {nativeAction}",
+  "allowlistNativeUnreadableDescription": "The native allowlist could not be read.",
+  "allowlistNativeSyncedDescription": "The allowlist is synced to the native layer.",
+  "allowlistNativeOutOfSyncDescription": "Flutter and native allowlists are out of sync. Re-opening the allowlist page can trigger another sync.",
+  "runtimeEnvironmentTitle": "Runtime environment",
+  "environmentAndroid": "Android",
+  "environmentWeb": "Web",
+  "environmentDesktop": "Desktop",
+  "runtimeEnvironmentAndroidDescription": "This environment meets the baseline conditions for attempting on-device SLM inference.",
+  "runtimeEnvironmentNonAndroidDescription": "This is not an Android device environment. The self-check can still run, but it will usually follow the rule-based fallback path.",
+  "experimentalNativeInferenceFlagTitle": "Experimental native inference flag",
+  "experimentalNativeInferenceEnabledDescription": "This build allows attempts to enter the native SLM inference path. On Android, it is currently enabled whenever the SLM inference switch is on.",
+  "experimentalNativeInferenceDisabledDescription": "This build or runtime setting currently disables the native SLM inference path, so SLM remains in rule-fallback mode.",
+  "nativeInferenceSupportTitle": "Native inference support",
+  "nativeInferenceSupportAvailableDescription": "The required native symbols and runtime conditions for the current SLM inference path appear to be satisfied.",
+  "nativeInferenceSupportUnavailableDescription": "This environment does not currently support native inference, so runtime will degrade automatically.",
+  "nativeSymbolDetectionTitle": "Native symbol detection",
+  "nativeSymbolDetectedDescription": "The required LlmInferenceEngine symbols are visible.",
+  "nativeSymbolMissingDescription": "When critical native symbols are missing, model inference falls back to rule mode immediately.",
+  "bundledModelFormatTitle": "Bundled model format",
+  "slmInitializationStateTitle": "SLM initialization state",
+  "slmInitializedDescription": "The service has already been initialized, so later self-checks reuse the current state.",
+  "slmNotInitializedDescription": "Initialization has not been triggered yet. Running the self-check will attempt it automatically.",
+  "modelAvailabilityTitle": "Model availability",
+  "modelAvailableNow": "Available now",
+  "usingRuleFallback": "Using rule fallback",
+  "modelAvailabilityAvailableDescription": "Model inference can already be used directly on this device.",
+  "modelAvailabilityIncompatibleDescription": "The current model file format is incompatible with the current Android native SLM runtime, so runtime will stay on the rule fallback path until the bundled model is replaced.",
+  "modelAvailabilityFallbackDescription": "This does not block the main flow, but title, tag, and topic generation will prefer the rule fallback path.",
+  "modelFileMissingDescription": "Current file path: {path}. If the file is missing, the runtime automatically falls back to rule mode.",
+  "modelCacheRuntimeParametersTitle": "Model cache and runtime parameters",
+  "modelCacheRuntimeParametersDescription": "requestTimeout {requestTimeout}s · queueWait {queueWait}s · maxTokens {maxTokens}\nassetPath: {assetPath}",
+  "statusAndSizeLabel": "{status} · {size}",
+  "cacheSummaryLabel": "{size} · max cache entries {count}",
+  "slmSelfCheckFailed": "SLM self-check failed: {error}",
+  "slmSelfCheckTitle": "SLM self-check",
+  "slmSelfCheckAndroidHint": "It is best to run this once on a real Android device to confirm whether the model is actually being used.",
+  "slmSelfCheckNonAndroidHint": "This is not an Android device environment, so the self-check is mainly useful for validating fallback behavior and configuration state.",
+  "runSelfCheck": "Run self-check",
+  "noSelfCheckYet": "No self-check has been run yet. Running one on the target device is recommended to verify whether topic extraction and title/tag generation use the model or rule fallback.",
+  "completedChipLabel": "Completed {time}",
+  "topicExtraction": "Topic extraction",
+  "titleAndTagGeneration": "Title and tag generation",
+  "fallbackDetailLabel": "fallback: {mode} · {latency}ms",
+  "tagsDetailLabel": "tags: {tags}",
+  "fallbackModel": "Model",
+  "fallbackCache": "Cache",
+  "fallbackRules": "Rules",
+  "fallbackDisabledUnavailable": "Disabled/Unavailable",
+  "summaryBannerErrorTitle": "Issues were found that can directly break gesture behavior",
+  "summaryBannerErrorDescription": "Permission-related issues should usually be fixed first.",
+  "summaryBannerWarningTitle": "Some gesture configuration issues need attention",
+  "summaryBannerWarningDescription": "When sync state or service state drifts, gestures may not trigger as expected.",
+  "summaryBannerHealthyTitle": "No obvious gesture issues were found",
+  "summaryBannerHealthyDescription": "Permissions, service state, and native synchronization all look healthy.",
+  "ocrRecognitionTitlePrefix": "OCR Recognition",
+  "ocrRecognizedCharacters": "Recognized {count} characters",
+  "ocrFailedMessage": "OCR failed: {error}",
+  "ocrProcessingFailedMessage": "OCR processing failed: {error}",
+  "previewEnterContent": "Enter content to preview suggested titles and tags",
+  "previewGenerationFailed": "Preview generation failed: {error}",
+  "previewApplied": "Applied preview title and tags to the form",
+  "contentRequiredMessage": "Content is required",
+  "summaryUpdated": "Summary updated",
+  "duplicateFactMemoryUpdated": "Detected a duplicate fact memory and updated the existing record",
+  "savedAndMergedFactMemories": "Saved and merged the fact memories",
+  "saveFailedMessage": "Save failed: {error}",
+  "mergeCandidatesFound": "Merge candidates found",
+  "mergeCandidatesFoundDescription": "\"{title}\" was saved. Review these merge candidates:",
+  "laterLabel": "Later",
+  "existingFactMemory": "Existing fact memory",
+  "newFactMemory": "New fact memory",
+  "editSummary": "Edit summary",
+  "saveContent": "Save content",
+  "sharedBadge": "Shared",
+  "remarkLabel": "Remark",
+  "enterTitleHint": "Enter a title",
+  "contentShareHint": "Content shared from other apps will appear here automatically",
+  "remarkHint": "Add optional context or notes",
+  "tagsHint": "Separate multiple tags with commas",
+  "previewSuggestedTitleTags": "Preview suggested title and tags",
+  "previewSuggestedTitleTagsDescription": "When enabled, suggestions are generated from the current content without overwriting your form automatically",
+  "updateSummary": "Update summary",
+  "requiredFieldHint": "* indicates a required field",
+  "saveResultPreview": "Save result preview",
+  "previewPrimaryDescription": "The preview recommends titles and tags based primarily on the main content.",
+  "suggestedTitle": "Suggested title",
+  "suggestedTags": "Suggested tags",
+  "applyToForm": "Apply to form",
+  "generatedByBuiltInModel": "Generated by the built-in model",
+  "generatedByLocalRules": "Generated by local rules"
+}

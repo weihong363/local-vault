@@ -136,7 +136,7 @@ class GestureConfigNotifier
         }
       }
     } catch (e) {
-      debugPrint('同步手势配置到原生端失败: $e');
+      debugPrint('Failed to sync gesture config to the native layer: $e');
     }
   }
 

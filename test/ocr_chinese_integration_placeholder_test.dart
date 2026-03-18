@@ -8,9 +8,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('OCR Chinese Device Readiness Tests', () {
     test('prints guidance for real-device OCR verification', () {
-      debugPrint('⚠️ 真实图片 OCR 测试需要手动准备测试资源');
       debugPrint(
-        '💡 建议：从 DeepSeek 或其他应用分享包含中文的图片到 Local Vault 进行完整测试',
+          '⚠️ Real-image OCR tests require manually prepared test assets');
+      debugPrint(
+        '💡 Tip: share an image containing Chinese text from DeepSeek or another app to Local Vault for the full test',
       );
 
       expect(true, isTrue);
@@ -21,14 +22,14 @@ void main() {
       final hasChinese = chineseText.contains(RegExp(r'[\u4e00-\u9fff]'));
 
       expect(hasChinese, isTrue, reason: '应正确检测到中文字符');
-      debugPrint('✅ 中文检测逻辑验证通过');
+      debugPrint('✅ Chinese text detection logic passed');
 
       const englishText = 'Hello World';
       final hasChineseInEnglish =
           englishText.contains(RegExp(r'[\u4e00-\u9fff]'));
       expect(hasChineseInEnglish, isFalse, reason: '纯英文不应被误判为中文');
 
-      debugPrint('✅ 英文文本不会被误判为中文');
+      debugPrint('✅ English text is not falsely detected as Chinese');
     });
   });
 }

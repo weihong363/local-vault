@@ -85,7 +85,7 @@ class AppWhitelistNotifier extends StateNotifier<AsyncValue<List<AppInfo>>> {
       final packageNames = whitelist.map((app) => app.packageName).toList();
       await channel.invokeMethod('setWhitelist', {'packages': packageNames});
     } catch (e) {
-      debugPrint('同步白名单到原生端失败: $e');
+      debugPrint('Failed to sync whitelist to the native layer: $e');
     }
   }
 

@@ -2,13 +2,17 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'
     show MethodChannel, MissingPluginException, PlatformException;
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/providers/locale_provider.dart';
+import 'package:local_vault/core/services/app_settings_service.dart';
 import 'package:local_vault/core/services/memory_slm_config.dart';
-import 'package:mediapipe_genai/mediapipe_genai.dart';
+import 'package:local_vault/core/utils/summary_text_utils.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 import 'package:path_provider/path_provider.dart';
 
 typedef ModelDownloadProgressCallback = void Function(double progress);
@@ -79,17 +83,25 @@ class MemorySlmSummaryMetadata {
 class MemorySLMService {
   MemorySLMService({
     MemorySlmConfiguration configuration = const MemorySlmConfiguration(),
-  }) : _configuration = configuration;
+    AppSettingsService? settingsService,
+  })  : _configuration = configuration,
+        _settingsService = settingsService ?? AppSettingsService();
 
   final MemorySlmConfiguration _configuration;
+  final AppSettingsService _settingsService;
 
   static const MethodChannel _modelAssetChannel =
       MethodChannel('local_vault/model_assets');
   static const bool _experimentalNativeInferenceEnabled = bool.fromEnvironment(
     'ENABLE_MEDIAPIPE_SLM',
-    defaultValue: false,
+    defaultValue: true,
   );
   static const String _nativeInferenceFlagName = 'ENABLE_MEDIAPIPE_SLM';
+  static const Set<String> _supportedNativeModelExtensions = <String>{
+    'task',
+    'bin',
+    'litertlm',
+  };
 
   final LinkedHashMap<String, String> _topicCache = LinkedHashMap();
   final LinkedHashMap<String, String> _upgradeReasonCache = LinkedHashMap();
@@ -98,7 +110,11 @@ class MemorySLMService {
   bool _isInitialized = false;
   bool _isModelAvailable = false;
   Future<void> _requestQueue = Future<void>.value();
+  bool _runtimeSlmInferenceEnabled = false;
+  bool _runtimeSlmInferenceEnabledLoaded = false;
+  Future<void>? _runtimeSlmInferenceEnabledLoading;
   bool? _nativeSymbolsAvailable;
+  DynamicLibrary? _nativeLibrary;
   MemorySlmConfig? _slmConfig;
   Future<MemorySlmConfig>? _slmConfigLoading;
 
@@ -108,7 +124,42 @@ class MemorySLMService {
 
   bool get isModelAvailable => _isModelAvailable;
 
+  bool get experimentalNativeInferenceEnabled =>
+      _experimentalNativeInferenceEnabled && _runtimeSlmInferenceEnabled;
+
+  bool get nativeInferenceSupported => _supportsNativeInference;
+
+  bool get nativeSymbolsAvailable => _hasRequiredNativeSymbols();
+
+  bool isSupportedNativeModelFileName(String fileName) {
+    final extension = _extractFileExtension(fileName);
+    return _supportedNativeModelExtensions.contains(extension);
+  }
+
+  String describeNativeModelFileSupport(String fileName) {
+    final extension = _extractFileExtension(fileName);
+    if (_supportedNativeModelExtensions.contains(extension)) {
+      return 'Compatible .$extension model';
+    }
+    if (extension.isEmpty) {
+      return 'Unknown model format';
+    }
+    return 'Unsupported .$extension model for the current Android native SLM runtime';
+  }
+
   Future<MemorySlmConfig> resolveConfig() => _loadSlmConfig();
+
+  Future<bool> isSlmInferenceEnabled() async {
+    await _ensureRuntimeSlmInferencePreferenceLoaded();
+    return _runtimeSlmInferenceEnabled;
+  }
+
+  Future<void> setSlmInferenceEnabled(bool enabled) async {
+    await _settingsService.setSlmInferenceEnabled(enabled);
+    _runtimeSlmInferenceEnabled = enabled;
+    _runtimeSlmInferenceEnabledLoaded = true;
+    _resetRuntimeInferenceState();
+  }
 
   Future<void> initialize({
     ModelDownloadProgressCallback? onProgress,
@@ -129,14 +180,15 @@ class MemorySLMService {
     ModelDownloadProgressCallback? onProgress,
   }) async {
     try {
+      await _ensureRuntimeSlmInferencePreferenceLoaded();
       await _loadSlmConfig();
       if (!_supportsNativeInference) {
         _isInitialized = true;
         _isModelAvailable = false;
         debugPrint(
-          'ℹ️ [MemorySLMService] 当前构建未启用可用的 MediaPipe 原生推理，'
-          '已使用规则模式回退。'
-          '${_experimentalNativeInferenceEnabled ? '' : ' 如需实验性启用，请添加 --dart-define=$_nativeInferenceFlagName=true。'}',
+          'ℹ️ [MemorySLMService] No available SLM inference entry point is enabled in this build, '
+          'falling back to rule-based mode.'
+          '${_experimentalNativeInferenceEnabled ? '' : ' To re-enable it, add --dart-define=$_nativeInferenceFlagName=true.'}',
         );
         return;
       }
@@ -149,8 +201,8 @@ class MemorySLMService {
         );
         if (!copied) {
           debugPrint(
-            'ℹ️ [MemorySLMService] 未找到内置模型资源 '
-            '${_effectiveSlmConfig.model.bundledAssetPath}，已回退到规则模式。',
+            'ℹ️ [MemorySLMService] Bundled model asset not found: '
+            '${_effectiveSlmConfig.model.bundledAssetPath}; falling back to rule-based mode.',
           );
         }
       }
@@ -158,12 +210,13 @@ class MemorySLMService {
       await _initializeEngineIfSupported(modelFile);
       _isInitialized = true;
       debugPrint(
-        '🧠 [MemorySLMService] 初始化完成，SLM${_isModelAvailable ? '可用' : '已回退到规则模式'}',
+        '🧠 [MemorySLMService] Initialization completed, SLM ${_isModelAvailable ? 'available' : 'running in fallback mode'}',
       );
     } catch (error, stackTrace) {
       _isInitialized = true;
       _isModelAvailable = false;
-      debugPrint('⚠️ [MemorySLMService] 初始化失败，已启用降级模式: $error');
+      debugPrint(
+          '⚠️ [MemorySLMService] Initialization failed, degraded mode enabled: $error');
       debugPrintStack(stackTrace: stackTrace);
     } finally {
       _initializing = null;
@@ -290,8 +343,10 @@ class MemorySLMService {
   Future<MemorySlmResponse<String>> generateUpgradeReason(
     SummaryEntity fact,
   ) async {
+    final locale = await _resolvePreferredLocale();
+    final languageCode = locale.languageCode;
     final cacheKey =
-        '${fact.id}_${fact.accessCount}_${fact.importance.toStringAsFixed(2)}';
+        '${fact.id}_${fact.accessCount}_${fact.importance.toStringAsFixed(2)}_$languageCode';
     final cached = _upgradeReasonCache[cacheKey];
     if (cached != null) {
       return MemorySlmResponse<String>(
@@ -302,7 +357,10 @@ class MemorySLMService {
       );
     }
 
-    final fallback = _generateUpgradeReasonFallback(fact);
+    final fallback = await _generateUpgradeReasonFallback(
+      fact,
+      locale: locale,
+    );
     return _runWithFallback<String>(
       operation: 'generateUpgradeReason',
       fallbackData: fallback,
@@ -311,7 +369,10 @@ class MemorySLMService {
         return _runQueued<MemorySlmResponse<String>>(() async {
           await initialize();
           final stopwatch = Stopwatch()..start();
-          final prompt = _buildUpgradeReasonPrompt(fact);
+          final prompt = await _buildUpgradeReasonPrompt(
+            fact,
+            locale: locale,
+          );
           final generated = await _runModelPrompt(prompt);
           final reason = _sanitizeSingleLine(generated) ?? fallback;
           _setCache(_upgradeReasonCache, cacheKey, reason);
@@ -383,7 +444,7 @@ class MemorySLMService {
       );
     } catch (error, stackTrace) {
       debugPrint(
-        '⚠️ [MemorySLMService] generateSummaryMetadata 失败，返回最小回退结果: $error',
+        '⚠️ [MemorySLMService] generateSummaryMetadata failed, returning the minimal fallback result: $error',
       );
       debugPrintStack(stackTrace: stackTrace);
       return MemorySlmResponse<MemorySlmSummaryMetadata>(
@@ -477,13 +538,16 @@ class MemorySLMService {
         return false;
       }
       onProgress?.call(1.0);
-      debugPrint('📦 [MemorySLMService] 已从资源目录复制模型到 ${copiedFile.path}');
+      debugPrint(
+          '📦 [MemorySLMService] Copied model from bundled assets to ${copiedFile.path}');
       return true;
     } on PlatformException catch (error) {
-      debugPrint('⚠️ [MemorySLMService] 原生复制模型失败: ${error.message}');
+      debugPrint(
+          '⚠️ [MemorySLMService] Native model copy failed: ${error.message}');
       return false;
     } on MissingPluginException {
-      debugPrint('ℹ️ [MemorySLMService] 未找到资源模型，尝试其他加载方式');
+      debugPrint(
+          'ℹ️ [MemorySLMService] Bundled model not found, trying another loading path');
       return false;
     }
   }
@@ -492,6 +556,16 @@ class MemorySLMService {
     final slmConfig = await _loadSlmConfig();
     _isModelAvailable = false;
     if (!_supportsNativeInference || !await modelFile.exists()) {
+      return;
+    }
+
+    if (!isSupportedNativeModelFileName(modelFile.path)) {
+      debugPrint(
+        'ℹ️ [MemorySLMService] Current model ${slmConfig.model.bundledFileName} '
+        'is not in a format supported by the current Android native SLM runtime; '
+        'falling back to rule-based mode. The runtime currently only supports '
+        '${_supportedNativeModelExtensions.map((value) => '.$value').join(', ')}.',
+      );
       return;
     }
 
@@ -515,7 +589,7 @@ class MemorySLMService {
       _isModelAvailable = true;
     } catch (error, stackTrace) {
       _disableNativeInference(
-        '原生推理引擎初始化失败: $error',
+        'Native inference engine initialization failed: $error',
         stackTrace: stackTrace,
       );
     }
@@ -525,7 +599,7 @@ class MemorySLMService {
     if (kIsWeb || !Platform.isAndroid) {
       return false;
     }
-    if (!_experimentalNativeInferenceEnabled) {
+    if (!experimentalNativeInferenceEnabled) {
       return false;
     }
     return _hasRequiredNativeSymbols();
@@ -543,7 +617,7 @@ class MemorySLMService {
       return trimmed.isEmpty ? null : trimmed;
     } catch (error, stackTrace) {
       _disableNativeInference(
-        '模型推理失败，转用规则回退: $error',
+        'Model inference failed, switching to rule-based fallback: $error',
         stackTrace: stackTrace,
       );
       return null;
@@ -559,7 +633,8 @@ class MemorySLMService {
     try {
       return await action();
     } catch (error, stackTrace) {
-      debugPrint('⚠️ [MemorySLMService] $operation 失败，已回退到规则模式: $error');
+      debugPrint(
+          '⚠️ [MemorySLMService] $operation failed, falling back to rule-based mode: $error');
       debugPrintStack(stackTrace: stackTrace);
       return MemorySlmResponse<T>(
         success: true,
@@ -577,23 +652,99 @@ class MemorySLMService {
       return cached;
     }
 
+    Object? lastError;
+    final libraries = <DynamicLibrary>[DynamicLibrary.process()];
     try {
-      DynamicLibrary.process().lookup<NativeFunction<Void Function()>>(
-        'LlmInferenceEngine_CreateSession',
-      );
-      DynamicLibrary.process().lookup<NativeFunction<Void Function()>>(
-        'LlmInferenceEngine_Session_PredictAsync',
-      );
-      _nativeSymbolsAvailable = true;
-    } catch (_) {
-      _nativeSymbolsAvailable = false;
-      debugPrint(
-        'ℹ️ [MemorySLMService] 未检测到 MediaPipe 所需原生符号，'
-        '当前构建将使用规则模式。',
-      );
+      libraries.insert(0, _resolveNativeLibrary());
+    } catch (error) {
+      lastError = error;
     }
 
+    for (final library in libraries) {
+      try {
+        library.lookup<NativeFunction<Void Function()>>(
+          'LlmInferenceEngine_CreateSession',
+        );
+        library.lookup<NativeFunction<Void Function()>>(
+          'LlmInferenceEngine_Session_PredictAsync',
+        );
+        _nativeSymbolsAvailable = true;
+        return true;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    _nativeSymbolsAvailable = false;
+    debugPrint(
+      'ℹ️ [MemorySLMService] Required native symbols for the current SLM inference path were not detected, '
+      'this build will use rule-based mode.'
+      '${lastError == null ? '' : ' Details: $lastError'}',
+    );
+
     return _nativeSymbolsAvailable ?? false;
+  }
+
+  DynamicLibrary _resolveNativeLibrary() {
+    final cached = _nativeLibrary;
+    if (cached != null) {
+      return cached;
+    }
+
+    if (Platform.isAndroid) {
+      final library = DynamicLibrary.open('libllm_inference_engine.so');
+      debugPrint(
+        '✅ [MemorySLMService] Explicitly loaded libllm_inference_engine.so',
+      );
+      _nativeLibrary = library;
+      return library;
+    }
+
+    final library = DynamicLibrary.process();
+    _nativeLibrary = library;
+    return library;
+  }
+
+  String _extractFileExtension(String fileName) {
+    final normalized = fileName.trim().toLowerCase();
+    final lastDotIndex = normalized.lastIndexOf('.');
+    if (lastDotIndex == -1 || lastDotIndex == normalized.length - 1) {
+      return '';
+    }
+    return normalized.substring(lastDotIndex + 1);
+  }
+
+  Future<void> _ensureRuntimeSlmInferencePreferenceLoaded() async {
+    if (_runtimeSlmInferenceEnabledLoaded) {
+      return;
+    }
+
+    final pending = _runtimeSlmInferenceEnabledLoading;
+    if (pending != null) {
+      return pending;
+    }
+
+    final loading = _loadRuntimeSlmInferencePreference();
+    _runtimeSlmInferenceEnabledLoading = loading;
+    await loading;
+  }
+
+  Future<void> _loadRuntimeSlmInferencePreference() async {
+    try {
+      _runtimeSlmInferenceEnabled =
+          await _settingsService.isSlmInferenceEnabled();
+      _runtimeSlmInferenceEnabledLoaded = true;
+    } finally {
+      _runtimeSlmInferenceEnabledLoading = null;
+    }
+  }
+
+  void _resetRuntimeInferenceState() {
+    _engine?.dispose();
+    _engine = null;
+    _isInitialized = false;
+    _isModelAvailable = false;
+    _initializing = null;
   }
 
   void _disableNativeInference(
@@ -669,12 +820,48 @@ class MemorySLMService {
     );
   }
 
-  String _buildUpgradeReasonPrompt(SummaryEntity fact) {
+  Future<String> _buildUpgradeReasonPrompt(
+    SummaryEntity fact, {
+    ui.Locale? locale,
+  }) async {
     final slmConfig = _effectiveSlmConfig;
+    final targetLocale = locale ?? await _resolvePreferredLocale();
     return slmConfig.renderTemplate(
       slmConfig.prompts.upgradeReason,
       <String, String>{
         ..._sharedPromptVariables(slmConfig),
+        'outputLanguageInstruction':
+            _upgradeReasonOutputLanguageInstruction(targetLocale),
+        'accessCountLabel': _upgradeReasonMetricLabel(
+          targetLocale,
+          english: 'Access count',
+          zh: '访问次数',
+          ja: 'アクセス数',
+          ko: '방문 수',
+          es: 'Número de accesos',
+          fr: 'Nombre de consultations',
+          de: 'Anzahl der Aufrufe',
+        ),
+        'importanceLabel': _upgradeReasonMetricLabel(
+          targetLocale,
+          english: 'Importance',
+          zh: '重要度',
+          ja: '重要度',
+          ko: '중요도',
+          es: 'Importancia',
+          fr: 'Importance',
+          de: 'Wichtigkeit',
+        ),
+        'createdAtLabel': _upgradeReasonMetricLabel(
+          targetLocale,
+          english: 'Created at',
+          zh: '创建时间',
+          ja: '作成日時',
+          ko: '생성 시각',
+          es: 'Creado el',
+          fr: 'Créé le',
+          de: 'Erstellt am',
+        ),
         'title': fact.title,
         'accessCount': fact.accessCount.toString(),
         'importance': fact.importance.toStringAsFixed(2),
@@ -709,23 +896,84 @@ class MemorySLMService {
   }
 
   String _extractTopicFallback(String title, String content) {
+    final canonicalTopic = _extractCanonicalTopicAlias(title, content);
+    if (canonicalTopic != null) {
+      return canonicalTopic;
+    }
+
     final candidate = title.trim().isNotEmpty ? title.trim() : content.trim();
-    final language = _detectPrimaryLanguage(candidate);
-    return language == _PrimaryLanguage.chinese
-        ? _fallbackChineseTopic(candidate)
-        : _fallbackEnglishTopic(candidate);
+    final generatedTitle = SummaryTextUtils.generateTitle(candidate);
+    final generatedTags = SummaryTextUtils.generateTags(
+      generatedTitle,
+      content,
+      maxTags: 1,
+    );
+    final semanticCandidate =
+        generatedTags.isNotEmpty ? generatedTags.first : generatedTitle;
+    return _normalizeFallbackTopicCandidate(semanticCandidate, content);
+  }
+
+  String? _extractCanonicalTopicAlias(String title, String content) {
+    final normalized = '$title $content'.toLowerCase();
+
+    if (RegExp(r'\brag\b').hasMatch(normalized) ||
+        normalized.contains('检索增强生成') ||
+        normalized.contains('retrieval augmented generation')) {
+      return 'RAG';
+    }
+
+    final ragSecondarySignals = <Pattern>[
+      '向量',
+      '召回',
+      '重排',
+      '检索',
+      '知识库',
+      RegExp(r'\bembedding\b'),
+      RegExp(r'\bchunk\b'),
+      RegExp(r'\brerank\b'),
+      RegExp(r'\bfaiss\b'),
+      RegExp(r'\bmilvus\b'),
+      RegExp(r'\bqdrant\b'),
+    ];
+    final ragSignalCount = ragSecondarySignals
+        .where(
+          (pattern) => pattern is String
+              ? normalized.contains(pattern)
+              : (pattern as RegExp).hasMatch(normalized),
+        )
+        .length;
+    if (ragSignalCount >= 2) {
+      return 'RAG';
+    }
+
+    if (RegExp(r'\bllm\b').hasMatch(normalized) ||
+        normalized.contains('大语言模型')) {
+      return 'LLM';
+    }
+    if (RegExp(r'\bslm\b').hasMatch(normalized) ||
+        normalized.contains('小语言模型')) {
+      return 'SLM';
+    }
+    if (RegExp(r'\bocr\b').hasMatch(normalized) ||
+        normalized.contains('文字识别')) {
+      return 'OCR';
+    }
+
+    return null;
   }
 
   bool _isSameTopicFallback(SummaryEntity a, SummaryEntity b) {
     final topicA = _normalizeText(a.topic ?? a.title);
     final topicB = _normalizeText(b.topic ?? b.title);
-    if (topicA.isNotEmpty && topicA == topicB) {
+    if (_isStableTopicValue(topicA) &&
+        _isStableTopicValue(topicB) &&
+        topicA == topicB) {
       return true;
     }
 
     final titleA = _normalizeText(a.title);
     final titleB = _normalizeText(b.title);
-    if (titleA.isEmpty || titleB.isEmpty) {
+    if (!_isStableTopicValue(titleA) || !_isStableTopicValue(titleB)) {
       return false;
     }
     if (titleA == titleB) {
@@ -849,15 +1097,89 @@ class MemorySLMService {
     );
   }
 
-  String _generateUpgradeReasonFallback(SummaryEntity fact) {
+  Future<String> _generateUpgradeReasonFallback(
+    SummaryEntity fact, {
+    ui.Locale? locale,
+  }) async {
+    final targetLocale = locale ?? await _resolvePreferredLocale();
     final slmConfig = _effectiveSlmConfig;
+    final localizations = await AppLocalizations.delegate.load(targetLocale);
     if (fact.accessCount >= slmConfig.heuristics.upgradeAccessCountThreshold) {
-      return slmConfig.fallbacks.upgradeReasonHighAccess;
+      return localizations.upgradeReasonHighAccess;
     }
     if (fact.importance >= slmConfig.heuristics.upgradeImportanceThreshold) {
-      return slmConfig.fallbacks.upgradeReasonHighImportance;
+      return localizations.upgradeReasonHighImportance;
     }
-    return slmConfig.fallbacks.upgradeReasonDefault;
+    return localizations.defaultPromotionReason;
+  }
+
+  Future<ui.Locale> _resolvePreferredLocale() async {
+    final appLocale = await LocaleManager.loadLocale();
+    final savedLocale = LocaleManager.getLocale(appLocale);
+    if (savedLocale != null) {
+      return _supportedLocale(savedLocale);
+    }
+    return _supportedLocale(ui.PlatformDispatcher.instance.locale);
+  }
+
+  ui.Locale _supportedLocale(ui.Locale locale) {
+    switch (locale.languageCode) {
+      case 'zh':
+        return const ui.Locale('zh');
+      case 'ja':
+        return const ui.Locale('ja');
+      case 'ko':
+        return const ui.Locale('ko');
+      case 'es':
+        return const ui.Locale('es');
+      case 'fr':
+        return const ui.Locale('fr');
+      case 'de':
+        return const ui.Locale('de');
+      default:
+        return const ui.Locale('en');
+    }
+  }
+
+  String _upgradeReasonOutputLanguageInstruction(ui.Locale locale) {
+    final languageName = switch (locale.languageCode) {
+      'zh' => 'Simplified Chinese',
+      'ja' => 'Japanese',
+      'ko' => 'Korean',
+      'es' => 'Spanish',
+      'fr' => 'French',
+      'de' => 'German',
+      _ => 'English',
+    };
+    return 'Write the sentence in $languageName.';
+  }
+
+  String _upgradeReasonMetricLabel(
+    ui.Locale locale, {
+    required String english,
+    required String zh,
+    required String ja,
+    required String ko,
+    required String es,
+    required String fr,
+    required String de,
+  }) {
+    switch (locale.languageCode) {
+      case 'zh':
+        return zh;
+      case 'ja':
+        return ja;
+      case 'ko':
+        return ko;
+      case 'es':
+        return es;
+      case 'fr':
+        return fr;
+      case 'de':
+        return de;
+      default:
+        return english;
+    }
   }
 
   String _sanitizeTopicResponse(String? response, String fallback) {
@@ -947,6 +1269,41 @@ class MemorySLMService {
     return words.join(' ');
   }
 
+  String _normalizeFallbackTopicCandidate(String candidate, String content) {
+    final trimmed = candidate.trim();
+    if (trimmed.isEmpty || trimmed == SummaryTextUtils.unnamedTitle) {
+      final language = _detectPrimaryLanguage(content);
+      return language == _PrimaryLanguage.chinese
+          ? _fallbackChineseTopic(content)
+          : _fallbackEnglishTopic(content);
+    }
+
+    final language = _detectPrimaryLanguage(trimmed);
+    if (language == _PrimaryLanguage.chinese) {
+      final cleaned = trimmed
+          .replaceAll(RegExp(r'^(待整理|未命名|临时)'), '')
+          .replaceAll(RegExp(r'[^\u4E00-\u9FFFA-Za-z0-9]'), '')
+          .trim();
+      if (cleaned.isEmpty) {
+        return _fallbackChineseTopic(content);
+      }
+      final maxLength = _effectiveSlmConfig.limits.topicChineseMaxChars;
+      return cleaned.length > maxLength
+          ? cleaned.substring(0, maxLength)
+          : cleaned;
+    }
+
+    final words = trimmed
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .take(_effectiveSlmConfig.limits.topicEnglishWordCount)
+        .toList();
+    if (words.isEmpty) {
+      return _fallbackEnglishTopic(content);
+    }
+    return words.join(' ');
+  }
+
   _PrimaryLanguage _detectPrimaryLanguage(String text) {
     final chineseMatches = RegExp(r'[\u4E00-\u9FFF]').allMatches(text).length;
     final latinMatches = RegExp(r'[A-Za-z]').allMatches(text).length;
@@ -961,6 +1318,27 @@ class MemorySLMService {
         .replaceAll(RegExp(r'\s+'), ' ')
         .replaceAll(RegExp(r'[^\w\u4E00-\u9FFF ]'), '')
         .trim();
+  }
+
+  bool _isStableTopicValue(String value) {
+    if (value.isEmpty) {
+      return false;
+    }
+
+    final normalizedFallbackTitle = _normalizeText(
+      _effectiveSlmConfig.fallbacks.summaryMetadataTitle,
+    );
+    final normalizedChineseTopic = _normalizeText(
+      _effectiveSlmConfig.fallbacks.emptyChineseTopic,
+    );
+    final normalizedEnglishTopic = _normalizeText(
+      _effectiveSlmConfig.fallbacks.emptyEnglishTopic,
+    );
+
+    return value != _normalizeText(SummaryTextUtils.unnamedTitle) &&
+        value != normalizedFallbackTitle &&
+        value != normalizedChineseTopic &&
+        value != normalizedEnglishTopic;
   }
 
   String _truncate(String value, int maxLength) {
@@ -1049,7 +1427,8 @@ class MemorySLMService {
       _slmConfig = resolved;
       return resolved;
     } catch (error, stackTrace) {
-      debugPrint('⚠️ [MemorySLMService] 加载 SLM 配置失败，回退到默认配置: $error');
+      debugPrint(
+          '⚠️ [MemorySLMService] Failed to load SLM config, falling back to defaults: $error');
       debugPrintStack(stackTrace: stackTrace);
       final fallback = _effectiveSlmConfig;
       _slmConfig = fallback;
@@ -1058,6 +1437,17 @@ class MemorySLMService {
       _slmConfigLoading = null;
     }
   }
+}
+
+// TODO SLM API的入口
+get LlmInferenceOptions => null;
+
+class LlmInferenceEngine {
+  LlmInferenceEngine(engineOptions);
+
+  void dispose() {}
+
+  generateResponse(String prompt) {}
 }
 
 enum _PrimaryLanguage {

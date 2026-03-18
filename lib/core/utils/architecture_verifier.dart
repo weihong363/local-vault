@@ -1,11 +1,10 @@
-// 新架构快速验证脚本
+// Quick verification script for the new architecture.
 //
-// 使用方式：
-// 1. 在 main.dart 中导入此文件
-// 2. 在应用启动后调用 verifyNewArchitecture()
+// Usage:
+// 1. Import this file in main.dart
+// 2. Call verifyNewArchitecture() after app startup
 //
-// 或者：
-// 在调试控制台中复制以下代码执行：
+// Or run it directly from a debug console.
 
 import 'package:flutter/foundation.dart';
 import 'package:local_vault/core/di/service_locator.dart';
@@ -14,62 +13,66 @@ import 'package:local_vault/core/domain/entities/template_entity.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 import 'package:local_vault/core/domain/usecases/template_usecases.dart';
 
-/// 验证新架构是否正常工作
+/// Verify that the new architecture is functioning correctly.
 Future<void> verifyNewArchitecture() async {
-  debugPrint('🚀 [新架构验证] 开始验证...');
+  debugPrint('🚀 [ArchitectureCheck] Starting verification...');
 
   try {
-    // 1. 验证 Summary Entity
-    debugPrint('📝 [1/6] 测试 SummaryEntity...');
+    // 1. Verify SummaryEntity.
+    debugPrint('📝 [1/6] Testing SummaryEntity...');
     final summary = SummaryEntity.create(
-      title: '新架构测试摘要',
-      content: '这是一条用于测试新架构的摘要内容',
-      tags: ['测试', '新架构'],
+      title: 'Architecture test summary',
+      content: 'This summary is used to verify the new architecture.',
+      tags: ['test', 'architecture'],
     );
-    debugPrint('✅ SummaryEntity 创建成功: ${summary.title}');
+    debugPrint('✅ SummaryEntity created: ${summary.title}');
 
-    // 2. 验证 Template Entity
-    debugPrint('📄 [2/6] 测试 TemplateEntity...');
+    // 2. Verify TemplateEntity.
+    debugPrint('📄 [2/6] Testing TemplateEntity...');
     final template = TemplateEntity.create(
-      title: '新架构测试模板',
-      content: '这是一条用于测试新架构的模板内容',
-      tags: ['测试', '新架构'],
+      title: 'Architecture test template',
+      content: 'This template is used to verify the new architecture.',
+      tags: ['test', 'architecture'],
     );
-    debugPrint('✅ TemplateEntity 创建成功: ${template.title}');
+    debugPrint('✅ TemplateEntity created: ${template.title}');
 
-    // 3. 验证 Summary UseCase
-    debugPrint('🔧 [3/6] 测试 SummaryUseCases...');
+    // 3. Verify SummaryUseCases.
+    debugPrint('🔧 [3/6] Testing SummaryUseCases...');
     final summaryUseCases = sl<SummaryUseCases>();
     await summaryUseCases.addSummary(summary);
-    debugPrint('✅ SummaryUseCases 保存成功');
+    debugPrint('✅ SummaryUseCases save succeeded');
 
     final allSummaries = summaryUseCases.getAllSummaries();
-    debugPrint('✅ SummaryUseCases 查询成功，共 ${allSummaries.length} 条');
+    debugPrint(
+      '✅ SummaryUseCases query succeeded with ${allSummaries.length} item(s)',
+    );
 
-    // 4. 验证 Template UseCase
-    debugPrint('🔧 [4/6] 测试 TemplateUseCases...');
+    // 4. Verify TemplateUseCases.
+    debugPrint('🔧 [4/6] Testing TemplateUseCases...');
     final templateUseCases = sl<TemplateUseCases>();
     await templateUseCases.addTemplate(template);
-    debugPrint('✅ TemplateUseCases 保存成功');
+    debugPrint('✅ TemplateUseCases save succeeded');
 
     final allTemplates = templateUseCases.getAllTemplates();
-    debugPrint('✅ TemplateUseCases 查询成功，共 ${allTemplates.length} 条');
+    debugPrint(
+      '✅ TemplateUseCases query succeeded with ${allTemplates.length} item(s)',
+    );
 
-    // 5. 验证搜索功能
-    debugPrint('🔍 [5/6] 测试搜索功能...');
-    final searchResults = summaryUseCases.searchSummaries('测试');
-    debugPrint('✅ 搜索成功，找到 ${searchResults.length} 条');
+    // 5. Verify search.
+    debugPrint('🔍 [5/6] Testing search...');
+    final searchResults = summaryUseCases.searchSummaries('test');
+    debugPrint('✅ Search succeeded with ${searchResults.length} result(s)');
 
-    // 6. 验证删除功能
-    debugPrint('🗑️ [6/6] 测试删除功能...');
+    // 6. Verify delete.
+    debugPrint('🗑️ [6/6] Testing delete...');
     await summaryUseCases.deleteSummary(summary.id);
     await templateUseCases.deleteTemplate(template.id);
-    debugPrint('✅ 删除成功');
+    debugPrint('✅ Delete succeeded');
 
-    debugPrint('\n🎉 [新架构验证] 全部测试通过！✅');
-    debugPrint('📚 新架构已就绪，可以开始使用！');
+    debugPrint('\n🎉 [ArchitectureCheck] All checks passed');
+    debugPrint('📚 The new architecture is ready to use');
   } catch (e, stack) {
-    debugPrint('❌ [新架构验证] 测试失败: $e');
-    debugPrint('📦 堆栈: $stack');
+    debugPrint('❌ [ArchitectureCheck] Verification failed: $e');
+    debugPrint('📦 Stack trace: $stack');
   }
 }

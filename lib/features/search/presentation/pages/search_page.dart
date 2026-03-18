@@ -6,6 +6,7 @@ import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 import 'package:local_vault/features/summary/presentation/widgets/empty_state.dart';
 import 'package:local_vault/features/summary/presentation/widgets/summary_card.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -52,14 +53,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         title: TextField(
           controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: '搜索标题、内容或标签...',
+          decoration: InputDecoration(
+            hintText: loc.searchHint,
             border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
           onChanged: _handleSearch,
         ),
@@ -67,7 +70,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       body: _isSearching && _results.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : _results.isEmpty
-              ? const EmptyState(message: '暂无搜索结果')
+              ? EmptyState(message: loc.noSearchResults)
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _results.length,

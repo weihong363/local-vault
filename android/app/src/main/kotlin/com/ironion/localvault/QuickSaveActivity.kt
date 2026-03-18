@@ -34,8 +34,8 @@ class QuickSaveActivity : Activity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        Log.d(TAG, "=== QuickSaveActivity 创建 ===")
+
+        Log.d(TAG, "=== QuickSaveActivity created ===")
         
         // 检查 Intent 来源
         val action = intent?.action
@@ -44,9 +44,9 @@ class QuickSaveActivity : Activity() {
         if (action == "QUICK_SAVE_FROM_TILE" || action == "QUICK_SAVE_FROM_NOTIFICATION") {
             // 来自磁贴或通知的触发
             pendingClipboardRead = true
-            Log.d(TAG, "设置为待读取剪贴板模式")
+            Log.d(TAG, "Set to pending clipboard read mode")
         } else {
-            Log.w(TAG, "未知触发来源，关闭 Activity")
+            Log.w(TAG, "Unknown trigger source, closing activity")
             finish()
         }
     }
@@ -54,8 +54,8 @@ class QuickSaveActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        
-        Log.d(TAG, "=== QuickSaveActivity 热启动 ===")
+
+        Log.d(TAG, "=== QuickSaveActivity warm start ===")
         
         val action = intent.action
         if (action == "QUICK_SAVE_FROM_TILE" || action == "QUICK_SAVE_FROM_NOTIFICATION") {
@@ -77,15 +77,15 @@ class QuickSaveActivity : Activity() {
         // ⚡ 仅在获得焦点且需要读取剪贴板时执行一次
         if (hasFocus && pendingClipboardRead) {
             pendingClipboardRead = false  // 清除标记，防止重复执行
-            
-            Log.d(TAG, "✅ 窗口获得焦点，开始读取剪贴板并保存...")
+
+            Log.d(TAG, "✅ Window gained focus, reading the clipboard and saving...")
             
           try {
                 // 读取剪贴板
                 val clipboardText = readClipboard()
                 
                 if (clipboardText != null && clipboardText.isNotEmpty()) {
-                    Log.d(TAG, "✅ 剪贴板读取成功，长度：${clipboardText.length}")
+                    Log.d(TAG, "✅ Clipboard read succeeded, length: ${clipboardText.length}")
                     
                     // 通过 MethodChannel 调用 Flutter 端保存（如果 Flutter 已启动）
                     // 或者显示通知让用户手动保存
@@ -94,16 +94,16 @@ class QuickSaveActivity : Activity() {
                     // 显示成功提示
                     showSuccessToast()
                 } else {
-                    Log.w(TAG, "⚠️ 剪贴板为空")
+                    Log.w(TAG, "⚠️ Clipboard is empty")
                     showEmptyClipboardToast()
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "❌ 读取或保存失败", e)
+              Log.e(TAG, "❌ Failed to read or save", e)
                 showErrorToast(e.message)
             } finally {
                 // 完成后关闭 Activity
-                Log.d(TAG, "完成任务，关闭 Activity")
+              Log.d(TAG, "Task finished, closing activity")
                 finish()
             }
         }
@@ -113,13 +113,13 @@ class QuickSaveActivity : Activity() {
      * 读取剪贴板内容
      */
   private fun readClipboard(): String? {
-        Log.d(TAG, "📋 开始读取剪贴板...")
+        Log.d(TAG, "📋 Reading clipboard...")
         
       try {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             
             if (!clipboard.hasPrimaryClip()) {
-                Log.w(TAG, "剪贴板没有内容")
+                Log.w(TAG, "Clipboard has no content")
                 return null
             }
             
@@ -129,17 +129,17 @@ class QuickSaveActivity : Activity() {
                 val text = item.text?.toString()
                 
                 if (text != null) {
-                    Log.d(TAG, "📋 读取成功，长度=${text.length}")
-                    Log.d(TAG, "📋 内容预览：${text.take(100)}${if (text.length > 100) "..." else ""}")
+                    Log.d(TAG, "📋 Read succeeded, length=${text.length}")
+                    Log.d(TAG, "📋 Content preview: ${text.take(100)}${if (text.length > 100) "..." else ""}")
                     return text
                 }
             }
-            
-            Log.w(TAG, "剪贴板内容为空")
+
+          Log.w(TAG, "Clipboard content is empty")
             return null
             
         } catch (e: Exception) {
-            Log.e(TAG, "读取剪贴板失败", e)
+          Log.e(TAG, "Failed to read clipboard", e)
             throw e
         }
     }
@@ -149,38 +149,38 @@ class QuickSaveActivity : Activity() {
      * 方案：通过 MethodChannel 调用 Flutter 端，如果 Flutter 未启动则显示通知
      */
  private fun saveToDatabase(content: String) {
-  Log.d(TAG, "💾 开始保存到数据库...")
+        Log.d(TAG, "💾 Saving to the database...")
   
  try {
     // 使用 MainActivity 中保存的静态 FlutterEngine 引用
    MainActivity.flutterEngine?.let { engine ->
-     Log.d(TAG, "✅ Flutter 引擎已就绪，通过 MethodChannel 调用保存")
+       Log.d(TAG, "✅ Flutter engine is ready, saving via MethodChannel")
      
     val channel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
     
     // 调用 Flutter 端的保存方法
    channel.invokeMethod("saveFromClipboard", content, object : MethodChannel.Result {
   override fun success(result: Any?) {
-  Log.d(TAG, "✅ Flutter 端保存成功")
+      Log.d(TAG, "✅ Flutter-side save succeeded")
   }
   
   override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-  Log.e(TAG, "❌ Flutter 端保存失败：$errorCode - $errorMessage")
+      Log.e(TAG, "❌ Flutter-side save failed: $errorCode - $errorMessage")
   }
   
   override fun notImplemented() {
-  Log.w(TAG, "⚠️ Flutter 端未实现 saveFromClipboard 方法，应用可能还未完全启动")
+      Log.w(TAG, "⚠️ Flutter-side saveFromClipboard is not implemented; the app may not be fully started yet")
   // 显示降级通知，引导用户手动打开应用
   showFallbackNotification(content)
   }
 })
  } ?: run {
-   Log.w(TAG, "⚠️ Flutter 引擎未启动，无法直接保存")
+       Log.w(TAG, "⚠️ Flutter engine is not running, cannot save directly")
   // Flutter 未启动时，可以显示通知引导用户
  }
  
  } catch (e: Exception) {
-  Log.e(TAG, "保存到数据库失败", e)
+     Log.e(TAG, "Failed to save to the database", e)
   throw e
  }
 }
@@ -195,9 +195,9 @@ class QuickSaveActivity : Activity() {
                 "✅ 保存成功 - 已自动保存到 Local Vault",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
-            Log.d(TAG, "已显示成功 Toast")
+            Log.d(TAG, "Displayed success toast")
         } catch (e: Exception) {
-            Log.e(TAG, "显示成功 Toast 失败", e)
+            Log.e(TAG, "Failed to display success toast", e)
         }
     }
     
@@ -211,9 +211,9 @@ class QuickSaveActivity : Activity() {
                 "⚠️ 剪贴板为空，请先复制要保存的内容",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
-            Log.d(TAG, "已显示空剪贴板 Toast")
+            Log.d(TAG, "Displayed empty clipboard toast")
         } catch (e: Exception) {
-            Log.e(TAG, "显示空剪贴板 Toast 失败", e)
+            Log.e(TAG, "Failed to display empty clipboard toast", e)
         }
     }
     
@@ -227,9 +227,9 @@ class QuickSaveActivity : Activity() {
                 "❌ 保存失败：${errorMsg ?: "未知错误"}",
                 android.widget.Toast.LENGTH_SHORT
             ).show()
-            Log.d(TAG, "已显示错误 Toast")
+            Log.d(TAG, "Displayed error toast")
         } catch (e: Exception) {
-            Log.e(TAG, "显示错误 Toast 失败", e)
+            Log.e(TAG, "Failed to display error toast", e)
         }
     }
   
@@ -278,10 +278,10 @@ class QuickSaveActivity : Activity() {
        .build()
     
    notificationManager.notify(2004, notification)
-  Log.d(TAG, "已显示降级通知，临时文件：${tempFile.absolutePath}")
+      Log.d(TAG, "Displayed fallback notification, temp file: ${tempFile.absolutePath}")
    
   } catch (e: Exception) {
-  Log.e(TAG, "显示降级通知失败", e)
+      Log.e(TAG, "Failed to display fallback notification", e)
   }
  }
 }

@@ -83,6 +83,37 @@ class SummaryUseCases {
     await _upgradeFactToCoreIfNeeded(id);
   }
 
+  /// 获取事实记忆升级为核心记忆的说明
+  Future<String?> getFactUpgradeReason(String id) async {
+    final summary = getSummary(id);
+    if (summary == null || summary.type != MemoryType.fact) {
+      return null;
+    }
+
+    final response = await slmService.generateUpgradeReason(summary);
+    final reason = response.data.trim();
+    return reason.isEmpty ? null : reason;
+  }
+
+  /// 手动将事实记忆升级为核心记忆
+  Future<SummaryEntity?> upgradeFactToCore(String id) async {
+    final summary = getSummary(id);
+    if (summary == null || summary.type != MemoryType.fact) {
+      return null;
+    }
+
+    final updated = summary.copyWith(
+      type: MemoryType.core,
+      importance: max(
+        summary.importance,
+        policyConfig.coreUpgrade.importanceThreshold,
+      ),
+      updatedAt: DateTime.now(),
+    );
+    await repository.updateSummary(updated);
+    return updated;
+  }
+
   /// 根据记忆类型获取
   List<SummaryEntity> getSummariesByType(MemoryType type) {
     return repository.getSummariesByType(type);
@@ -99,7 +130,8 @@ class SummaryUseCases {
 
     final duplicate = _findExactDuplicate(existingSummaries, summary);
     if (duplicate != null) {
-      debugPrint('🔄 [去重] 检测到完全重复：${summary.title}');
+      debugPrint(
+          '🔄 [Deduplication] Exact duplicate detected: ${summary.title}');
       await updateSummary(
         duplicate.copyWith(
           lastAccessedAt: DateTime.now(),
@@ -122,8 +154,8 @@ class SummaryUseCases {
       bestSimilarity = max(bestSimilarity, similarity);
       if (similarity >= effectiveSimilarityThreshold) {
         debugPrint(
-          '🔗 [去重] 高相似度合并：${summary.title} -> ${existing.title} '
-          '(相似度：${(similarity * 100).toStringAsFixed(1)}%)',
+          '🔗 [Deduplication] High-similarity merge: ${summary.title} -> ${existing.title} '
+          '(similarity: ${(similarity * 100).toStringAsFixed(1)}%)',
         );
         final merged = _mergeMemories(existing, summary);
         await updateSummary(merged);
@@ -132,8 +164,8 @@ class SummaryUseCases {
     }
 
     debugPrint(
-      '✅ [去重] 新增唯一内容：${summary.title} '
-      '(最高相似度：${(bestSimilarity * 100).toStringAsFixed(1)}%)',
+      '✅ [Deduplication] Added unique content: ${summary.title} '
+      '(highest similarity: ${(bestSimilarity * 100).toStringAsFixed(1)}%)',
     );
     await addSummary(summary);
   }
@@ -524,23 +556,58 @@ class SummaryUseCases {
       for (final batch in batches) {
         final anchor = batch.sessions.first;
         final ruleScore = _calculateRuleScore(anchor, session);
-        if (ruleScore < batchPolicy.minimumRuleScoreForSemanticCheck) {
+        final normalizedBatchTopic = _normalizeTitle(batch.topic);
+        final normalizedSessionTopic = _normalizeTitle(session.topic ?? '');
+        final topicMatches = _hasStableTopicAlignment(
+          normalizedBatchTopic,
+          normalizedSessionTopic,
+        );
+        final hasSharedContext = _hasSharedBatchingContext(anchor, session);
+        final canBypassRuleGate = topicMatches && hasSharedContext;
+        if (ruleScore < batchPolicy.minimumRuleScoreForSemanticCheck &&
+            !canBypassRuleGate) {
+          debugPrint(
+            '🧩 [SessionBatch] Skipping batch match: ${session.id} -> ${anchor.id}, '
+            'ruleScore=${ruleScore.toStringAsFixed(2)} is below the threshold '
+            '${batchPolicy.minimumRuleScoreForSemanticCheck.toStringAsFixed(2)} '
+            'batchTopic="$normalizedBatchTopic" '
+            'sessionTopic="$normalizedSessionTopic"',
+          );
           continue;
         }
 
-        final semanticResponse = await slmService.isSameTopic(anchor, session);
+        final semanticResponse = canBypassRuleGate
+            ? const MemorySlmResponse<bool>(
+                success: true,
+                data: true,
+                fallbackUsed: MemorySlmFallbackMode.rules,
+                latencyMs: 0,
+              )
+            : await slmService.isSameTopic(anchor, session);
         final semanticScore = semanticResponse.data ? 1.0 : 0.0;
-        final normalizedBatchTopic = _normalizeTitle(batch.topic);
-        final normalizedSessionTopic = _normalizeTitle(session.topic ?? '');
-        final topicMatches = normalizedBatchTopic.isNotEmpty &&
-            normalizedBatchTopic == normalizedSessionTopic;
-        final combinedScore = topicMatches
+        final canUseTopicShortcut = canBypassRuleGate ||
+            (topicMatches &&
+                ruleScore >= max(0.6, batchPolicy.topicMatchScoreFloor - 0.25));
+        final combinedScore = canUseTopicShortcut
             ? max(batchPolicy.topicMatchScoreFloor, ruleScore)
             : (ruleScore * batchPolicy.ruleWeight) +
                 (semanticScore * batchPolicy.semanticWeight);
 
+        debugPrint(
+          '🧩 [SessionBatch] Comparing ${session.id} -> ${anchor.id} '
+          'topicMatch=$topicMatches shortcut=$canUseTopicShortcut '
+          'semantic=${semanticResponse.data} fallback=${semanticResponse.fallbackUsed.name} '
+          'ruleScore=${ruleScore.toStringAsFixed(2)} '
+          'combined=${combinedScore.toStringAsFixed(2)} '
+          'batchTopic="$normalizedBatchTopic" sessionTopic="$normalizedSessionTopic"',
+        );
+
         if (combinedScore >= batchPolicy.combinedScoreThreshold) {
           batch.sessions.add(session);
+          debugPrint(
+            '✅ [SessionBatch] ${session.id} joined batch ${anchor.id}, '
+            'combined=${combinedScore.toStringAsFixed(2)}',
+          );
           assigned = true;
           break;
         }
@@ -559,20 +626,86 @@ class SummaryUseCases {
     return batches;
   }
 
-  Future<SummaryEntity> _ensureTopic(SummaryEntity session) async {
-    final existingTopic = session.topic?.trim();
-    if (existingTopic != null && existingTopic.isNotEmpty) {
-      return session;
+  bool _isStableComparableTopic(String topic) {
+    return topic.isNotEmpty &&
+        topic != _normalizeTitle('临时主题') &&
+        topic != _normalizeTitle('general topic') &&
+        topic != _normalizeTitle('待整理摘要') &&
+        topic != _normalizeTitle('未命名摘要');
+  }
+
+  bool _hasStableTopicAlignment(String left, String right) {
+    if (!_isStableComparableTopic(left) || !_isStableComparableTopic(right)) {
+      return false;
+    }
+    if (left == right) {
+      return true;
     }
 
+    final shorter = left.length <= right.length ? left : right;
+    final longer = shorter == left ? right : left;
+    return shorter.length >= 3 && longer.contains(shorter);
+  }
+
+  bool _hasSharedBatchingContext(SummaryEntity a, SummaryEntity b) {
+    if (_sourceFamily(a.source) == _sourceFamily(b.source)) {
+      return true;
+    }
+
+    if (a.tags.toSet().intersection(b.tags.toSet()).isNotEmpty) {
+      return true;
+    }
+
+    return a.createdAt.difference(b.createdAt).abs() <=
+        policyConfig.timeThresholds.mediumTerm;
+  }
+
+  Future<SummaryEntity> _ensureTopic(SummaryEntity session) async {
+    final existingTopic = session.topic?.trim() ?? '';
     final topicResponse = await slmService.extractTopic(
       session.title,
       session.content,
     );
-    final topic = topicResponse.data.trim();
-    final updated = session.copyWith(topic: topic);
+    final refreshedTopic = topicResponse.data.trim();
+
+    if (!_shouldRefreshSessionTopic(existingTopic, refreshedTopic)) {
+      return session;
+    }
+
+    final updated = session.copyWith(topic: refreshedTopic);
     await repository.updateSummary(updated);
     return updated;
+  }
+
+  bool _shouldRefreshSessionTopic(String existingTopic, String refreshedTopic) {
+    final trimmedExisting = existingTopic.trim();
+    final trimmedRefreshed = refreshedTopic.trim();
+    if (trimmedRefreshed.isEmpty) {
+      return false;
+    }
+    if (trimmedExisting.isEmpty) {
+      return true;
+    }
+
+    final normalizedExisting = _normalizeTitle(trimmedExisting);
+    final normalizedRefreshed = _normalizeTitle(trimmedRefreshed);
+    if (normalizedExisting == normalizedRefreshed) {
+      return false;
+    }
+
+    if (_isCanonicalSessionTopic(normalizedRefreshed)) {
+      return true;
+    }
+
+    return !_isStableComparableTopic(normalizedExisting) &&
+        _isStableComparableTopic(normalizedRefreshed);
+  }
+
+  bool _isCanonicalSessionTopic(String topic) {
+    return switch (topic) {
+      'rag' || 'llm' || 'slm' || 'ocr' => true,
+      _ => false,
+    };
   }
 
   Future<void> _syncSessionProtection(

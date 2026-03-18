@@ -99,7 +99,8 @@ class MemoryThemeConfig {
       final bundledRaw = await rootBundle.loadString(bundledConfigAssetPath);
       merged = _asMap(jsonDecode(bundledRaw));
     } catch (error, stackTrace) {
-      debugPrint('⚠️ [MemoryThemeConfig] 读取内置配置失败，回退到默认配置: $error');
+      debugPrint(
+          '⚠️ [MemoryThemeConfig] Failed to read bundled config, falling back to defaults: $error');
       debugPrintStack(stackTrace: stackTrace);
       return defaults;
     }
@@ -114,7 +115,7 @@ class MemoryThemeConfig {
       }
     } catch (error, stackTrace) {
       debugPrint(
-        '⚠️ [MemoryThemeConfig] 读取覆盖配置失败，将继续使用内置配置: $error',
+        '⚠️ [MemoryThemeConfig] Failed to read override config, continuing with bundled config: $error',
       );
       debugPrintStack(stackTrace: stackTrace);
     }

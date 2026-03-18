@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/domain/entities/template_entity.dart';
 
-/// 通用模板卡片组件
-/// 用于模板选择界面和模板管理界面
+/// Shared template card used by both template selection and management flows.
 class CommonTemplateCard extends StatelessWidget {
   final TemplateEntity template;
   final VoidCallback onTap;

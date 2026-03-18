@@ -4,7 +4,7 @@ import 'package:local_vault/core/constants/app_storage.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 
-/// SummaryRepository 的 Hive 实现
+/// Hive-backed implementation of SummaryRepositoryInterface.
 class HiveSummaryRepository implements SummaryRepositoryInterface {
   static final String _boxName = AppStorage.summaryBoxName;
   Box? _box;
@@ -12,18 +12,19 @@ class HiveSummaryRepository implements SummaryRepositoryInterface {
   @override
   Future<void> init() async {
     try {
-      debugPrint('🔄 [HiveSummaryRepository] 正在打开 Hive box: $_boxName');
+      debugPrint('🔄 [HiveSummaryRepository] Opening Hive box: $_boxName');
       if (_box == null) {
         _box = await Hive.openBox(_boxName);
         debugPrint(
-            '✅ [HiveSummaryRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
+          '✅ [HiveSummaryRepository] Hive box opened successfully with ${_box!.length} record(s)',
+        );
       }
     } catch (e) {
-      debugPrint('❌ [HiveSummaryRepository] 打开 Hive box 失败: $e');
-      debugPrint('⚠️  [HiveSummaryRepository] 尝试删除并重建 box...');
+      debugPrint('❌ [HiveSummaryRepository] Failed to open Hive box: $e');
+      debugPrint('⚠️ [HiveSummaryRepository] Recreating the box from disk...');
       await Hive.deleteBoxFromDisk(_boxName);
       _box = await Hive.openBox(_boxName);
-      debugPrint('✅ [HiveSummaryRepository] Hive box 重建成功');
+      debugPrint('✅ [HiveSummaryRepository] Hive box recreated successfully');
     }
   }
 
@@ -32,7 +33,7 @@ class HiveSummaryRepository implements SummaryRepositoryInterface {
     return _box!;
   }
 
-  /// 安全地将动态Map转换为Map<String, dynamic>
+  /// Safely convert a dynamic map into Map<String, dynamic>.
   Map<String, dynamic> _safeCastMap(dynamic map) {
     if (map is Map<String, dynamic>) {
       return map;
@@ -40,7 +41,7 @@ class HiveSummaryRepository implements SummaryRepositoryInterface {
     if (map is Map) {
       return Map<String, dynamic>.from(map);
     }
-    throw ArgumentError('无法转换为Map<String, dynamic>: $map');
+    throw ArgumentError('Cannot convert to Map<String, dynamic>: $map');
   }
 
   @override
@@ -73,7 +74,7 @@ class HiveSummaryRepository implements SummaryRepositoryInterface {
       if (a.sortOrder != b.sortOrder) {
         return a.sortOrder.compareTo(b.sortOrder);
       }
-      // 按综合评分降序排序
+      // Sort by combined score in descending order.
       return b.combinedScore.compareTo(a.combinedScore);
     });
     return summaries;
@@ -90,7 +91,7 @@ class HiveSummaryRepository implements SummaryRepositoryInterface {
           summary.tags.any((tag) => tag.toLowerCase().contains(lowerQuery));
     }).toList();
     summaries.sort((a, b) {
-      // 搜索时优先使用综合评分
+      // During search, prioritize the combined relevance score.
       final scoreA = _calculateSearchRelevance(a, lowerQuery);
       final scoreB = _calculateSearchRelevance(b, lowerQuery);
       return scoreB.compareTo(scoreA);
@@ -98,28 +99,28 @@ class HiveSummaryRepository implements SummaryRepositoryInterface {
     return summaries;
   }
 
-  /// 计算搜索相关性
+  /// Calculate search relevance.
   double _calculateSearchRelevance(SummaryEntity summary, String query) {
     double score = 0.0;
 
-    // 标题匹配权重最高
+    // Title matches carry the highest weight.
     if (summary.title.toLowerCase().contains(query)) {
       score += 10.0;
     }
 
-    // 标签匹配
+    // Tag matches.
     for (final tag in summary.tags) {
       if (tag.toLowerCase().contains(query)) {
         score += 5.0;
       }
     }
 
-    // 内容匹配
+    // Content matches.
     if (summary.content.toLowerCase().contains(query)) {
       score += 2.0;
     }
 
-    // 乘以综合评分
+    // Scale by the combined score.
     return score * summary.combinedScore;
   }
 

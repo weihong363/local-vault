@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/features/quick_action/models/quick_action_type.dart';
 import 'package:local_vault/features/quick_action/presentation/pages/quick_action_page.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 /// QuickActionActivity 专用页面 - 用于模板和摘要选择
 class QuickActionActivityPage extends ConsumerStatefulWidget {
@@ -47,7 +48,7 @@ class _QuickActionActivityPageState
         });
       }
     } catch (e) {
-      debugPrint('获取 action type 失败: $e');
+      debugPrint('Failed to get action type: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -58,6 +59,7 @@ class _QuickActionActivityPageState
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     if (_isLoading) {
       return Scaffold(
         backgroundColor: Colors.transparent,
@@ -88,11 +90,11 @@ class _QuickActionActivityPageState
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('无效的操作类型'),
+                Text(loc.invalidActionType),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => _finishActivity(),
-                  child: const Text('关闭'),
+                  child: Text(loc.closeLabel),
                 ),
               ],
             ),
@@ -111,7 +113,7 @@ class _QuickActionActivityPageState
     try {
       await _channel.invokeMethod('finishActivity');
     } catch (e) {
-      debugPrint('关闭 Activity 失败: $e');
+      debugPrint('Failed to close activity: $e');
       if (mounted) {
         context.pop();
       }

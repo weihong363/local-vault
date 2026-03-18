@@ -6,6 +6,7 @@ import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 import 'package:share_plus/share_plus.dart';
 
 class SummaryDetailPage extends ConsumerStatefulWidget {
@@ -28,13 +29,16 @@ class _SummaryDetailPageState extends ConsumerState<SummaryDetailPage> {
   }
 
   Future<void> _recordAccess() async {
-    await ref.read(summaryEntityNotifierProvider.notifier).recordAccess(widget.summary.id);
+    await ref
+        .read(summaryEntityNotifierProvider.notifier)
+        .recordAccess(widget.summary.id);
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -80,7 +84,7 @@ class _SummaryDetailPageState extends ConsumerState<SummaryDetailPage> {
               const SizedBox(height: 24),
               if (widget.summary.tags.isNotEmpty) ...[
                 Text(
-                  '标签:',
+                  loc.tags,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: isDark ? AppColors.darkTextPrimary : null,
@@ -138,16 +142,17 @@ class _SummaryDetailPageState extends ConsumerState<SummaryDetailPage> {
               _isExpanded = true;
             });
           },
-          child: const Text('展开全部'),
+          child: const Text('Show full content'),
         ),
       ],
     );
   }
 
   void _copyToClipboard(BuildContext context, String text) {
+    final loc = AppLocalizations.of(context)!;
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板')),
+      SnackBar(content: Text(loc.copiedToClipboard)),
     );
     ref
         .read(summaryEntityNotifierProvider.notifier)

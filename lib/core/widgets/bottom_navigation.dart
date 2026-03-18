@@ -5,6 +5,7 @@ import 'package:local_vault/features/home/presentation/pages/home_page.dart';
 import 'package:local_vault/features/memory/presentation/pages/memory_management_page.dart';
 import 'package:local_vault/features/settings/presentation/pages/settings_page.dart';
 import 'package:local_vault/features/template/presentation/pages/template_page.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class BottomNavigation extends StatelessWidget {
   const BottomNavigation({
@@ -37,27 +38,28 @@ class BottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       body: _pages[currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) => _onItemTapped(context, index),
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '首页',
+            icon: const Icon(Icons.home),
+            label: loc.navHome,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: '模板',
+            icon: const Icon(Icons.dashboard),
+            label: loc.navTemplates,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.psychology_alt_outlined),
-            label: '记忆',
+            icon: const Icon(Icons.psychology_alt_outlined),
+            label: loc.navMemory,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: '设置',
+            icon: const Icon(Icons.settings),
+            label: loc.navSettings,
           ),
         ],
       ),

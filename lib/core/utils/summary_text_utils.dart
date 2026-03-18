@@ -108,6 +108,20 @@ class SummaryTextUtils {
     'updates',
   };
 
+  static const Set<String> _highSignalEnglishShortTokens = {
+    'rag',
+    'llm',
+    'slm',
+    'ocr',
+    'api',
+    'sdk',
+    'nlp',
+    'ml',
+    'ai',
+    'ui',
+    'ux',
+  };
+
   static String generateTitle(String content) {
     final cleaned = _normalizePlainText(content);
     if (cleaned.isEmpty) {
@@ -496,7 +510,11 @@ class SummaryTextUtils {
       final words = segment
           .split(RegExp(r'[^A-Za-z]+'))
           .map((word) => word.trim().toLowerCase())
-          .where((word) => word.length >= 4)
+          .where(
+            (word) =>
+                word.length >= 4 ||
+                _highSignalEnglishShortTokens.contains(word),
+          )
           .where((word) => !_genericEnglishTokens.contains(word))
           .toList();
 
@@ -555,7 +573,9 @@ class SummaryTextUtils {
         return false;
       }
     } else if (_containsEnglish(tag)) {
-      if (tag.length < 4 || tag.length > 24) {
+      final lower = tag.toLowerCase();
+      final isShortHighSignal = _highSignalEnglishShortTokens.contains(lower);
+      if ((!isShortHighSignal && tag.length < 4) || tag.length > 24) {
         return false;
       }
     } else {

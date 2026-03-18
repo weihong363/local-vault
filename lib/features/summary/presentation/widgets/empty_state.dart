@@ -4,7 +4,7 @@ import 'package:local_vault/core/constants/app_theme.dart';
 class EmptyState extends StatelessWidget {
   final String message;
 
-  const EmptyState({super.key, this.message = '暂无数据'});
+  const EmptyState({super.key, this.message = 'No data'});
 
   @override
   Widget build(BuildContext context) {

@@ -7,6 +7,7 @@ import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 import 'package:local_vault/core/domain/usecases/template_usecases.dart';
 import 'package:local_vault/core/services/app_settings_service.dart';
 import 'package:local_vault/core/services/gesture_diagnostics_service.dart';
+import 'package:local_vault/core/services/memory_slm_diagnostics_service.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/services/storage_management_service.dart';
 import 'package:local_vault/core/services/summary_metadata_service.dart';
@@ -19,7 +20,7 @@ final GetIt sl = GetIt.instance;
 
 /// 初始化依赖注入
 Future<void> initializeDependencies() async {
-  debugPrint('🚀 [DI] 开始初始化依赖注入');
+  debugPrint('🚀 [DI] Starting dependency injection initialization');
   final memoryPolicyConfig = await MemoryPolicyConfig.load();
   final memoryThemeConfig = await MemoryThemeConfig.load();
 
@@ -45,7 +46,14 @@ Future<void> initializeDependencies() async {
     ),
   );
   sl.registerLazySingleton<MemorySLMService>(
-    () => MemorySLMService(),
+    () => MemorySLMService(
+      settingsService: sl<AppSettingsService>(),
+    ),
+  );
+  sl.registerLazySingleton<MemorySlmDiagnosticsService>(
+    () => MemorySlmDiagnosticsService(
+      slmService: sl<MemorySLMService>(),
+    ),
   );
   sl.registerLazySingleton<StorageManagementService>(
     () => StorageManagementService(
@@ -56,7 +64,6 @@ Future<void> initializeDependencies() async {
   );
   sl.registerLazySingleton<SummaryMetadataService>(
     () => SummaryMetadataService(
-      slmService: sl<MemorySLMService>(),
       settingsService: sl<AppSettingsService>(),
     ),
   );
@@ -77,5 +84,5 @@ Future<void> initializeDependencies() async {
   await sl<SummaryRepositoryInterface>().init();
   await sl<TemplateRepositoryInterface>().init();
 
-  debugPrint('✅ [DI] 依赖注入初始化完成');
+  debugPrint('✅ [DI] Dependency injection initialized');
 }

@@ -16,6 +16,6 @@ class AccessibilityService {
   }
 
   Future<void> injectText(String text) async {
-    debugPrint('注入文本: $text');
+    debugPrint('Injecting text: $text');
   }
 }

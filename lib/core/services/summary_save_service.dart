@@ -4,24 +4,24 @@ import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 import 'package:local_vault/core/services/summary_metadata_service.dart';
 
-/// 摘要保存触发方式枚举
+/// Save trigger categories for summary persistence.
 enum SaveTriggerType {
-  share, // 分享触发（系统分享菜单）
-  gesture, // 手势触发（背部敲击等）
-  quickAction, // 快捷操作（控制中心悬浮球）
-  voice, // 语音唤醒
-  manual, // 手动触发（应用内按钮）
+  share, // Triggered from the system share sheet.
+  gesture, // Triggered by a gesture such as back taps.
+  quickAction, // Triggered by quick actions such as tiles or floating controls.
+  voice, // Triggered by voice wake-up.
+  manual, // Triggered manually inside the app.
 }
 
-/// 摘要保存上下文信息
+/// Context information that accompanies a save action.
 class SaveContext {
-  /// 触发方式
+  /// Trigger type.
   final SaveTriggerType triggerType;
 
-  /// 触发来源的详细信息
+  /// Detailed metadata about the save source.
   final Map<String, dynamic>? metadata;
 
-  /// 时间戳
+  /// Timestamp captured when the context is created.
   final DateTime timestamp;
 
   SaveContext({
@@ -29,7 +29,7 @@ class SaveContext {
     this.metadata,
   }) : timestamp = DateTime.now();
 
-  /// 创建分享触发的上下文
+  /// Create share-trigger context.
   factory SaveContext.share({Map<String, dynamic>? metadata}) {
     return SaveContext(
       triggerType: SaveTriggerType.share,
@@ -37,7 +37,7 @@ class SaveContext {
     );
   }
 
-  /// 创建手势触发的上下文
+  /// Create gesture-trigger context.
   factory SaveContext.gesture({int? tapCount, String? packageName}) {
     return SaveContext(
       triggerType: SaveTriggerType.gesture,
@@ -48,7 +48,7 @@ class SaveContext {
     );
   }
 
-  /// 创建快捷操作触发的上下文
+  /// Create quick-action context.
   factory SaveContext.quickAction({String? actionId}) {
     return SaveContext(
       triggerType: SaveTriggerType.quickAction,
@@ -58,7 +58,7 @@ class SaveContext {
     );
   }
 
-  /// 创建语音触发的上下文
+  /// Create voice-trigger context.
   factory SaveContext.voice({String? voiceCommand}) {
     return SaveContext(
       triggerType: SaveTriggerType.voice,
@@ -68,7 +68,7 @@ class SaveContext {
     );
   }
 
-  /// 创建手动触发的上下文
+  /// Create manual-trigger context.
   factory SaveContext.manual({String? source}) {
     return SaveContext(
       triggerType: SaveTriggerType.manual,
@@ -84,21 +84,21 @@ class SaveContext {
   }
 }
 
-/// 待保存的摘要数据
+/// Summary data prepared for saving.
 class SavePayload {
-  /// 标题
+  /// Title.
   final String title;
 
-  /// 内容
+  /// Content.
   final String content;
 
-  /// 标签列表
+  /// Tag list.
   final List<String> tags;
 
-  /// 备注（可选）
+  /// Optional remark.
   final String? remark;
 
-  /// 来源类型（用于区分不同的数据来源）
+  /// Source type used to distinguish different data origins.
   final String sourceType;
 
   const SavePayload({
@@ -109,7 +109,7 @@ class SavePayload {
     this.sourceType = 'manual',
   });
 
-  /// 从分享文本创建 Payload
+  /// Create a payload from shared text.
   factory SavePayload.fromShare(String text) {
     return SavePayload(
       title: '',
@@ -118,7 +118,7 @@ class SavePayload {
     );
   }
 
-  /// 从 OCR 识别结果创建 Payload
+  /// Create a payload from OCR output.
   factory SavePayload.fromOCR(String recognizedText) {
     return SavePayload(
       title: '',
@@ -127,13 +127,13 @@ class SavePayload {
     );
   }
 
-  /// 添加备注到内容中
+  /// Append the remark to the content if present.
   SavePayload withRemark(String? remark) {
     if (remark == null || remark.isEmpty) {
       return this;
     }
     return copyWith(
-      content: '$content\n\n---备注---\n$remark',
+      content: '$content\n\n---Remark---\n$remark',
       remark: remark,
     );
   }
@@ -161,86 +161,90 @@ class SavePayload {
   }
 }
 
-/// 保存回调函数类型
+/// Save callback signature.
 typedef SaveCallback = Future<bool> Function(
     SavePayload payload, SaveContext context);
 
-/// 摘要保存服务 - 统一管理不同触发方式的保存逻辑
+/// Save service that centralizes persistence logic for all trigger types.
 class SummarySaveService {
   static final SummarySaveService _instance = SummarySaveService._internal();
   static const Duration _rapidDuplicateWindow = Duration(seconds: 30);
   factory SummarySaveService() => _instance;
   SummarySaveService._internal();
 
-  /// 保存前的预处理函数列表
+  /// Pre-save hooks.
   final List<SaveCallback> _beforeSaveHooks = [];
 
-  /// 保存后的处理函数列表
+  /// Post-save hooks.
   final List<
           void Function(SavePayload payload, SaveContext context, bool success)>
       _afterSaveHooks = [];
   final Map<String, DateTime> _recentSaveFingerprints = <String, DateTime>{};
 
-  /// 注册保存前钩子
+  /// Register a before-save hook.
   void registerBeforeSave(SaveCallback callback) {
     _beforeSaveHooks.add(callback);
-    debugPrint('🔗 [SummarySaveService] 注册保存前钩子');
+    debugPrint('🔗 [SummarySaveService] Registered before-save hook');
   }
 
-  /// 注册保存后钩子
+  /// Register an after-save hook.
   void registerAfterSave(
       void Function(SavePayload payload, SaveContext context, bool success)
           callback) {
     _afterSaveHooks.add(callback);
-    debugPrint('🔗 [SummarySaveService] 注册保存后钩子');
+    debugPrint('🔗 [SummarySaveService] Registered after-save hook');
   }
 
-  /// 执行保存
+  /// Execute the save flow.
   ///
-  /// [payload] 要保存的数据
-  /// [context] 保存上下文
-  /// [showUI] 是否显示保存页面（默认 true，如果为 false 则静默保存）
+  /// [payload] Data to persist.
+  /// [context] Save context.
+  /// [showUI] Whether the caller should show the save page.
   ///
-  /// 返回 true 表示保存成功
+  /// Returns true when the save flow completes successfully.
   Future<bool> save({
     required SavePayload payload,
     required SaveContext context,
     bool showUI = true,
   }) async {
-    debugPrint('💾 [SummarySaveService] 开始保存摘要');
-    debugPrint('  触发方式：${context.triggerType}');
-    debugPrint('  数据来源：${payload.sourceType}');
-    debugPrint('  显示 UI: $showUI');
+    debugPrint('💾 [SummarySaveService] Starting summary save');
+    debugPrint('  Trigger type: ${context.triggerType}');
+    debugPrint('  Source type: ${payload.sourceType}');
+    debugPrint('  Show UI: $showUI');
 
     bool saveSuccess = false;
 
     try {
-      // 执行保存前钩子
+      // Run before-save hooks.
       for (final hook in _beforeSaveHooks) {
         final shouldContinue = await hook(payload, context);
         if (!shouldContinue) {
-          debugPrint('⚠️ [SummarySaveService] 保存被钩子中断');
+          debugPrint('⚠️ [SummarySaveService] Save was interrupted by a hook');
           return false;
         }
       }
 
       if (showUI) {
-        // 需要显示 UI，由上层调用者处理路由
-        debugPrint('📱 [SummarySaveService] 需要显示 UI，返回到调用者处理路由');
+        // Route handling stays with the caller when UI is required.
+        debugPrint(
+          '📱 [SummarySaveService] UI is required, returning control to the caller for routing',
+        );
         saveSuccess = true;
       } else {
-        // 静默保存 - 直接保存到数据库（使用新 DDD 架构）
-        debugPrint('🤫 [SummarySaveService] 执行静默保存（新 DDD 架构）');
+        // Silent save writes directly through the DDD use cases.
+        debugPrint('🤫 [SummarySaveService] Running silent save');
 
-        // 将 Payload 转换为 SummaryEntity
+        // Convert the payload into a SummaryEntity.
         final summary = await _payloadToSummaryEntity(payload, context);
         if (_isRapidDuplicate(summary)) {
-          debugPrint('♻️ [SummarySaveService] 检测到短时间重复保存，跳过落库');
+          debugPrint(
+            '♻️ [SummarySaveService] Detected a rapid duplicate save and skipped persistence',
+          );
           saveSuccess = true;
           return true;
         }
 
-        // 使用新架构的 UseCases 保存
+        // Persist through the use-case layer.
         final useCases = sl<SummaryUseCases>();
         if (summary.type == MemoryType.session) {
           await useCases.addSessionMemory(summary);
@@ -249,21 +253,22 @@ class SummarySaveService {
         }
         _rememberSaveFingerprint(summary);
 
-        debugPrint('✅ [SummarySaveService] 静默保存成功：${summary.id}');
+        debugPrint(
+            '✅ [SummarySaveService] Silent save succeeded: ${summary.id}');
         saveSuccess = true;
       }
 
-      debugPrint('✅ [SummarySaveService] 保存流程完成');
+      debugPrint('✅ [SummarySaveService] Save flow completed');
     } catch (e) {
-      debugPrint('❌ [SummarySaveService] 保存失败：$e');
+      debugPrint('❌ [SummarySaveService] Save failed: $e');
       saveSuccess = false;
     } finally {
-      // 执行保存后钩子（无论成功与否）
+      // Run post-save hooks regardless of outcome.
       for (final hook in _afterSaveHooks) {
         try {
           hook(payload, context, saveSuccess);
         } catch (e) {
-          debugPrint('⚠️ [SummarySaveService] 保存后钩子执行失败：$e');
+          debugPrint('⚠️ [SummarySaveService] Post-save hook failed: $e');
         }
       }
     }
@@ -271,15 +276,15 @@ class SummarySaveService {
     return saveSuccess;
   }
 
-  /// 清除所有钩子（用于测试或重置）
+  /// Clear all hooks, mainly for tests or resets.
   void clearHooks() {
     _beforeSaveHooks.clear();
     _afterSaveHooks.clear();
     _recentSaveFingerprints.clear();
-    debugPrint('🧹 [SummarySaveService] 已清除所有钩子');
+    debugPrint('🧹 [SummarySaveService] Cleared all hooks');
   }
 
-  /// 将 SavePayload 转换为 SummaryEntity
+  /// Convert a SavePayload into a SummaryEntity.
   Future<SummaryEntity> _payloadToSummaryEntity(
     SavePayload payload,
     SaveContext context,

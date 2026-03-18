@@ -77,7 +77,7 @@ void main() {
       expect(tester.calculateSimilarity('你好世界', '你好世界'), 1.0);
       expect(tester.calculateSimilarity('完全不同', '毫无关系'), lessThan(0.3));
 
-      print('✅ 相似度计算算法测试通过');
+      print('✅ Similarity algorithm test passed');
     });
 
     test('Verify test image exists', () async {
@@ -86,10 +86,10 @@ void main() {
       expect(await testImage.exists(), isTrue, reason: '测试图片必须存在');
 
       final fileSize = await testImage.length();
-      print('📊 测试图片大小：$fileSize 字节');
+      print('📊 Test image size: $fileSize bytes');
       expect(fileSize, greaterThan(0), reason: '测试图片不应为空');
 
-      print('✅ 测试图片验证通过');
+      print('✅ Test image validation passed');
     });
 
     test('Test DeepSeek share image scenario', () async {
@@ -106,7 +106,8 @@ void main() {
       print('=' * 80);
       print('');
       print('Testing OCR recognition for DeepSeek share image containing:');
-      print('"现在市面上已经出现了一些针对 OpenClaw 这类 AI 智能体的安全产品"');
+      print(
+          '"There are already security products on the market targeting AI agents like OpenClaw."');
       print('');
 
       // 运行测试

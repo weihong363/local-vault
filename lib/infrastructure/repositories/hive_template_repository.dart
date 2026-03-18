@@ -4,7 +4,7 @@ import 'package:local_vault/core/constants/app_storage.dart';
 import 'package:local_vault/core/domain/entities/template_entity.dart';
 import 'package:local_vault/core/domain/repositories/template_repository_interface.dart';
 
-/// TemplateRepository 的 Hive 实现
+/// Hive-backed implementation of TemplateRepositoryInterface.
 class HiveTemplateRepository implements TemplateRepositoryInterface {
   static final String _boxName = AppStorage.templateBoxName;
   Box? _box;
@@ -12,93 +12,103 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
   @override
   Future<void> init() async {
     try {
-      debugPrint('🔄 [HiveTemplateRepository] 正在打开 Hive box: $_boxName');
+      debugPrint('🔄 [HiveTemplateRepository] Opening Hive box: $_boxName');
       if (_box == null) {
         _box = await Hive.openBox(_boxName);
         debugPrint(
-            '✅ [HiveTemplateRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
+          '✅ [HiveTemplateRepository] Hive box opened successfully with ${_box!.length} record(s)',
+        );
 
-        // 首次初始化时添加默认模板
+        // Seed default templates on first initialization.
         if (_box!.isEmpty) {
           await _addDefaultTemplates();
         }
       }
     } catch (e) {
-      debugPrint('❌ [HiveTemplateRepository] 打开 Hive box 失败: $e');
-      debugPrint('⚠️  [HiveTemplateRepository] 尝试删除并重建 box...');
+      debugPrint('❌ [HiveTemplateRepository] Failed to open Hive box: $e');
+      debugPrint('⚠️ [HiveTemplateRepository] Recreating the box from disk...');
       await Hive.deleteBoxFromDisk(_boxName);
       _box = await Hive.openBox(_boxName);
       await _addDefaultTemplates();
-      debugPrint('✅ [HiveTemplateRepository] Hive box 重建成功');
+      debugPrint('✅ [HiveTemplateRepository] Hive box recreated successfully');
     }
   }
 
-  /// 添加默认模板
+  /// Add the built-in starter templates.
   Future<void> _addDefaultTemplates() async {
-    debugPrint('📝 [HiveTemplateRepository] 正在添加默认模板...');
+    debugPrint('📝 [HiveTemplateRepository] Adding default templates...');
 
     final defaultTemplates = [
       TemplateEntity(
         id: 'default_summary',
-        title: '快速摘要',
-        content: '请总结以下内容，突出关键点：\n\n{{content}}',
-        tags: ['摘要', '通用'],
+        title: 'Quick Summary',
+        content:
+            'Summarize the following content and highlight the key points:\n\n{{content}}',
+        tags: ['summary', 'general'],
         createdAt: DateTime.now(),
       ),
       TemplateEntity(
         id: 'default_question',
-        title: '问题解答',
-        content: '针对以下内容，请详细回答这个问题：\n问题：{{question}}\n\n内容：{{content}}',
-        tags: ['问题', '解答'],
+        title: 'Question Answering',
+        content:
+            'Answer this question in detail using the following content:\nQuestion: {{question}}\n\nContent: {{content}}',
+        tags: ['question', 'answer'],
         createdAt: DateTime.now(),
       ),
       TemplateEntity(
         id: 'default_analysis',
-        title: '深度分析',
-        content: '请对以下内容进行深度分析，从多个角度进行阐述：\n\n{{content}}',
-        tags: ['分析', '深度'],
+        title: 'Deep Analysis',
+        content:
+            'Provide a deep analysis of the following content from multiple angles:\n\n{{content}}',
+        tags: ['analysis', 'deep-dive'],
         createdAt: DateTime.now(),
       ),
       TemplateEntity(
         id: 'default_meeting',
-        title: '会议纪要',
-        content: '请将以下内容整理为清晰的会议纪要，包含时间、地点、参会人员、议题、决议等：\n\n{{content}}',
-        tags: ['会议', '纪要'],
+        title: 'Meeting Notes',
+        content:
+            'Turn the following content into clear meeting notes, including time, location, attendees, agenda, and decisions:\n\n{{content}}',
+        tags: ['meeting', 'notes'],
         createdAt: DateTime.now(),
       ),
       TemplateEntity(
         id: 'default_action_items',
-        title: '行动项提取',
-        content: '请从以下内容中提取可执行的行动项，按优先级排序，并给出负责人和截止时间建议：\n\n{{content}}',
-        tags: ['行动项', '任务'],
+        title: 'Action Items',
+        content:
+            'Extract actionable items from the following content, sort them by priority, and suggest owners and due dates:\n\n{{content}}',
+        tags: ['action-items', 'tasks'],
         createdAt: DateTime.now(),
       ),
       TemplateEntity(
         id: 'default_brief',
-        title: '要点提炼',
-        content: '请提炼以下内容的要点，使用条目化列表输出：\n\n{{content}}',
-        tags: ['要点', '提炼'],
+        title: 'Key Takeaways',
+        content:
+            'Extract the key takeaways from the following content and present them as a bullet list:\n\n{{content}}',
+        tags: ['takeaways', 'brief'],
         createdAt: DateTime.now(),
       ),
       TemplateEntity(
         id: 'default_code_review',
-        title: '代码审查',
-        content: '请审查以下代码，指出潜在问题、风险和改进建议：\n\n```dart\n{{content}}\n```',
-        tags: ['代码', '审查'],
+        title: 'Code Review',
+        content:
+            'Review the following code and point out potential problems, risks, and improvement suggestions:\n\n```dart\n{{content}}\n```',
+        tags: ['code', 'review'],
         createdAt: DateTime.now(),
       ),
       TemplateEntity(
         id: 'default_plan',
-        title: '任务拆解',
-        content: '请将以下目标拆解为可执行的步骤，并给出估时与依赖关系：\n\n{{content}}',
-        tags: ['规划', '拆解'],
+        title: 'Task Breakdown',
+        content:
+            'Break the following goal into actionable steps and include effort estimates and dependencies:\n\n{{content}}',
+        tags: ['planning', 'breakdown'],
         createdAt: DateTime.now(),
       ),
       TemplateEntity(
         id: 'default_translation',
-        title: '翻译润色',
-        content: '请将以下内容翻译为中文，并进行润色：\n\n{{content}}',
-        tags: ['翻译', '润色'],
+        title: 'Translation Polish',
+        content:
+            'Translate the following content into English and polish the wording:\n\n{{content}}',
+        tags: ['translation', 'polish'],
         createdAt: DateTime.now(),
       ),
     ];
@@ -108,7 +118,8 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
     }
 
     debugPrint(
-        '✅ [HiveTemplateRepository] 已添加 ${defaultTemplates.length} 个默认模板');
+      '✅ [HiveTemplateRepository] Added ${defaultTemplates.length} default templates',
+    );
   }
 
   Box get _templateBox {
@@ -123,7 +134,7 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
     if (map is Map) {
       return Map<String, dynamic>.from(map);
     }
-    throw ArgumentError('无法转换为 Map<String, dynamic>: $map');
+    throw ArgumentError('Cannot convert to Map<String, dynamic>: $map');
   }
 
   List<String> _parseTags(dynamic raw) {

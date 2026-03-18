@@ -8,17 +8,18 @@ class SummaryRepository {
 
   Future<void> init() async {
     try {
-      debugPrint('🔄 [SummaryRepository] 正在打开 Hive box: $_boxName');
+      debugPrint('🔄 [SummaryRepository] Opening Hive box: $_boxName');
       if (_box == null) {
         _box = await Hive.openBox<Summary>(_boxName);
-        debugPrint('✅ [SummaryRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
+        debugPrint(
+            '✅ [SummaryRepository] Hive box opened successfully with ${_box!.length} records');
       }
     } catch (e) {
-      debugPrint('❌ [SummaryRepository] 打开 Hive box 失败: $e');
-      debugPrint('⚠️  [SummaryRepository] 尝试删除并重建 box...');
+      debugPrint('❌ [SummaryRepository] Failed to open Hive box: $e');
+      debugPrint('⚠️  [SummaryRepository] Recreating the box from disk...');
       await Hive.deleteBoxFromDisk(_boxName);
       _box = await Hive.openBox<Summary>(_boxName);
-      debugPrint('✅ [SummaryRepository] Hive box 重建成功');
+      debugPrint('✅ [SummaryRepository] Hive box recreated successfully');
     }
   }
 

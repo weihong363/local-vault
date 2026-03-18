@@ -48,15 +48,16 @@ class MemorySlmFormattingValues {
 
   factory MemorySlmFormattingValues.fromJson(Map<String, dynamic> json) {
     return MemorySlmFormattingValues(
-      emptyFieldPlaceholder: json['emptyFieldPlaceholder'] as String? ?? '（空）',
-      titleLabel: json['titleLabel'] as String? ?? '标题',
-      tagsLabel: json['tagsLabel'] as String? ?? '标签',
-      contentLabel: json['contentLabel'] as String? ?? '内容',
+      emptyFieldPlaceholder:
+          json['emptyFieldPlaceholder'] as String? ?? '(empty)',
+      titleLabel: json['titleLabel'] as String? ?? 'Title',
+      tagsLabel: json['tagsLabel'] as String? ?? 'Tags',
+      contentLabel: json['contentLabel'] as String? ?? 'Content',
       mergeSessionEntry: json['mergeSessionEntry'] as String? ??
-          '记录 {{index}}\n'
-              '{{titleLabel}}：{{title}}\n'
-              '{{contentLabel}}：{{content}}\n'
-              '{{tagsLabel}}：{{tags}}\n',
+          'Record {{index}}\n'
+              '{{titleLabel}}: {{title}}\n'
+              '{{contentLabel}}: {{content}}\n'
+              '{{tagsLabel}}: {{tags}}\n',
     );
   }
 }
@@ -204,18 +205,20 @@ class MemorySlmFallbackValues {
 
   factory MemorySlmFallbackValues.fromJson(Map<String, dynamic> json) {
     return MemorySlmFallbackValues(
-      summaryMetadataTitle: json['summaryMetadataTitle'] as String? ?? '待整理摘要',
-      emptyFactTitle: json['emptyFactTitle'] as String? ?? '未命名事实',
-      emptyChineseTopic: json['emptyChineseTopic'] as String? ?? '临时主题',
+      summaryMetadataTitle:
+          json['summaryMetadataTitle'] as String? ?? 'Pending Summary',
+      emptyFactTitle: json['emptyFactTitle'] as String? ?? 'Untitled Fact',
+      emptyChineseTopic:
+          json['emptyChineseTopic'] as String? ?? 'Temporary Topic',
       emptyEnglishTopic:
           json['emptyEnglishTopic'] as String? ?? 'General topic',
       upgradeReasonHighAccess: json['upgradeReasonHighAccess'] as String? ??
-          '这条记忆被频繁访问，已经表现出稳定的长期价值，适合升级为核心记忆。',
-      upgradeReasonHighImportance:
-          json['upgradeReasonHighImportance'] as String? ??
-              '这条记忆的重要性评分很高，值得作为核心记忆长期保留。',
+          'This memory is accessed frequently and has demonstrated stable long-term value, making it a good candidate for promotion to core memory.',
+      upgradeReasonHighImportance: json['upgradeReasonHighImportance']
+              as String? ??
+          'This memory has a high importance score and is worth retaining as a long-term core memory.',
       upgradeReasonDefault: json['upgradeReasonDefault'] as String? ??
-          '这条记忆已经具备持续价值，升级后可以获得更稳定的保存与检索优先级。',
+          'This memory already shows lasting value, and promoting it will give it more stable retention and retrieval priority.',
     );
   }
 }
@@ -269,92 +272,96 @@ class MemorySlmConfig {
       upgradeImportanceThreshold: 0.8,
     ),
     fallbacks: MemorySlmFallbackValues(
-      summaryMetadataTitle: '待整理摘要',
-      emptyFactTitle: '未命名事实',
-      emptyChineseTopic: '临时主题',
+      summaryMetadataTitle: 'Pending Summary',
+      emptyFactTitle: 'Untitled Fact',
+      emptyChineseTopic: 'Temporary Topic',
       emptyEnglishTopic: 'General topic',
-      upgradeReasonHighAccess: '这条记忆被频繁访问，已经表现出稳定的长期价值，适合升级为核心记忆。',
-      upgradeReasonHighImportance: '这条记忆的重要性评分很高，值得作为核心记忆长期保留。',
-      upgradeReasonDefault: '这条记忆已经具备持续价值，升级后可以获得更稳定的保存与检索优先级。',
+      upgradeReasonHighAccess:
+          'This memory is accessed frequently and has demonstrated stable long-term value, making it a good candidate for promotion to core memory.',
+      upgradeReasonHighImportance:
+          'This memory has a high importance score and is worth retaining as a long-term core memory.',
+      upgradeReasonDefault:
+          'This memory already shows lasting value, and promoting it will give it more stable retention and retrieval priority.',
     ),
     formatting: MemorySlmFormattingValues(
-      emptyFieldPlaceholder: '（空）',
-      titleLabel: '标题',
-      tagsLabel: '标签',
-      contentLabel: '内容',
-      mergeSessionEntry: '记录 {{index}}\n'
-          '{{titleLabel}}：{{title}}\n'
-          '{{contentLabel}}：{{content}}\n'
-          '{{tagsLabel}}：{{tags}}\n',
+      emptyFieldPlaceholder: '(empty)',
+      titleLabel: 'Title',
+      tagsLabel: 'Tags',
+      contentLabel: 'Content',
+      mergeSessionEntry: 'Record {{index}}\n'
+          '{{titleLabel}}: {{title}}\n'
+          '{{contentLabel}}: {{content}}\n'
+          '{{tagsLabel}}: {{tags}}\n',
     ),
     prompts: MemorySlmPrompts(
       extractTopic: '''
-角色：记忆整理助手
-任务：从以下标题和内容中提取一个精确的主题标签。
-要求：
-- 只输出一个主题标签
-- 输出语言跟随输入主语言
-- 不要使用标点符号
-- 尽量简洁
+Role: memory organization assistant
+Task: extract one precise topic label from the following title and content.
+Requirements:
+- Output exactly one topic label
+- Follow the main language of the input
+- Do not use punctuation
+- Keep it concise
 
-{{titleLabel}}：{{title}}
-{{contentLabel}}：{{content}}''',
+{{titleLabel}}: {{title}}
+{{contentLabel}}: {{content}}''',
       sameTopic: '''
-角色：文本相似度判断助手
-任务：判断两段文字是否讨论同一主题。
-要求：
-- 只回答“是”或“否”
+Role: text similarity judge
+Task: determine whether two pieces of text discuss the same topic.
+Requirements:
+- Answer only "yes" or "no"
 
-文本 A {{titleLabel}}：{{titleA}}
-文本 A {{contentLabel}}：{{contentA}}
+Text A {{titleLabel}}: {{titleA}}
+Text A {{contentLabel}}: {{contentA}}
 
-文本 B {{titleLabel}}：{{titleB}}
-文本 B {{contentLabel}}：{{contentB}}''',
+Text B {{titleLabel}}: {{titleB}}
+Text B {{contentLabel}}: {{contentB}}''',
       mergeSessions: '''
-角色：信息整理专家
-任务：将多条记录合并为一条结构化事实记忆。
-严格按以下格式输出：
-{{titleLabel}}：不超过 10 个字
-{{tagsLabel}}：标签1, 标签2, 标签3
-{{contentLabel}}：
-用 1 到 3 段话整理出合并后的核心信息，总字数控制在 300 字以内。
+Role: information organization specialist
+Task: merge multiple records into one structured fact memory.
+Output must strictly follow this format:
+{{titleLabel}}: no more than 10 words
+{{tagsLabel}}: tag 1, tag 2, tag 3
+{{contentLabel}}:
+Use 1 to 3 paragraphs to summarize the merged core information, with a total length under 300 words.
 
 {{entries}}''',
       upgradeReason: '''
-角色：记忆管理顾问
-任务：解释为什么这条记忆值得升级为核心记忆。
-要求：
-- 只输出一句话
-- 语气积极、具体
+Role: memory management advisor
+Task: explain why this memory deserves promotion to core memory.
+{{outputLanguageInstruction}}
+Requirements:
+- Output only one sentence
+- Keep the tone positive and specific
 
-{{titleLabel}}：{{title}}
-访问次数：{{accessCount}}
-重要性：{{importance}}
-创建时间：{{createdAt}}''',
+{{titleLabel}}: {{title}}
+{{accessCountLabel}}: {{accessCount}}
+{{importanceLabel}}: {{importance}}
+{{createdAtLabel}}: {{createdAt}}''',
       summaryMetadata: '''
-角色：本地记忆库的摘要整理助手
-任务：只根据正文内容判断“这条记录最值得被怎样命名、怎样打标签”，产出一个适合长期检索的标题和 2 到 4 个标签。
-你的输出会直接展示给用户，所以必须语义自然、可检索、可复用。
-要求：
-- 现有标题和标签仅供参考；如果和正文不一致，必须以正文为准直接改写
-- 先判断正文最核心的主题、对象、事件、结论或待办，再生成标题
-- 忽略“请帮我、记录一下、需要、确认、安排、处理、更新”这类操作口吻
-- 如果正文是会议/同步，标题优先写“主题 + 场景”
-- 如果正文是任务/待办，标题优先写“对象 + 目标/动作”
-- 如果正文是问题/方案/决定，标题优先写“对象 + 问题/方案/决定”
-- 标题要像用户之后会主动搜索的名字，避免空泛词和流水账
-- 中文标题优先控制在 6 到 14 个字，必要时不超过 18 个字；英文不超过 8 个单词
-- 标签必须是名词或短语，不能是完整句子
-- 标签优先覆盖不同维度：主题、对象、动作、状态；避免同义重复
-- 不要输出“内容、摘要、记录、事项、问题、需求、更新”这类空泛标签，除非正文核心就真是它
-- 如果正文里有明确实体、项目名、模块名、会议主题、任务对象，优先体现在标题或标签里
-- 严格按以下格式输出：
-{{titleLabel}}：...
-{{tagsLabel}}：标签1, 标签2, 标签3
+Role: Local Vault summary organization assistant
+Task: decide how this record should be named and tagged based only on the main content, then produce one retrieval-friendly title and 2 to 4 tags.
+The output is shown directly to the user, so it must be natural, searchable, and reusable.
+Requirements:
+- Existing title and tags are reference only; if they conflict with the content, rewrite them based on the content
+- Identify the core topic, entity, event, conclusion, or task before generating the title
+- Ignore operational phrasing such as "please help me", "note this", "need", "confirm", "arrange", "handle", or "update"
+- If the content is a meeting or sync note, prefer "topic + context" in the title
+- If the content is a task or to-do item, prefer "object + goal/action" in the title
+- If the content is about a problem, plan, or decision, prefer "object + problem/plan/decision" in the title
+- The title should read like something the user would actively search for later, not a vague or journal-like phrase
+- Keep Chinese titles within 6 to 14 characters when possible, and no more than 18 if necessary; keep English titles within 8 words
+- Tags must be nouns or short phrases, never full sentences
+- Tags should cover different dimensions such as topic, object, action, and status while avoiding synonyms
+- Avoid vague tags such as "content", "summary", "record", "item", "problem", "requirement", or "update" unless they are truly central to the content
+- If the content includes explicit entities, project names, module names, meeting topics, or task objects, surface them in the title or tags when possible
+- Output must strictly follow this format:
+{{titleLabel}}: ...
+{{tagsLabel}}: tag 1, tag 2, tag 3
 
-现有{{titleLabel}}：{{title}}
-现有{{tagsLabel}}：{{tags}}
-正文：
+Existing {{titleLabel}}: {{title}}
+Existing {{tagsLabel}}: {{tags}}
+Main content:
 {{content}}''',
     ),
   );
@@ -447,7 +454,9 @@ class MemorySlmConfig {
       final bundledRaw = await rootBundle.loadString(bundledConfigAssetPath);
       merged = _asMap(jsonDecode(bundledRaw));
     } catch (error, stackTrace) {
-      debugPrint('⚠️ [MemorySlmConfig] 读取内置配置失败，回退到默认配置: $error');
+      debugPrint(
+        '⚠️ [MemorySlmConfig] Failed to read bundled config. Falling back to defaults: $error',
+      );
       debugPrintStack(stackTrace: stackTrace);
       return fallback;
     }
@@ -461,7 +470,7 @@ class MemorySlmConfig {
       }
     } catch (error, stackTrace) {
       debugPrint(
-        '⚠️ [MemorySlmConfig] 读取覆盖配置失败，将继续使用内置配置: $error',
+        '⚠️ [MemorySlmConfig] Failed to read override config. Continuing with bundled config: $error',
       );
       debugPrintStack(stackTrace: stackTrace);
     }

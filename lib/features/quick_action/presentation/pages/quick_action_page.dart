@@ -10,6 +10,7 @@ import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/core/providers/template_entities_provider.dart';
 import 'package:local_vault/core/widgets/common_template_card.dart';
 import 'package:local_vault/features/quick_action/models/quick_action_type.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class QuickActionPage extends ConsumerStatefulWidget {
   final QuickActionType actionType;
@@ -39,7 +40,7 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
           try {
             await _channel.invokeMethod('finishActivity');
           } catch (e) {
-            debugPrint('调用 finishActivity 失败: $e');
+            debugPrint('Failed to call finishActivity: $e');
             if (mounted) {
               navigator.pop();
             }
@@ -87,10 +88,11 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
   }
 
   Widget _buildHeader() {
+    final loc = AppLocalizations.of(context)!;
     final title = switch (widget.actionType) {
-      QuickActionType.templates => '选择模板',
-      QuickActionType.save => '保存摘要',
-      QuickActionType.summaries => '我的摘要',
+      QuickActionType.templates => loc.chooseTemplate,
+      QuickActionType.save => loc.saveSummaryQuickActionTitle,
+      QuickActionType.summaries => loc.myMemories,
     };
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -122,7 +124,7 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
               try {
                 await _channel.invokeMethod('finishActivity');
               } catch (e) {
-                debugPrint('调用 finishActivity 失败: $e');
+                debugPrint('Failed to call finishActivity: $e');
                 if (mounted) {
                   navigator.pop();
                 }
@@ -146,12 +148,13 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
   }
 
   Widget _buildTemplatesContent() {
+    final loc = AppLocalizations.of(context)!;
     final asyncTemplates = ref.watch(templateEntityNotifierProvider);
 
     return asyncTemplates.when(
       data: (templates) {
         if (templates.isEmpty) {
-          return const Center(child: Text('暂无模板'));
+          return Center(child: Text(loc.noTemplatesYet));
         }
         return ListView.builder(
           padding: const EdgeInsets.all(8),
@@ -167,11 +170,14 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('错误: $error')),
+      error: (error, stack) => Center(
+        child: Text(loc.errorWithDetails('$error')),
+      ),
     );
   }
 
   Widget _buildSaveContent() {
+    final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -181,23 +187,23 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
             onPressed: () async {
               final navigator = Navigator.of(context);
               final router = GoRouter.of(context);
-              // 尝试从剪贴板读取内容
+              // Try to load text from the clipboard first.
               final clipboardData =
                   await Clipboard.getData(Clipboard.kTextPlain);
               if (!mounted) return;
               if (clipboardData?.text != null &&
                   clipboardData!.text!.isNotEmpty) {
-                // 有剪贴板内容，直接保存到摘要
+                // Save directly when clipboard text is available.
                 navigator.pop();
                 router.push(AppRoutes.save, extra: clipboardData.text);
               } else {
-                // 剪贴板为空，打开空白保存页面
+                // Open an empty save page when the clipboard is empty.
                 navigator.pop();
                 router.push(AppRoutes.save);
               }
             },
             icon: const Icon(Icons.save_alt),
-            label: const Text('快速保存'),
+            label: Text(loc.quickSave),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
             ),
@@ -209,17 +215,17 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
               context.push(AppRoutes.save);
             },
             icon: const Icon(Icons.edit),
-            label: const Text('手动输入'),
+            label: Text(loc.manualInput),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
               backgroundColor: Colors.grey.shade200,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            '提示：会自动读取剪贴板内容快速保存\n如果没有内容，可以手动输入',
+          Text(
+            loc.quickSaveClipboardTip,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ],
       ),
@@ -227,12 +233,13 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
   }
 
   Widget _buildSummariesContent() {
+    final loc = AppLocalizations.of(context)!;
     final asyncSummaries = ref.watch(summaryEntityNotifierProvider);
 
     return asyncSummaries.when(
       data: (summaries) {
         if (summaries.isEmpty) {
-          return const Center(child: Text('暂无摘要'));
+          return Center(child: Text(loc.noSummariesYet));
         }
         return ListView.builder(
           padding: const EdgeInsets.all(8),
@@ -250,48 +257,51 @@ class _QuickActionPageState extends ConsumerState<QuickActionPage> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('错误: $error')),
+      error: (error, stack) => Center(
+        child: Text(loc.errorWithDetails('$error')),
+      ),
     );
   }
 
   void _copyToClipboard(String text, {String? summaryId}) async {
-    debugPrint('开始复制，summaryId: $summaryId');
+    debugPrint('Start copying, summaryId: $summaryId');
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
-    // 首先复制到剪贴板
+    // Copy to the clipboard first.
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
+    final loc = AppLocalizations.of(context)!;
     messenger.showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板')),
+      SnackBar(content: Text(loc.copiedToClipboard)),
     );
 
-    // 如果是摘要，记录访问次数
+    // Record access when a summary ID is provided.
     if (summaryId != null) {
       try {
-        debugPrint('正在记录访问次数...');
+        debugPrint('Recording access count...');
         await ref
             .read(summaryEntityNotifierProvider.notifier)
             .recordAccess(summaryId);
-        debugPrint('访问次数记录完成');
+        debugPrint('Access count recorded');
       } catch (e) {
-        debugPrint('记录访问次数失败: $e');
+        debugPrint('Failed to record access count: $e');
       }
     }
 
-    // 稍延迟一小会儿，然后关闭
+    // Wait briefly, then close.
     await Future.delayed(const Duration(milliseconds: 600));
 
     if (mounted) {
-      debugPrint('正在关闭 Activity...');
+      debugPrint('Closing activity...');
       if (widget.onFinish != null) {
         widget.onFinish!();
       } else {
         try {
           await _channel.invokeMethod('finishActivity');
         } catch (e) {
-          debugPrint('调用 finishActivity 失败: $e');
-          // 备用方案
+          debugPrint('Failed to call finishActivity: $e');
+          // Fallback for embedded navigation.
           if (mounted) {
             navigator.pop();
           }

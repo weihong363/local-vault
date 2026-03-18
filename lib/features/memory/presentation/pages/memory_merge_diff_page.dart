@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class MemoryMergeDiffPage extends ConsumerStatefulWidget {
   const MemoryMergeDiffPage({
@@ -39,6 +40,7 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final preview = ref.read(summaryUseCasesProvider).buildMergedSummary(
           widget.primarySummary,
           widget.secondarySummary,
@@ -48,7 +50,7 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('合并事实记忆'),
+        title: Text(loc.mergeFactMemories),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
@@ -59,14 +61,16 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '请比较两版记忆，确认最终要保留的标题、内容和标签。',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  Text(
+                    loc.mergeFactMemoriesDescription,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   if (widget.similarity != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      '相似度 ${(widget.similarity! * 100).toStringAsFixed(1)}%',
+                      loc.similarityPercent(
+                        '${(widget.similarity! * 100).toStringAsFixed(1)}%',
+                      ),
                       style: TextStyle(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -78,7 +82,7 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
           ),
           const SizedBox(height: 16),
           _buildFieldSection(
-            title: '标题',
+            title: loc.title,
             existingValue: widget.primarySummary.title,
             incomingValue: widget.secondarySummary.title,
             existingLabel: widget.primaryLabel,
@@ -93,7 +97,7 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
           ),
           const SizedBox(height: 16),
           _buildFieldSection(
-            title: '内容',
+            title: loc.content,
             existingValue: widget.primarySummary.content,
             incomingValue: widget.secondarySummary.content,
             existingLabel: widget.primaryLabel,
@@ -108,7 +112,7 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
           ),
           const SizedBox(height: 16),
           _buildFieldSection(
-            title: '标签',
+            title: loc.tags,
             existingValue: _formatTags(widget.primarySummary.tags),
             incomingValue: _formatTags(widget.secondarySummary.tags),
             existingLabel: widget.primaryLabel,
@@ -129,9 +133,9 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '合并后预览',
-                    style: TextStyle(
+                  Text(
+                    loc.mergedPreview,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
@@ -155,7 +159,7 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
                     children: preview.tags.isEmpty
                         ? <Widget>[
                             Text(
-                              '无标签',
+                              loc.noTags,
                               style: TextStyle(
                                 color: colorScheme.onSurfaceVariant,
                               ),
@@ -185,14 +189,16 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
                   onPressed: _isMerging
                       ? null
                       : () => Navigator.of(context).pop(false),
-                  child: const Text('暂不合并'),
+                  child: Text(loc.notNow),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
                   onPressed: _isMerging ? null : _confirmMerge,
-                  child: Text(_isMerging ? '合并中...' : '确认合并'),
+                  child: Text(
+                    _isMerging ? loc.mergingLabel : loc.confirmMerge,
+                  ),
                 ),
               ),
             ],
@@ -268,6 +274,7 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
     required String value,
     required Color accentColor,
   }) {
+    final loc = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -287,32 +294,35 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
             ),
           ),
           const SizedBox(height: 8),
-          SelectableText(value.isEmpty ? '空内容' : value),
+          SelectableText(value.isEmpty ? loc.emptyValue : value),
         ],
       ),
     );
   }
 
   String _choiceLabel(SummaryMergeFieldChoice choice) {
+    final loc = AppLocalizations.of(context)!;
     switch (choice) {
       case SummaryMergeFieldChoice.existing:
-        return '保留原版';
+        return loc.keepOriginal;
       case SummaryMergeFieldChoice.incoming:
-        return '保留新版';
+        return loc.keepNew;
       case SummaryMergeFieldChoice.combined:
-        return '智能合并';
+        return loc.smartMerge;
     }
   }
 
   String _formatTags(List<String> tags) {
+    final loc = AppLocalizations.of(context)!;
     if (tags.isEmpty) {
-      return '无标签';
+      return loc.noTags;
     }
-    return tags.join('、');
+    return tags.join(', ');
   }
 
   String secondaryLabelOrFallback(String label) {
-    return label.isEmpty ? '候选记忆' : label;
+    final loc = AppLocalizations.of(context)!;
+    return label.isEmpty ? loc.candidateMemory : label;
   }
 
   Future<void> _confirmMerge() async {
@@ -335,7 +345,11 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('合并失败：$error')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.mergeFailedMessage('$error'),
+          ),
+        ),
       );
       setState(() {
         _isMerging = false;

@@ -8,8 +8,12 @@ import 'package:local_vault/core/domain/repositories/template_repository_interfa
 import 'package:local_vault/core/services/memory_slm_config.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/services/storage_management_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues(const <String, Object>{});
+
   group('StorageManagementService', () {
     late _InMemorySummaryRepository summaryRepository;
     late _InMemoryTemplateRepository templateRepository;

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:local_vault/core/providers/locale_provider.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class FeedbackPage extends StatelessWidget {
   const FeedbackPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
-    
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(loc.feedback),

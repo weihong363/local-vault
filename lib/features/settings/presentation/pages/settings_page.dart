@@ -7,11 +7,13 @@ import 'package:local_vault/core/providers/locale_provider.dart';
 import 'package:local_vault/core/providers/theme_provider.dart';
 import 'package:local_vault/core/services/app_settings_service.dart';
 import 'package:local_vault/core/services/floating_window_service.dart';
+import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/services/storage_management_service.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
 import 'package:local_vault/core/utils/architecture_verifier.dart';
 import 'package:local_vault/features/settings/presentation/pages/backup_data_page.dart';
 import 'package:local_vault/features/settings/presentation/pages/storage_space_page.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -22,10 +24,9 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _floatingWindowEnabled = false;
-  bool _slmSummaryMetadataEnabled = false;
+  bool _slmInferenceEnabled = false;
   bool _isLoading = true;
-  String _storageSummary = '点击查看明细';
-  String _backupSummary = '创建、分享与恢复本地备份';
+  StorageUsageSnapshot? _usageSnapshot;
 
   @override
   void initState() {
@@ -36,21 +37,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _loadSettings() async {
     final settingsService = sl<AppSettingsService>();
     final storageService = sl<StorageManagementService>();
+    final slmService = sl<MemorySLMService>();
     final floatingWindowEnabled =
         await settingsService.isFloatingWindowEnabled();
-    final slmSummaryMetadataEnabled =
-        await settingsService.isSlmSummaryMetadataEnabled();
-    String storageSummary = '点击查看明细';
-    String backupSummary = '创建、分享与恢复本地备份';
+    final slmInferenceEnabled = await slmService.isSlmInferenceEnabled();
+    StorageUsageSnapshot? usageSnapshot;
 
     try {
-      final usage = await storageService.inspectStorage();
-      storageSummary =
-          '${StorageManagementService.formatBytes(usage.totalBytes)} · '
-          '${usage.summaryCount} 条摘要 · ${usage.templateCount} 个模板';
-      backupSummary = usage.backupFileCount == 0
-          ? '暂无本地备份，点击创建'
-          : '已保存 ${usage.backupFileCount} 个本地备份';
+      usageSnapshot = await storageService.inspectStorage();
     } catch (_) {}
 
     if (!mounted) {
@@ -58,9 +52,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
     setState(() {
       _floatingWindowEnabled = floatingWindowEnabled;
-      _slmSummaryMetadataEnabled = slmSummaryMetadataEnabled;
-      _storageSummary = storageSummary;
-      _backupSummary = backupSummary;
+      _slmInferenceEnabled = slmInferenceEnabled;
+      _usageSnapshot = usageSnapshot;
       _isLoading = false;
     });
   }
@@ -84,17 +77,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _toggleFloatingWindow(bool value) async {
+    final loc = AppLocalizations.of(context)!;
     final settingsService = sl<AppSettingsService>();
 
     if (value) {
-      // 检查并请求所有必需的权限
+      // Request all required permissions.
       final allGranted = await AppPermissionManager.requestAllPermissions();
 
       if (!allGranted && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('权限未完全授予，手势功能可能无法正常工作'),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text(loc.notAllPermissionsGranted),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -107,19 +101,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('悬浮窗服务已启动'),
-              duration: Duration(seconds: 2),
+            SnackBar(
+              content: Text(loc.floatingWindowServiceStarted),
+              duration: const Duration(seconds: 2),
             ),
           );
 
-          // 显示权限提示
+          // Show permission guidance.
           _showPermissionTips();
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('启动失败：$e')),
+            SnackBar(content: Text(loc.failedToStartMessage('$e'))),
           );
         }
       }
@@ -132,43 +126,46 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('悬浮窗服务已关闭')),
+            SnackBar(content: Text(loc.floatingWindowServiceStopped)),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('关闭失败：$e')),
+            SnackBar(content: Text(loc.failedToStopMessage('$e'))),
           );
         }
       }
     }
   }
 
-  Future<void> _toggleSlmSummaryMetadata(bool value) async {
-    final settingsService = sl<AppSettingsService>();
-    await settingsService.setSlmSummaryMetadataEnabled(value);
+  Future<void> _toggleSlmInference(bool value) async {
+    final loc = AppLocalizations.of(context)!;
+    final slmService = sl<MemorySLMService>();
+    await slmService.setSlmInferenceEnabled(value);
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _slmSummaryMetadataEnabled = value;
+      _slmInferenceEnabled = value;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          value ? '已切换为大模型生成标题和标签' : '已切换为本地规则生成标题和标签',
+          value
+              ? loc.slmInferenceEnabledMessage
+              : loc.slmInferenceDisabledMessage,
         ),
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
+    final loc = AppLocalizations.of(context)!;
     final themeMode = ref.watch(themeModeProvider);
     final appLocale = ref.watch(appLocaleProvider);
 
@@ -184,21 +181,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       body: ListView(
         children: [
-          _buildSectionHeader('快捷操作'),
-          _buildFloatingWindowSwitch(),
-          _buildGestureConfig(),
-          _buildAppWhitelist(),
-          _buildDiagnostics(),
+          _buildSectionHeader(loc.quickActions),
+          _buildFloatingWindowSwitch(loc),
+          _buildGestureConfig(loc),
+          _buildAppWhitelist(loc),
+          _buildDiagnostics(loc),
           _buildSectionHeader(loc.generalSettings),
-          _buildSummaryMetadataSwitch(),
+          _buildSlmInferenceSwitch(loc),
           _buildThemeSelector(loc, themeMode, ref),
           _buildLanguageSelector(loc, appLocale, ref),
           _buildSectionHeader(loc.storageSettings),
           _buildStorageSpace(loc),
           _buildBackupData(loc),
-          _buildSectionHeader('架构测试 - DEBUG ONLY'),
-          _buildArchitectureVerification(),
-          _buildDatabaseInspector(),
+          _buildSectionHeader(loc.architectureChecksDebugOnly),
+          _buildArchitectureVerification(loc),
+          _buildDatabaseInspector(loc),
           _buildSectionHeader(loc.about),
           _buildVersionInfo(loc),
           _buildFeedback(loc, context),
@@ -207,25 +204,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildArchitectureVerification() {
+  Widget _buildArchitectureVerification(AppLocalizations loc) {
     return ListTile(
-      title: const Text('运行架构验证'),
-      subtitle: const Text('验证新架构是否正常工作'),
+      title: Text(loc.runArchitectureVerification),
+      subtitle: Text(loc.runArchitectureVerificationDescription),
       trailing: const Icon(Icons.play_arrow),
       onTap: () async {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('正在运行架构验证...'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(loc.runningArchitectureVerification),
+            duration: const Duration(seconds: 2),
           ),
         );
         await verifyNewArchitecture();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('架构验证完成！请查看控制台输出'),
+            SnackBar(
+              content: Text(loc.architectureVerificationFinished),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -233,10 +230,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildDatabaseInspector() {
+  Widget _buildDatabaseInspector(AppLocalizations loc) {
     return ListTile(
-      title: const Text('查询数据库'),
-      subtitle: const Text('查看摘要库与模板库原始记录'),
+      title: Text(loc.inspectDatabase),
+      subtitle: Text(loc.inspectDatabaseDescription),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         context.push(AppRoutes.databaseInspector);
@@ -244,10 +241,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildFloatingWindowSwitch() {
+  Widget _buildFloatingWindowSwitch(AppLocalizations loc) {
     return ListTile(
-      title: const Text('悬浮窗手势唤醒'),
-      subtitle: const Text('在其他应用中通过手势快速打开'),
+      title: Text(loc.enableFloatingGestureLauncher),
+      subtitle: Text(loc.floatingGestureLauncherDescription),
       trailing: Switch(
         value: _floatingWindowEnabled,
         onChanged: _toggleFloatingWindow,
@@ -255,10 +252,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildGestureConfig() {
+  Widget _buildGestureConfig(AppLocalizations loc) {
     return ListTile(
-      title: const Text('手势配置'),
-      subtitle: const Text('自定义手势'),
+      title: Text(loc.gestureConfiguration),
+      subtitle: Text(loc.gestureConfigurationDescription),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         context.push(AppRoutes.gestureConfig);
@@ -266,10 +263,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildAppWhitelist() {
+  Widget _buildAppWhitelist(AppLocalizations loc) {
     return ListTile(
-      title: const Text('应用白名单'),
-      subtitle: const Text('手势仅在选中的应用中生效'),
+      title: Text(loc.appAllowlist),
+      subtitle: Text(loc.appAllowlistDescription),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         context.push(AppRoutes.appWhitelist);
@@ -277,10 +274,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildDiagnostics() {
+  Widget _buildDiagnostics(AppLocalizations loc) {
     return ListTile(
-      title: const Text('诊断'),
-      subtitle: const Text('查看手势权限、服务和同步状态'),
+      title: Text(loc.diagnostics),
+      subtitle: Text(loc.diagnosticsDescription),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         context.push(AppRoutes.diagnostics);
@@ -288,15 +285,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildSummaryMetadataSwitch() {
+  Widget _buildSlmInferenceSwitch(AppLocalizations loc) {
     return ListTile(
-      title: const Text('保存时使用大模型生成标题和标签'),
-      subtitle: const Text(
-        '开启后，保存摘要时将跳过默认规则，直接调用内置模型精炼标题并生成标签',
-      ),
+      title: Text(loc.slmInferenceSettingTitle),
+      subtitle: Text(loc.slmInferenceSettingDescription),
       trailing: Switch(
-        value: _slmSummaryMetadataEnabled,
-        onChanged: _toggleSlmSummaryMetadata,
+        value: _slmInferenceEnabled,
+        onChanged: _toggleSlmInference,
       ),
     );
   }
@@ -403,26 +398,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       case AppLocale.system:
         return loc.systemMode;
       case AppLocale.en:
-        return 'English';
+        return loc.languageEnglish;
       case AppLocale.zh:
-        return '中文';
+        return loc.languageChinese;
       case AppLocale.ja:
-        return '日本語';
+        return loc.languageJapanese;
       case AppLocale.ko:
-        return '한국어';
+        return loc.languageKorean;
       case AppLocale.es:
-        return 'Español';
+        return loc.languageSpanish;
       case AppLocale.fr:
-        return 'Français';
+        return loc.languageFrench;
       case AppLocale.de:
-        return 'Deutsch';
+        return loc.languageGerman;
     }
   }
 
   Widget _buildStorageSpace(AppLocalizations loc) {
     return ListTile(
       title: Text(loc.storageSpace),
-      subtitle: Text(_storageSummary),
+      subtitle: Text(_buildStorageSummary(loc)),
       trailing: const Icon(Icons.chevron_right),
       onTap: _openStorageSpacePage,
     );
@@ -431,10 +426,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _buildBackupData(AppLocalizations loc) {
     return ListTile(
       title: Text(loc.backupData),
-      subtitle: Text(_backupSummary),
+      subtitle: Text(_buildBackupSummary(loc)),
       trailing: const Icon(Icons.chevron_right),
       onTap: _openBackupDataPage,
     );
+  }
+
+  String _buildStorageSummary(AppLocalizations loc) {
+    final usage = _usageSnapshot;
+    if (usage == null) {
+      return loc.storageSummaryTapToView;
+    }
+
+    return loc.storageSummaryFormat(
+      StorageManagementService.formatBytes(usage.totalBytes),
+      '${usage.summaryCount}',
+      '${usage.templateCount}',
+    );
+  }
+
+  String _buildBackupSummary(AppLocalizations loc) {
+    final usage = _usageSnapshot;
+    if (usage == null) {
+      return loc.createShareRestoreLocalBackups;
+    }
+
+    if (usage.backupFileCount == 0) {
+      return loc.backupSummaryNone;
+    }
+
+    return loc.backupSummaryAvailable('${usage.backupFileCount}');
   }
 
   Widget _buildVersionInfo(AppLocalizations loc) {
@@ -458,33 +479,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _showPermissionTips() {
     if (!mounted) return;
+    final loc = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('✅ 服务已启动'),
-        content: const Text(
-          '悬浮窗手势服务已成功启动！\n\n'
-          '📝 使用提示：\n'
-          '1. 在屏幕左右边缘可以看到半透明的紫色区域\n'
-          '2. 在这些区域滑动手势即可快速打开应用\n'
-          '3. 如果看不到悬浮窗，请检查是否授予了所有权限\n\n'
-          '⚠️ 重要：\n'
-          '如果切换到其他应用后手势失效，请检查:\n'
-          '• 该应用是否在白名单中\n'
-          '• 是否授予了"使用情况统计"权限',
-        ),
+        title: Text(loc.serviceStarted),
+        content: Text(loc.floatingWindowTips),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('好的'),
+            child: Text(loc.okLabel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               context.push(AppRoutes.appWhitelist);
             },
-            child: const Text('配置白名单'),
+            child: Text(loc.openAllowlist),
           ),
         ],
       ),

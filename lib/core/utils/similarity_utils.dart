@@ -14,11 +14,43 @@ class SimilarityUtils {
 
   /// 文本分词
   static Set<String> _tokenize(String text) {
-    return text.toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), '')
-        .split(RegExp(r'\s+'))
-        .where((word) => word.length > 1)
-        .toSet();
+    final normalized = text
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s\u4E00-\u9FFF]'), ' ')
+        .trim();
+    if (normalized.isEmpty) {
+      return const <String>{};
+    }
+
+    final tokens = <String>{};
+
+    for (final match in RegExp(r'[a-z0-9]+').allMatches(normalized)) {
+      final token = match.group(0);
+      if (token != null && token.length > 1) {
+        tokens.add(token);
+      }
+    }
+
+    for (final match in RegExp(r'[\u4E00-\u9FFF]+').allMatches(normalized)) {
+      final chunk = match.group(0);
+      if (chunk == null || chunk.isEmpty) {
+        continue;
+      }
+
+      if (chunk.length <= 4) {
+        tokens.add(chunk);
+      }
+
+      if (chunk.length == 1) {
+        continue;
+      }
+
+      for (var i = 0; i < chunk.length - 1; i++) {
+        tokens.add(chunk.substring(i, i + 2));
+      }
+    }
+
+    return tokens;
   }
 
   /// 计算两个记忆的综合相似度

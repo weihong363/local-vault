@@ -77,7 +77,7 @@ void main() {
         // 验证文件扩展名
         expect(testFile.path.endsWith('.png'), true);
 
-        print('✅ 测试图片创建成功，大小：$fileSize 字节');
+        print('✅ Test image created successfully, size: $fileSize bytes');
       } finally {
         // 清理测试文件
         if (await testFile.exists()) {
@@ -96,7 +96,7 @@ void main() {
       expect(result.text, isEmpty);
       expect(result.imagePaths, isEmpty);
 
-      print('✅ 正确处理不存在的文件');
+      print('✅ Non-existent file handled correctly');
     });
 
     test('should process valid image file path', () async {
@@ -108,7 +108,7 @@ void main() {
         expect(await testFile.exists(), true);
         expect(testFile.path.contains('/tmp/'), true);
 
-        print('✅ 有效图片文件路径验证通过');
+        print('✅ Valid image file path verification passed');
       } finally {
         if (await testFile.exists()) {
           await testFile.delete();
@@ -136,7 +136,7 @@ void main() {
         expect(await emptyFile.exists(), true);
         expect(await emptyFile.length(), greaterThan(0));
 
-        print('✅ 空白图片文件创建成功');
+        print('✅ Blank image file created successfully');
       } finally {
         if (await emptyFile.exists()) {
           await emptyFile.delete();
@@ -158,7 +158,7 @@ void main() {
           expect(await testFile.length(), greaterThan(0));
         }
 
-        print('✅ 多个图片文件创建成功');
+        print('✅ Multiple image files created successfully');
       } finally {
         // 清理所有测试文件
         for (final file in testFiles) {
@@ -178,7 +178,7 @@ void main() {
       expect(await testImageFile.exists(), true, reason: '测试图片必须存在');
 
       final fileSize = await testImageFile.length();
-      print('📊 测试图片大小：$fileSize 字节');
+      print('📊 Test image size: $fileSize bytes');
       expect(fileSize, greaterThan(0), reason: '测试图片不应为空');
 
       // 验证文件格式（读取文件头）
@@ -189,14 +189,14 @@ void main() {
       expect(bytes[0], 0xFF);
       expect(bytes[1], 0xD8);
       expect(bytes[2], 0xFF);
-      print('✅ 测试图片格式验证通过（JPG）');
+      print('✅ Test image format verification passed (JPG)');
 
       // 注意：在单元测试环境中，ML Kit 可能无法工作（需要设备/模拟器）
       // 因此这里主要验证文件层面的内容，实际 OCR 识别需要在设备上测试
-      print('⚠️ 注意：实际 OCR 识别需要在真实设备上运行');
-      print('💡 请使用 `flutter install` 安装到设备后进行完整测试');
+      print('⚠️ Note: actual OCR recognition must run on a real device');
+      print('💡 Use `flutter install` and run the full test on a device');
 
-      print('✅ 真实图片文件验证测试通过');
+      print('✅ Real image file validation test passed');
     });
 
     test('should detect Chinese characters in text', () async {
@@ -205,7 +205,7 @@ void main() {
       final hasChinese = chineseText.contains(RegExp(r'[\u4e00-\u9fff]'));
 
       expect(hasChinese, true, reason: '应正确检测到中文字符');
-      print('✅ 中文检测逻辑验证通过');
+      print('✅ Chinese text detection logic passed');
 
       // 测试纯英文
       const englishText = 'Hello World';
@@ -213,7 +213,7 @@ void main() {
           englishText.contains(RegExp(r'[\u4e00-\u9fff]'));
       expect(hasChineseInEnglish, false, reason: '纯英文不应被误判为中文');
 
-      print('✅ 英文文本不会被误判为中文');
+      print('✅ English text is not falsely detected as Chinese');
     });
   });
 
@@ -230,7 +230,7 @@ void main() {
       expect(resultString.length, lessThan(100));
       expect(resultString, contains('...'));
 
-      print('✅ OcrResult toString 正确截断长文本');
+      print('✅ OcrResult.toString truncates long text correctly');
     });
 
     test('OcrResult should handle success case', () {
@@ -245,7 +245,7 @@ void main() {
       expect(result.imagePaths.length, 2);
       expect(result.error, isNull);
 
-      print('✅ OcrResult 正确处理成功情况');
+      print('✅ OcrResult handles success correctly');
     });
 
     test('OcrResult should handle error case', () {
@@ -261,7 +261,7 @@ void main() {
       expect(result.text, isEmpty);
       expect(result.imagePaths, isEmpty);
 
-      print('✅ OcrResult 正确处理错误情况');
+      print('✅ OcrResult handles errors correctly');
     });
 
     test('OcrResult should handle empty text', () {
@@ -275,7 +275,7 @@ void main() {
       expect(result.text, isEmpty);
       expect(result.imagePaths.length, 1);
 
-      print('✅ OcrResult 正确处理空文本');
+      print('✅ OcrResult handles empty text correctly');
     });
   });
 
@@ -295,7 +295,7 @@ void main() {
         expect(bytes[2], 0x4E); // N
         expect(bytes[3], 0x47); // G
 
-        print('✅ PNG 文件头验证通过');
+        print('✅ PNG file header verification passed');
       } finally {
         if (await testFile.exists()) {
           await testFile.delete();
@@ -315,7 +315,7 @@ void main() {
             '/tmp/non_existent_${DateTime.now().millisecondsSinceEpoch}.png');
         expect(await invalidFile.exists(), false);
 
-        print('✅ 文件存在性验证通过');
+        print('✅ File existence verification passed');
       } finally {
         if (await validFile.exists()) {
           await validFile.delete();
