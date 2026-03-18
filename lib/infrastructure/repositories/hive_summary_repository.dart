@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:local_vault/core/constants/app_storage.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 
 /// SummaryRepository 的 Hive 实现
 class HiveSummaryRepository implements SummaryRepositoryInterface {
-  static const String _boxName = 'summaries_v3';
+  static final String _boxName = AppStorage.summaryBoxName;
   Box? _box;
 
   @override
@@ -14,7 +15,8 @@ class HiveSummaryRepository implements SummaryRepositoryInterface {
       debugPrint('🔄 [HiveSummaryRepository] 正在打开 Hive box: $_boxName');
       if (_box == null) {
         _box = await Hive.openBox(_boxName);
-        debugPrint('✅ [HiveSummaryRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
+        debugPrint(
+            '✅ [HiveSummaryRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
       }
     } catch (e) {
       debugPrint('❌ [HiveSummaryRepository] 打开 Hive box 失败: $e');
@@ -83,10 +85,10 @@ class HiveSummaryRepository implements SummaryRepositoryInterface {
     final summaries = _summaryBox.values
         .map((json) => SummaryEntity.fromJson(_safeCastMap(json)))
         .where((summary) {
-          return summary.title.toLowerCase().contains(lowerQuery) ||
-              summary.content.toLowerCase().contains(lowerQuery) ||
-              summary.tags.any((tag) => tag.toLowerCase().contains(lowerQuery));
-        }).toList();
+      return summary.title.toLowerCase().contains(lowerQuery) ||
+          summary.content.toLowerCase().contains(lowerQuery) ||
+          summary.tags.any((tag) => tag.toLowerCase().contains(lowerQuery));
+    }).toList();
     summaries.sort((a, b) {
       // 搜索时优先使用综合评分
       final scoreA = _calculateSearchRelevance(a, lowerQuery);

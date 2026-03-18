@@ -28,12 +28,18 @@ class GestureConfigNotifier
         final defaultConfigs = GestureConfig.getDefaultConfigs();
         await _saveConfigs(defaultConfigs);
         state = AsyncData(defaultConfigs);
+        await _syncToNative();
       } else {
-        final configs = configsJson.map((json) {
+        final loadedConfigs = configsJson.map((json) {
           return GestureConfig.fromJson(
               jsonDecode(json) as Map<String, dynamic>);
         }).toList();
-        state = AsyncData(configs);
+        final normalizedConfigs = _normalizeConfigs(loadedConfigs);
+        state = AsyncData(normalizedConfigs);
+        if (!_areConfigsEqual(loadedConfigs, normalizedConfigs)) {
+          await _saveConfigs(normalizedConfigs);
+        }
+        await _syncToNative();
       }
     } catch (e) {
       state = AsyncError(e, StackTrace.current);
@@ -63,6 +69,49 @@ class GestureConfigNotifier
     state = AsyncData(defaultConfigs);
     await _saveConfigs(defaultConfigs);
     await _syncToNative();
+  }
+
+  List<GestureConfig> _normalizeConfigs(List<GestureConfig> configs) {
+    final defaults = GestureConfig.getDefaultConfigs();
+    final normalized = <GestureType, GestureConfig>{
+      for (final config in defaults) config.gestureType: config,
+    };
+
+    for (final config in configs) {
+      if (config.readOnly) continue;
+      if (!normalized.containsKey(config.gestureType)) continue;
+
+      normalized[config.gestureType] = normalized[config.gestureType]!.copyWith(
+        action: config.action,
+        readOnly: false,
+      );
+    }
+
+    return defaults
+        .map((config) => normalized[config.gestureType] ?? config)
+        .toList(growable: false);
+  }
+
+  bool _areConfigsEqual(
+    List<GestureConfig> left,
+    List<GestureConfig> right,
+  ) {
+    if (left.length != right.length) return false;
+
+    for (var i = 0; i < left.length; i++) {
+      final a = left[i];
+      final b = right[i];
+      if (a.id != b.id ||
+          a.name != b.name ||
+          a.gestureType != b.gestureType ||
+          a.fingerCount != b.fingerCount ||
+          a.action != b.action ||
+          a.readOnly != b.readOnly) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   Future<void> _syncToNative() async {

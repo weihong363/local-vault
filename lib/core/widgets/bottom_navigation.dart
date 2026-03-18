@@ -1,37 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/features/home/presentation/pages/home_page.dart';
+import 'package:local_vault/features/memory/presentation/pages/memory_management_page.dart';
 import 'package:local_vault/features/settings/presentation/pages/settings_page.dart';
 import 'package:local_vault/features/template/presentation/pages/template_page.dart';
 
-class BottomNavigation extends StatefulWidget {
-  const BottomNavigation({super.key});
+class BottomNavigation extends StatelessWidget {
+  const BottomNavigation({
+    super.key,
+    this.currentIndex = 0,
+  });
 
-  @override
-  State<BottomNavigation> createState() => _BottomNavigationState();
-}
+  final int currentIndex;
 
-class _BottomNavigationState extends State<BottomNavigation> {
-  int _currentIndex = 0;
-
-  final List<Widget> _pages = [
-    const HomePage(),
-    const TemplatePage(),
-    const SettingsPage(),
+  static const List<Widget> _pages = [
+    HomePage(),
+    TemplatePage(),
+    MemoryManagementPage(),
+    SettingsPage(),
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+  static const List<String> _routes = [
+    AppRoutes.home,
+    AppRoutes.template,
+    AppRoutes.memoryManagement,
+    AppRoutes.settings,
+  ];
+
+  void _onItemTapped(BuildContext context, int index) {
+    if (index == currentIndex) {
+      return;
+    }
+    context.go(_routes[index]);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: _pages[currentIndex],
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onItemTapped,
+        currentIndex: currentIndex,
+        onTap: (index) => _onItemTapped(context, index),
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
@@ -40,6 +50,10 @@ class _BottomNavigationState extends State<BottomNavigation> {
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
             label: '模板',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.psychology_alt_outlined),
+            label: '记忆',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

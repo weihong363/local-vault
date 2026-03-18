@@ -1,248 +1,169 @@
 # LocalVault 应用开发进度
 
+> 更新时间：2026-03-18  
+> 本文档依据当前本地工作区的 git changes 整理。
+
 ## 项目概述
-一个隐私优先的本地 AI 聊天应用，类似于 Poe，但使用开源 LLM。所有数据本地存储，离线优先。
 
-## 已完成功能
+Local Vault 已经从早期“本地 AI 聊天壳”的方向，收敛为一个以本地记忆管理为核心的应用：
 
-### 1. 核心架构
-- [x] Flutter 项目初始化
-- [x] Riverpod 状态管理配置
-- [x] Hive 本地数据库集成
-- [x] GoRouter 路由配置
-- [x] Material 3 主题支持（深色/浅色模式）
+- 所有摘要、模板和备份均保存在本地。
+- SLM 作为增强层接入，不阻断主流程。
+- 当前主导航为“首页 / 模板 / 记忆 / 设置”。
 
-### 2. 首页功能
-- [x] 摘要卡片列表展示
-- [x] 卡片拖拽排序（长按"抓起"效果：缩放+阴影变化）
-- [x] 搜索功能
-- [x] 空状态提示
+## 当前状态概览
 
-### 3. 模板模块
-- [x] 底部导航栏添加模板模块
-- [x] 模板列表展示
-- [x] 模板添加功能
-- [x] 模板编辑功能
-- [x] 模板删除功能
-- [x] 模板标签显示（Chip）
+- 记忆三层模型 `session / fact / core` 已落地，并且有规则策略与 SLM 增强双链路。
+- 记忆管理已经从设置中抽离为一级模块，模板记忆类型已移除，只保留事实、核心、会话三类记忆。
+- 手势链路、白名单同步、诊断页、数据库查询页、备份导入页都已补齐。
+- 保存链路已经支持保存前标题/标签预处理，以及保存页内的推荐预览。
 
-### 4. 快捷操作
-- [x] Android 快捷方式（TileService）
-  - 模板快捷方式
-  - 我的摘要快捷方式
-  - 快速保存快捷方式
-  - 智能注入快捷方式
-- [x] 快捷操作选择界面（半透明弹窗）
-- [x] 模板选择与复制
-- [x] 摘要选择与复制
+## 已完成能力
 
-### 5. 保存功能
-- [x] 保存页面
-- [x] 文本分享接收
-- [x] 图片分享接收
-- [x] 快速保存（透明 Activity，无感知）
-- [x] 摘要编辑功能
+### 1. 应用壳与基础架构
 
-### 6. 设置页面
-- [x] 基础设置界面
-- [x] 关于页面
-- [x] 手势配置页面
-- [x] 应用白名单页面
+- [x] Flutter + Riverpod + GoRouter + Hive 本地架构
+- [x] `GetIt` 依赖注入初始化
+- [x] Material 3 深浅色主题
+- [x] 底部导航统一为“首页 / 模板 / 记忆 / 设置”
+- [x] 设置页、搜索页、反馈页等基础路由整理完成
 
-### 7. ~~悬浮窗服务~~
-- [x] FloatingWindowService 实现
-- [x] 悬浮窗显示/隐藏
-- [x] 手势监听
-- [x] 快捷操作触发
+### 2. 记忆与摘要主链路
 
-## 技术栈
+- [x] `SummaryEntity` 三层记忆模型：`session / fact / core`
+- [x] Hive 摘要仓库 `summaries_v3`
+- [x] 保存页新增标题、标签、备注统一整理逻辑
+- [x] `SummaryMetadataService` 接入保存前标题与标签生成
+- [x] 保存页支持“推荐标题和标签”预览并回填
+- [x] 重复事实记忆检测与访问计数累加
+- [x] 事实记忆合并候选返回与差异确认页
+- [x] Session 批量构建、候选保护窗口、自动合并为 Fact
+- [x] Fact 自动升级为 Core
+- [x] 遗忘曲线与 App 恢复时清理
+- [x] 首页摘要卡片颜色改为稳定、确定性的语义配色
 
-### 前端框架
-- **Flutter 3.x** - 跨平台 UI 框架
-- **Dart** - 编程语言
+### 3. 记忆管理模块
 
-### 状态管理
-- **flutter_riverpod** - 响应式状态管理
-- **StateNotifier** - 状态变化管理
+- [x] 记忆管理从设置中抽离为一级模块
+- [x] 模块 UI 与其他页面风格对齐
+- [x] 仅保留 `fact / core / session` 三类筛选
+- [x] 移除记忆管理中的模板 tab
+- [x] 支持搜索、统计概览、手动合并相似事实
+- [x] 兼容旧版 `template` 类型存储值，读取时统一降级为 `fact`
 
-### 本地存储
-- **hive_flutter** - NoSQL 本地数据库
-- **path_provider** - 文件路径管理
+### 4. 模板模块
 
-### 路由导航
-- **go_router** - 声明式路由
+- [x] 模板独立存储为 `templates_v2`
+- [x] 模板列表、增删改查
+- [x] 默认模板自动初始化
+- [x] 模板与记忆体系彻底解耦
 
-### UI 组件
-- **Material 3** - Material Design 3 组件库
-- **markdown_widget** - Markdown 渲染
+### 5. 快捷操作与分享保存
 
-### 开发工具
-- **freezed** - 不可变数据类生成
-- **build_runner** - 代码生成
-- **flutter_test** - 测试框架
+- [x] Android TileService 快捷入口
+- [x] QuickActionActivity / QuickSaveActivity
+- [x] 文本分享、图片分享、剪贴板静默保存
+- [x] `SaveCoordinator` 统一处理静默保存路径
+- [x] 快捷操作复制与摘要访问链路统一走访问计数更新
 
-## 项目结构（更新为DDD架构）
+### 6. 手势唤醒、白名单与诊断
 
-```
-lib/
-├── main.dart                    # 应用入口
-├── core/                        # 核心模块
-│   ├── constants/              # 常量定义 (主题、路由、配置等)
-│   ├── di/                     # 依赖注入 (Riverpod providers)
-│   ├── domain/                 # 领域层 (实体、用例、仓库接口)
-│   ├── providers/              # 状态管理 (Riverpod notifiers)
-│   ├── services/               # 服务层 (OCR、分享、剪贴板等)
-│   ├── utils/                  # 工具类 (验证、格式化、日志等)
-│   └── widgets/                # 通用组件 (卡片、按钮、对话框等)
-├── features/                    # 功能模块
-│   ├── app_whitelist/          # 应用白名单
-│   ├── gesture_config/         # 手势配置
-│   ├── home/                   # 首页 (摘要列表)
-│   ├── inject/                 # 内容注入
-│   ├── memory/                 # 记忆管理
-│   ├── quick_action/           # 快捷操作
-│   ├── save/                   # 保存功能
-│   ├── search/                 # 搜索功能
-│   ├── settings/               # 设置页面
-│   ├── summary/                # 摘要详情
-│   └── template/               # 模板管理
-└── infrastructure/              # 基础设施层
-    └── repositories/           # 数据仓库实现 (Hive)
+- [x] 悬浮窗手势唤醒总开关
+- [x] 手势配置页
+- [x] 应用白名单页
+- [x] Flutter 手势配置同步到原生偏好
+- [x] Flutter 白名单同步到原生偏好
+- [x] `FloatingWindowService` 直接拉起 QuickAction / QuickSave 原生活动页
+- [x] 手势诊断页
+- [x] 手势权限、服务状态、动作同步、白名单同步状态可视化
 
-android/
-├── app/src/main/kotlin/
-│   └── com/ironion/localvault/
-│       ├── MainActivity.kt              # 主 Activity, MethodChannel
-│       ├── QuickActionActivity.kt       # 快捷操作选择界面
-│       ├── QuickSaveActivity.kt         # 快速保存 (透明 Activity)
-│       ├── BaseTileService.kt           # 磁贴服务基类
-│       ├── TemplateTileService.kt       # 模板快捷方式
-│       ├── SummariesTileService.kt      # 摘要快捷方式
-│       ├── SaveSummaryTileService.kt    # 快速保存快捷方式
-│       ├── InjectSummaryTileService.kt  # 智能注入快捷方式
-│       └── FloatingWindowService.kt     # 悬浮窗服务 (手势监听)
-```
+### 7. 设置、存储与备份
 
-## 待优化/待开发功能
+- [x] 存储空间页
+- [x] 备份数据页
+- [x] 创建本地备份
+- [x] 分享备份
+- [x] 删除备份
+- [x] 导入备份
+- [x] 导入前预解析与格式校验
+- [x] 备份恢复覆盖当前摘要与模板
+- [x] 模型缓存统计与清理
+- [x] 数据库查询页，可直接查看摘要库和模板库原始记录
 
-### 短期优化
-- [ ] 单元测试覆盖率达到 80%
-- [ ] 性能优化（列表滚动、内存管理）
-- [ ] 错误边界处理
-- [ ] 用户体验优化（动画、反馈）
-- [ ] **SLM 集成**（MediaPipe + Qwen2.5-1.5B）
+### 8. SLM 集成基础能力
 
-### 中期功能
-- [ ] 本地 AI 推理集成（flutter_llm / onnx_runtime_flutter）
-~~- [ ] 聊天界面~~
-- [ ] 模型管理（下载、切换）
-- [ ] 摘要总结功能
-- [ ] 数据导出/导入
+- [x] `MemorySLMService` 基础框架
+- [x] `extractTopic`
+- [x] `isSameTopic`
+- [x] `mergeSessions`
+- [x] `generateUpgradeReason`
+- [x] `generateSummaryMetadata`
+- [x] 串行队列、缓存、超时与错误码封装
+- [x] JSON 外置配置：`slm_config / memory_policy_config / memory_theme_config`
+- [x] 规则回退兜底，保证模型不可用时主流程不中断
 
-### 长期规划
+### 9. 测试与工程化
+
+- [x] 记忆策略配置测试
+- [x] 记忆主题配置测试
+- [x] `SummaryEntity` 单元测试
+- [x] `SummaryUseCases` 单元测试
+- [x] `SummaryMetadataService` 单元测试
+- [x] `StorageManagementService` 单元测试
+- [x] `GestureDiagnosticsService` 单元测试
+- [x] 手势配置 Provider 测试
+- [x] 白名单 Provider 测试
+- [x] 占位 OCR 集成测试已迁回 `test/`，不再阻塞全量 `flutter test`
+
+## 最近一轮本地变更重点
+
+- 记忆管理升级为一级模块，并重新整理了 UI 风格。
+- 模板不再属于记忆类型，遗留模板型摘要仅做兼容读取。
+- 设置页新增“诊断”“查询数据库”“存储空间”“备份数据”等辅助能力。
+- 备份页增加导入能力，并在导入前做 JSON 格式预校验。
+- 手势和白名单配置改为同时同步原生层，便于服务侧真实生效。
+- 诊断页可直接检查权限、服务运行状态、动作同步状态和白名单同步状态。
+- SLM 相关配置被拆到 `assets/config/*.json`，不再全部写死在代码里。
+
+## 当前待推进项
+
+### 近期待办
+
+- [ ] Fact 手动升级为 Core 的独立 UI 流程
+- [ ] 真机环境下继续验证 MediaPipe 原生推理可用性
+- [ ] 为 SLM 推理增加更完整的可观测性指标
+- [ ] 继续优化列表性能与大数据量下的交互体验
+
+### 中期目标
+
+- [ ] 模型资源管理与版本管理
 - [ ] iOS 适配
-- [ ] 多语言支持
-- [ ] 主题自定义
-- [ ] 数据加密（flutter_secure_storage）
-- [ ] 备份与同步
+- [ ] 数据加密能力
+- [ ] 更完整的备份恢复策略与冲突处理
 
-## 关键文件说明
+## 当前已知约束
 
-### 核心入口
-- `lib/main.dart` - 应用主入口，路由配置，MethodChannel 处理
+### 1. MediaPipe 原生推理仍属于增强能力
 
-### 首页
-- `lib/features/home/presentation/pages/home_page.dart` - 首页，摘要列表，拖拽排序
+- 当前代码已经具备 `MemorySLMService`、模型配置、资源复制和回退链路。
+- 但在默认环境下，项目仍以规则回退为安全基线。
+- 若需要尝试原生推理，需要在支持环境下显式启用 `--dart-define=ENABLE_MEDIAPIPE_SLM=true`。
 
-### 模板模块
-- `lib/features/template/presentation/pages/template_page.dart` - 模板管理页面
-- `lib/features/template/data/template_repository.dart` - 模板数据仓库
-- `lib/features/template/domain/template_notifier.dart` - 模板状态管理
+### 2. 模型打包链路依赖本地资源
 
-### 快捷操作
-- `lib/features/quick_action/presentation/pages/quick_action_page.dart` - 快捷操作选择界面
-- `android/app/src/main/kotlin/com/ironion/local_vault/TemplateTileService.kt` - 模板快捷方式服务
-- `android/app/src/main/kotlin/com/ironion/local_vault/SummariesTileService.kt` - 摘要快捷方式服务
+- Android 构建脚本会尝试从 `assets/models/` 同步模型到生成资产目录。
+- 如果目标模型文件不存在，运行时会自动回退规则模式，而不是阻断应用启动。
 
-### 悬浮窗
-- `android/app/src/main/kotlin/com/ironion/local_vault/FloatingWindowService.kt` - 悬浮窗服务
+### 3. 仍保留少量兼容层
 
-## 开发规范
+- `StorageInitializer` 仍注册旧 `SummaryAdapter`。
+- `features/summary/models/summary.dart` 等旧模型仍存在，用于兼容历史存储和渐进迁移。
 
-### 代码风格
-- 遵循 Effective Dart 规范
-- 使用 `dart_format` 格式化代码
-- 单行不超过 80 字符
-- PascalCase 类名，camelCase 变量名
+## 结论
 
-### 架构原则
-- SOLID 原则
-- MVVM 架构
-- 分层设计（Presentation → Domain → Data）
-- 功能模块化，独立解耦
+项目当前已经具备一条可用的本地记忆产品主链路：
 
-### 状态管理
-- 使用 Riverpod 进行状态管理
-- UI 与逻辑分离
-- 不可变数据（使用 freezed）
-
-### Git 提交前
-- 运行 `dart_fix`
-- 运行 `dart analyze`
-- 确保所有测试通过
-
-## 已知问题
-
-### 当前存在的问题（2026-03-16）
-
-1. **同一会话里保存的多个记录无法合并** - 重复保存相同内容在重新打开后悔存在多条，并且无法做到会话记忆合并
-    - **解决方案**: 引入 SLM 进行智能 Topic 提取和会话合并
-    - **进度**: 已制定集成计划，待实施
-
-### 已修复问题
-1. ~~快捷操作后会跳转到主应用~~ → 目前使用半透明弹窗，这是 Android 系统限制
-2. ~~卡片拖拽排序在某些情况下可能不流畅~~ → 已优化
-3. ~~复制内容后窗口不会自动关闭~~ → 已修复
-4. ~~SnackBar 不显示~~ → 已修复
-5. ~~复制摘要后访问次数不增加~~ → 已修复（修正 recordAccess 调用链）
-6. ~~快捷方式弹窗存在黑色色块~~ → 已修复（透明模式 + Texture 渲染）
-7. ~~多次访问摘要仅增加 1 次访问数~~ → 已修复（访问次数累加逻辑）
-8. ~~摘要需要压缩和标签生成~~ → 已修复（标题压缩 + 自动标签）
-9. ~~模板模块访问失败~~ → 已修复（删除旧的模板实现，以及做了统一的样式处理）
-
-概述：当前已收敛访问计数、会话合并、标题与标签生成、快捷弹窗黑块问题，仅剩模板模块访问失败待排查修复。
-
-## SLM 集成计划（2026-03-17）
-
-### 阶段 1：基础集成（预计 2 天）
-
-- [ ] 添加 MediaPipe LLM Inference 依赖
-- [ ] 下载并部署 Qwen2.5-1.5B-Instruct 模型
-- [ ] 实现 SLM 服务基础框架
-- [ ] 测试模型加载和推理
-
-### 阶段 2：核心功能（预计 3 天）
-
-- [ ] 实现智能 Topic 提取
-- [ ] 实现语义相似度判断
-- [ ] 实现 Session 批量合并
-- [ ] 实现升级理由生成
-
-### 阶段 3：三层架构升级（预计 2 天）
-
-- [ ] 修改 MemoryType 枚举（session, fact, core）
-- [ ] 实现自动升级逻辑
-- [ ] 实现手动升级 UI
-- [ ] 优化遗忘曲线（跳过 Core 层）
-
-### 阶段 4：测试与优化（预计 1 天）
-
-- [ ] 编写单元测试
-- [ ] 性能优化
-- [ ] 用户测试反馈
-
----
-
-## 最后更新
-
-2026-03-16
+- 可以保存、整理、搜索和管理本地摘要。
+- 可以通过模板、分享、磁贴和手势快速进入保存流程。
+- 可以诊断原生手势状态、查看数据库原始记录、备份和导入数据。
+- 可以在不依赖模型稳定可用的前提下，持续迭代 SLM 增强能力。

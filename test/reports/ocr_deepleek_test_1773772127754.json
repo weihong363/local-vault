@@ -1,0 +1,21 @@
+{
+  "total_images": 1,
+  "success_count": 0,
+  "average_accuracy": 0.0,
+  "success_rate": 0.0,
+  "chinese_count": 0,
+  "english_count": 1,
+  "chinese_accuracy": 0.0,
+  "english_accuracy": 0.0,
+  "results": [
+    {
+      "image": "test/resource/ocr_test_resorce.jpg",
+      "expected": "现在市面上已经出现了一些针对 OpenClaw 这类 AI 智能体的安全产品",
+      "actual": "",
+      "accuracy": 0.0,
+      "contains_chinese": false,
+      "error": "MissingPluginException(No implementation found for method vision#startTextRecognizer on channel google_mlkit_text_recognizer)"
+    }
+  ],
+  "timestamp": "2026-03-18T02:28:47.752124"
+}

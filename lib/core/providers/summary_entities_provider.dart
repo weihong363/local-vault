@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 
 /// Summary UseCase Provider - 使用新架构
@@ -30,7 +31,11 @@ class SummaryEntityNotifier
   Future<void> addSummary(SummaryEntity summary) async {
     state = const AsyncLoading();
     try {
-      await useCases.addWithDeduplication(summary);
+      if (summary.type == MemoryType.session) {
+        await useCases.addSessionMemory(summary);
+      } else {
+        await useCases.addFactSummary(summary);
+      }
       final summaries = useCases.getAllSummaries();
       state = AsyncData(summaries);
     } catch (e) {
@@ -41,11 +46,28 @@ class SummaryEntityNotifier
   Future<void> addWithDeduplication(SummaryEntity summary) async {
     state = const AsyncLoading();
     try {
-      await useCases.addWithDeduplication(summary);
+      if (summary.type == MemoryType.session) {
+        await useCases.addSessionMemory(summary);
+      } else {
+        await useCases.addFactSummary(summary);
+      }
       final summaries = useCases.getAllSummaries();
       state = AsyncData(summaries);
     } catch (e) {
       state = AsyncError(e, StackTrace.current);
+    }
+  }
+
+  Future<FactSummarySaveResult> addFactSummary(SummaryEntity summary) async {
+    state = const AsyncLoading();
+    try {
+      final result = await useCases.addFactSummary(summary);
+      final summaries = useCases.getAllSummaries();
+      state = AsyncData(summaries);
+      return result;
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+      rethrow;
     }
   }
 
@@ -171,6 +193,15 @@ class SummaryEntityNotifier
     }
   }
 
+  List<SummaryMergeCandidate> findMergeCandidates(SummaryEntity target) {
+    try {
+      return useCases.findMergeCandidates(target);
+    } catch (e) {
+      debugPrint('查找合并候选失败: $e');
+      return [];
+    }
+  }
+
   Future<void> mergeMemories(String id1, String id2) async {
     state = const AsyncLoading();
     try {
@@ -178,6 +209,25 @@ class SummaryEntityNotifier
       await _loadSummaries();
     } catch (e) {
       state = AsyncError(e, StackTrace.current);
+    }
+  }
+
+  Future<void> mergeFactMemories({
+    required String primaryId,
+    required String secondaryId,
+    SummaryMergeResolution resolution = const SummaryMergeResolution(),
+  }) async {
+    state = const AsyncLoading();
+    try {
+      await useCases.mergeMemoriesWithResolution(
+        primaryId: primaryId,
+        secondaryId: secondaryId,
+        resolution: resolution,
+      );
+      await _loadSummaries();
+    } catch (e) {
+      state = AsyncError(e, StackTrace.current);
+      rethrow;
     }
   }
 }

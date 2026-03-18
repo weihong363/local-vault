@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,10 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
+import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
+import 'package:local_vault/core/services/app_settings_service.dart';
 import 'package:local_vault/core/services/ocr_service.dart';
-import 'package:local_vault/core/utils/summary_text_utils.dart';
+import 'package:local_vault/core/services/summary_metadata_service.dart';
+import 'package:local_vault/features/memory/presentation/pages/memory_merge_diff_page.dart';
 
 class SavePage extends ConsumerStatefulWidget {
   final dynamic initialData; // 可以是 String 或 Map (图片分享) 或 SummaryEntity (编辑)
@@ -29,10 +34,22 @@ class _SavePageState extends ConsumerState<SavePage> {
   bool _hasInitializedShareText = false;
   bool _isSaving = false; // 添加保存状态
   bool _isProcessingOcr = false; // OCR 处理中
+  bool _previewEnabled = false;
+  bool _isGeneratingPreview = false;
+  PreparedSummaryDraft? _previewDraft;
+  String? _previewError;
+  Timer? _previewDebounce;
+  int _previewGeneration = 0;
+  String? _lastPreviewSignature;
 
   @override
   void initState() {
     super.initState();
+    _titleController.addListener(_onPreviewInputChanged);
+    _contentController.addListener(_onPreviewInputChanged);
+    _tagsController.addListener(_onPreviewInputChanged);
+    _remarkController.addListener(_onPreviewInputChanged);
+    _loadPreviewPreference();
 
     // 先检查是否是编辑模式
     if (widget.editingSummary != null) {
@@ -220,11 +237,161 @@ class _SavePageState extends ConsumerState<SavePage> {
 
   @override
   void dispose() {
+    _previewDebounce?.cancel();
+    _titleController.removeListener(_onPreviewInputChanged);
+    _contentController.removeListener(_onPreviewInputChanged);
+    _tagsController.removeListener(_onPreviewInputChanged);
+    _remarkController.removeListener(_onPreviewInputChanged);
     _titleController.dispose();
     _contentController.dispose();
     _tagsController.dispose();
     _remarkController.dispose(); // 释放备注控制器
     super.dispose();
+  }
+
+  Future<void> _loadPreviewPreference() async {
+    final previewEnabled =
+        await sl<AppSettingsService>().isSummaryMetadataPreviewEnabled();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _previewEnabled = previewEnabled;
+    });
+    if (previewEnabled) {
+      _schedulePreviewRefresh();
+    }
+  }
+
+  void _onPreviewInputChanged() {
+    _lastPreviewSignature = null;
+    if (!_previewEnabled) {
+      return;
+    }
+    _schedulePreviewRefresh();
+  }
+
+  void _schedulePreviewRefresh() {
+    _previewDebounce?.cancel();
+    _previewDebounce = Timer(
+      const Duration(milliseconds: 450),
+      () => _generatePreview(),
+    );
+  }
+
+  Future<void> _togglePreview(bool value) async {
+    await sl<AppSettingsService>().setSummaryMetadataPreviewEnabled(value);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _previewEnabled = value;
+      if (!value) {
+        _previewDraft = null;
+        _previewError = null;
+        _isGeneratingPreview = false;
+      }
+    });
+
+    if (value) {
+      _schedulePreviewRefresh();
+    } else {
+      _previewDebounce?.cancel();
+    }
+  }
+
+  Future<void> _generatePreview({bool force = false}) async {
+    final content = _contentController.text.trim();
+    final signature = _buildPreviewSignature();
+    if (!force &&
+        _lastPreviewSignature == signature &&
+        (_previewDraft != null || _previewError != null)) {
+      return;
+    }
+
+    if (content.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _previewDraft = null;
+        _previewError = '输入内容后即可预览推荐的标题和标签';
+        _isGeneratingPreview = false;
+      });
+      return;
+    }
+
+    final generation = ++_previewGeneration;
+    if (mounted) {
+      setState(() {
+        _isGeneratingPreview = true;
+        _previewError = null;
+      });
+    }
+
+    try {
+      final tags = _tagsController.text
+          .split(',')
+          .map((tag) => tag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList();
+      final draft = await sl<SummaryMetadataService>().preparePreview(
+        title: _titleController.text.trim(),
+        content: content,
+        tags: tags,
+        remark: _remarkController.text.trim(),
+      );
+
+      if (!mounted || generation != _previewGeneration) {
+        return;
+      }
+
+      setState(() {
+        _previewDraft = draft;
+        _previewError = null;
+        _isGeneratingPreview = false;
+        _lastPreviewSignature = signature;
+      });
+    } catch (e) {
+      if (!mounted || generation != _previewGeneration) {
+        return;
+      }
+      setState(() {
+        _previewDraft = null;
+        _previewError = '预览生成失败：$e';
+        _isGeneratingPreview = false;
+      });
+    }
+  }
+
+  void _applyPreviewToForm() {
+    final draft = _previewDraft;
+    if (draft == null) {
+      return;
+    }
+
+    setState(() {
+      _titleController.text = draft.title;
+      _tagsController.text = draft.tags.join(', ');
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('已将预览结果填入标题和标签'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  String _buildPreviewSignature() {
+    return [
+      _titleController.text.trim(),
+      _contentController.text.trim(),
+      _remarkController.text.trim(),
+      _tagsController.text.trim(),
+      _previewEnabled.toString(),
+    ].join('::');
   }
 
   Future<void> _saveSummary() async {
@@ -255,20 +422,25 @@ class _SavePageState extends ConsumerState<SavePage> {
         return;
       }
 
-      String finalTitle = title;
-      if (finalTitle.isEmpty) {
-        finalTitle = SummaryTextUtils.generateTitle(content);
+      final prepared = await sl<SummaryMetadataService>().prepareForSave(
+        title: title,
+        content: content,
+        tags: inputTags,
+        remark: remark,
+      );
+      final finalTitle = prepared.title;
+      final fullContent = prepared.content;
+      final tags = prepared.tags;
+
+      if (title.isEmpty) {
         _titleController.text = finalTitle;
       }
-      finalTitle = SummaryTextUtils.compressTitle(finalTitle);
+      if (inputTags.isEmpty && tags.isNotEmpty) {
+        _tagsController.text = tags.join(', ');
+      }
 
-      // 如果有备注，将备注添加到内容中
-      final fullContent =
-          remark.isNotEmpty ? '$content\n\n---备注---\n$remark' : content;
-
-      final tags = inputTags.isNotEmpty
-          ? inputTags
-          : SummaryTextUtils.generateTags(finalTitle, fullContent);
+      var successMessage =
+          widget.editingSummary != null ? '已更新摘要' : '已保存到本地记忆库';
 
       // 判断是新增还是编辑
       if (widget.editingSummary != null) {
@@ -295,10 +467,35 @@ class _SavePageState extends ConsumerState<SavePage> {
         );
 
         debugPrint('💾 [SavePage] 准备保存摘要：${summary.title}');
-        await ref
+        final result = await ref
             .read(summaryEntityNotifierProvider.notifier)
-            .addWithDeduplication(summary);
+            .addFactSummary(summary);
         debugPrint('✅ [SavePage] 保存成功');
+
+        if (result.wasExactDuplicate) {
+          successMessage = '检测到重复事实记忆，已更新已有记录';
+        } else if (result.hasMergeSuggestions && mounted) {
+          final candidate = await _showMergeCandidatePicker(result);
+          if (!mounted) {
+            return;
+          }
+          if (candidate != null) {
+            final merged = await Navigator.of(context).push<bool>(
+              MaterialPageRoute<bool>(
+                builder: (_) => MemoryMergeDiffPage(
+                  primarySummary: candidate.summary,
+                  secondarySummary: result.savedSummary,
+                  primaryLabel: '原有事实记忆',
+                  secondaryLabel: '新保存事实记忆',
+                  similarity: candidate.similarity,
+                ),
+              ),
+            );
+            if (merged == true) {
+              successMessage = '已保存并合并事实记忆';
+            }
+          }
+        }
       }
 
       if (mounted) {
@@ -315,7 +512,7 @@ class _SavePageState extends ConsumerState<SavePage> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
-                Text(widget.editingSummary != null ? '已更新摘要' : '已保存到本地记忆库'),
+                Text(successMessage),
               ],
             ),
             backgroundColor: Colors.green,
@@ -348,10 +545,60 @@ class _SavePageState extends ConsumerState<SavePage> {
     }
   }
 
+  Future<SummaryMergeCandidate?> _showMergeCandidatePicker(
+    FactSummarySaveResult result,
+  ) {
+    return showDialog<SummaryMergeCandidate>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('发现可合并的事实记忆'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('“${result.savedSummary.title}” 已保存，发现以下合并候选：'),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 280,
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: result.mergeCandidates
+                        .map(
+                          (candidate) => ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(candidate.summary.title),
+                            subtitle: Text(
+                              '相似度 ${(candidate.similarity * 100).toStringAsFixed(1)}% · '
+                              '${candidate.summary.content}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.of(context).pop(candidate),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('稍后处理'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -387,7 +634,9 @@ class _SavePageState extends ConsumerState<SavePage> {
                       Text(
                         '分享',
                         style: TextStyle(
-                          color: isDark ? Colors.green.shade400 : Colors.green.shade700,
+                          color: isDark
+                              ? Colors.green.shade400
+                              : Colors.green.shade700,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -419,19 +668,21 @@ class _SavePageState extends ConsumerState<SavePage> {
               labelStyle: TextStyle(
                 color: isDark ? AppColors.darkTextPrimary : null,
               ),
-              prefixIcon: Icon(Icons.title, color: isDark ? AppColors.primary : Colors.blue),
+              prefixIcon: Icon(Icons.title,
+                  color: isDark ? AppColors.primary : Colors.blue),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: isDark ? AppColors.primary : Colors.blue.shade300, 
+                  color: isDark ? AppColors.primary : Colors.blue.shade300,
                   width: 2,
                 ),
               ),
               filled: true,
-              fillColor: isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade50,
+              fillColor:
+                  isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade50,
             ),
           ),
 
@@ -454,7 +705,8 @@ class _SavePageState extends ConsumerState<SavePage> {
               ),
               prefixIcon: Padding(
                 padding: const EdgeInsets.only(bottom: 60),
-                child: Icon(Icons.notes, color: isDark ? AppColors.primary : Colors.blue),
+                child: Icon(Icons.notes,
+                    color: isDark ? AppColors.primary : Colors.blue),
               ),
               alignLabelWithHint: true,
               border: OutlineInputBorder(
@@ -463,12 +715,13 @@ class _SavePageState extends ConsumerState<SavePage> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: isDark ? AppColors.primary : Colors.blue.shade300, 
+                  color: isDark ? AppColors.primary : Colors.blue.shade300,
                   width: 2,
                 ),
               ),
               filled: true,
-              fillColor: isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade50,
+              fillColor:
+                  isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade50,
             ),
             maxLines: 8,
             minLines: 5,
@@ -491,19 +744,22 @@ class _SavePageState extends ConsumerState<SavePage> {
               labelStyle: TextStyle(
                 color: isDark ? AppColors.darkTextPrimary : null,
               ),
-              prefixIcon: Icon(Icons.comment, color: isDark ? Colors.orange.shade400 : Colors.orange),
+              prefixIcon: Icon(Icons.comment,
+                  color: isDark ? Colors.orange.shade400 : Colors.orange),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: isDark ? Colors.orange.shade400 : Colors.orange.shade300, 
+                  color:
+                      isDark ? Colors.orange.shade400 : Colors.orange.shade300,
                   width: 2,
                 ),
               ),
               filled: true,
-              fillColor: isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade50,
+              fillColor:
+                  isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade50,
             ),
             maxLines: 4,
             minLines: 2,
@@ -526,21 +782,41 @@ class _SavePageState extends ConsumerState<SavePage> {
               labelStyle: TextStyle(
                 color: isDark ? AppColors.darkTextPrimary : null,
               ),
-              prefixIcon: Icon(Icons.local_offer, color: isDark ? Colors.purple.shade400 : Colors.purple),
+              prefixIcon: Icon(Icons.local_offer,
+                  color: isDark ? Colors.purple.shade400 : Colors.purple),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: isDark ? Colors.purple.shade400 : Colors.purple.shade300, 
+                  color:
+                      isDark ? Colors.purple.shade400 : Colors.purple.shade300,
                   width: 2,
                 ),
               ),
               filled: true,
-              fillColor: isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade50,
+              fillColor:
+                  isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade50,
             ),
           ),
+
+          const SizedBox(height: 16),
+
+          SwitchListTile.adaptive(
+            value: _previewEnabled,
+            onChanged: _togglePreview,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('预览推荐标题和标签'),
+            subtitle: const Text(
+              '开启后会根据当前内容生成建议，不会自动覆盖你的表单内容',
+            ),
+          ),
+
+          if (_previewEnabled) ...[
+            const SizedBox(height: 12),
+            _buildPreviewCard(isDark),
+          ],
 
           const SizedBox(height: 32),
 
@@ -596,6 +872,159 @@ class _SavePageState extends ConsumerState<SavePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPreviewCard(bool isDark) {
+    final previewDraft = _previewDraft;
+    final previewError = _previewError;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.darkSurfaceVariant.withValues(alpha: 0.85)
+            : Colors.blueGrey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? AppColors.primary.withValues(alpha: 0.35)
+              : Colors.blueGrey.shade100,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.visibility_outlined,
+                size: 18,
+                color: isDark ? AppColors.primary : Colors.blueGrey.shade700,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  '保存结果预览',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _isGeneratingPreview
+                    ? null
+                    : () => _generatePreview(force: true),
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('刷新'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '预览会优先根据正文推荐更适合作为摘要的标题和标签。',
+            style: TextStyle(
+              fontSize: 12,
+              color:
+                  isDark ? AppColors.darkTextMuted : Colors.blueGrey.shade600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_isGeneratingPreview)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (previewError != null)
+            Text(
+              previewError,
+              style: TextStyle(
+                color: isDark ? Colors.orange.shade300 : Colors.orange.shade800,
+              ),
+            )
+          else if (previewDraft != null) ...[
+            _buildPreviewField(
+              label: '推荐标题',
+              value: previewDraft.title,
+              isDark: isDark,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '推荐标签',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color:
+                    isDark ? AppColors.darkTextMuted : Colors.blueGrey.shade600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: previewDraft.tags.map((tag) {
+                return Chip(
+                  label: Text(tag),
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: _applyPreviewToForm,
+                  icon: const Icon(Icons.auto_fix_high_outlined),
+                  label: const Text('应用到表单'),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  previewDraft.usedModel ? '来自内置模型' : '来自本地规则',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark
+                        ? AppColors.darkTextMuted
+                        : Colors.blueGrey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewField({
+    required String label,
+    required String value,
+    required bool isDark,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppColors.darkTextMuted : Colors.blueGrey.shade600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color:
+                isDark ? AppColors.darkTextPrimary : Colors.blueGrey.shade900,
+          ),
+        ),
+      ],
     );
   }
 }

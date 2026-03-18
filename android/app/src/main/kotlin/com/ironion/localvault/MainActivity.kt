@@ -217,6 +217,9 @@ class MainActivity : FlutterActivity() {
                 "checkOverlayPermission" -> {
                     result.success(hasOverlayPermission())
                 }
+                "isFloatingServiceRunning" -> {
+                    result.success(FloatingWindowService.isServiceRunning)
+                }
                 "requestOverlayPermission" -> {
                     requestOverlayPermission()
                     result.success(null)
@@ -243,6 +246,14 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     } else {
                         result.error("INVALID_ARGUMENTS", "Missing arguments", null)
+                    }
+                }
+                "getTapGestureConfig" -> {
+                    val tapCount = call.argument<Int>("tapCount")
+                    if (tapCount != null) {
+                        result.success(getTapGestureConfig(tapCount))
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "Missing tapCount", null)
                     }
                 }
                 else -> {
@@ -324,6 +335,7 @@ class MainActivity : FlutterActivity() {
                 "copyBundledModelToFiles" -> {
                     val assetPath = call.argument<String>("assetPath")
                     val fileName = call.argument<String>("fileName")
+                    val targetPath = call.argument<String>("targetPath")
 
                     if (assetPath.isNullOrEmpty() || fileName.isNullOrEmpty()) {
                         result.error("INVALID_ARGUMENT", "Missing assetPath or fileName", null)
@@ -331,7 +343,7 @@ class MainActivity : FlutterActivity() {
                     }
 
                     try {
-                        val copiedFile = copyModelAssetToFiles(assetPath, fileName)
+                        val copiedFile = copyModelAssetToFiles(assetPath, fileName, targetPath)
                         result.success(copiedFile.absolutePath)
                     } catch (e: Exception) {
                         Log.e(TAG, "复制模型资源失败: ${e.message}", e)
@@ -361,11 +373,29 @@ class MainActivity : FlutterActivity() {
                         val packages = call.argument<List<String>>("packages") ?: emptyList()
                         whitelistPackages.clear()
                         whitelistPackages.addAll(packages)
+                        PreferenceManager.getDefaultSharedPreferences(this)
+                            .edit()
+                            .putStringSet("app_whitelist", packages.toSet())
+                            .apply()
                         Log.d(TAG, "设置应用白名单：$whitelistPackages")
                         result.success(null)
                     } catch (e: Exception) {
                         Log.e(TAG, "设置应用白名单失败", e)
                         result.error("SET_WHITELIST_FAILED", e.message, null)
+                    }
+                }
+
+                "getWhitelistPackages" -> {
+                    try {
+                        val packages = PreferenceManager.getDefaultSharedPreferences(this)
+                            .getStringSet("app_whitelist", emptySet())
+                            ?.toList()
+                            ?.sorted()
+                            ?: emptyList()
+                        result.success(packages)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "获取应用白名单失败", e)
+                        result.error("GET_WHITELIST_FAILED", e.message, null)
                     }
                 }
                 else -> {
@@ -405,6 +435,17 @@ class MainActivity : FlutterActivity() {
         editor.apply()
     }
 
+    private fun getTapGestureConfig(tapCount: Int): Int {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val tapKey = when (tapCount) {
+            2 -> "gesture_tap_2_action"
+            3 -> "gesture_tap_3_action"
+            else -> return -1
+        }
+
+        return prefs.getInt(tapKey, if (tapCount == 2) 0 else 2)
+    }
+
     private fun hasOverlayPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Settings.canDrawOverlays(this)
@@ -430,11 +471,26 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun requestUsageStatsPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-            val intent = Intent(
-                Settings.ACTION_USAGE_ACCESS_SETTINGS
-            )
-            startActivity(intent)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) {
+            return
+        }
+
+        val usageAccessIntent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        val fallbackIntent = Intent(Settings.ACTION_SETTINGS)
+
+        when {
+            usageAccessIntent.resolveActivity(packageManager) != null -> {
+                startActivity(usageAccessIntent)
+            }
+
+            fallbackIntent.resolveActivity(packageManager) != null -> {
+                Log.w(TAG, "Usage Access 设置页不可用，降级跳转到系统设置")
+                startActivity(fallbackIntent)
+            }
+
+            else -> {
+                Log.e(TAG, "无法打开任何系统设置页面")
+            }
         }
     }
 
@@ -448,13 +504,14 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun copyModelAssetToFiles(assetPath: String, fileName: String): File {
-        val targetDir = File(filesDir, "models")
-        if (!targetDir.exists()) {
-            targetDir.mkdirs()
+    private fun copyModelAssetToFiles(assetPath: String, fileName: String, targetPath: String?): File {
+        val targetFile = if (!targetPath.isNullOrBlank()) {
+            File(targetPath)
+        } else {
+            File(File(filesDir, "models"), fileName)
         }
 
-        val targetFile = File(targetDir, fileName)
+        targetFile.parentFile?.mkdirs()
         if (targetFile.exists() && targetFile.length() > 0L) {
             return targetFile
         }

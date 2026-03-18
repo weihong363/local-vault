@@ -5,6 +5,9 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val bundledSlmModelFileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+val generatedModelAssetsDir = layout.buildDirectory.dir("generated/modelAssets")
+
 android {
     namespace = "com.ironion.localvault"
     compileSdk = flutter.compileSdkVersion
@@ -15,8 +18,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
     defaultConfig {
@@ -52,7 +57,7 @@ android {
     }
 
     sourceSets {
-        getByName("main").assets.srcDirs("src/main/assets")
+        getByName("main").assets.setSrcDirs(listOf(generatedModelAssetsDir))
     }
 }
 
@@ -66,10 +71,10 @@ flutter {
     source = "../.."
 }
 
-val syncModelAssets by tasks.registering(Copy::class) {
+val syncModelAssets by tasks.registering(Sync::class) {
     from(rootProject.projectDir.parentFile.resolve("assets/models"))
-    into(projectDir.resolve("src/main/assets/models"))
-    include("*.gguf")
+    into(generatedModelAssetsDir.map { it.dir("models") })
+    include(bundledSlmModelFileName)
 }
 
 tasks.named("preBuild") {

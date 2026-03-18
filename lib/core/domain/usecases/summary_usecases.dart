@@ -1,20 +1,24 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:local_vault/core/config/memory_policy_config.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
 
 /// 摘要业务用例
 class SummaryUseCases {
-  SummaryUseCases(this.repository, this.slmService);
-
-  static const Duration _defaultSessionMaxAge = Duration(hours: 2);
-  static const Duration _candidateProtectionWindow = Duration(hours: 24);
+  SummaryUseCases(
+    this.repository,
+    this.slmService, {
+    this.policyConfig = MemoryPolicyConfig.defaults,
+  });
 
   final SummaryRepositoryInterface repository;
   final MemorySLMService slmService;
+  final MemoryPolicyConfig policyConfig;
 
   /// 添加摘要
   Future<void> addSummary(SummaryEntity summary) async {
@@ -85,11 +89,12 @@ class SummaryUseCases {
   }
 
   /// 添加记忆（带去重）
-  /// 相似度阈值默认为 0.7，超过则合并而非新增
   Future<void> addWithDeduplication(
     SummaryEntity summary, {
-    double similarityThreshold = 0.7,
+    double? similarityThreshold,
   }) async {
+    final effectiveSimilarityThreshold =
+        similarityThreshold ?? policyConfig.similarity.deduplicationThreshold;
     final existingSummaries = getAllSummaries();
 
     final duplicate = _findExactDuplicate(existingSummaries, summary);
@@ -115,7 +120,7 @@ class SummaryUseCases {
       );
 
       bestSimilarity = max(bestSimilarity, similarity);
-      if (similarity >= similarityThreshold) {
+      if (similarity >= effectiveSimilarityThreshold) {
         debugPrint(
           '🔗 [去重] 高相似度合并：${summary.title} -> ${existing.title} '
           '(相似度：${(similarity * 100).toStringAsFixed(1)}%)',
@@ -133,15 +138,49 @@ class SummaryUseCases {
     await addSummary(summary);
   }
 
-  /// 添加会话记忆（仅在会话内合并）
-  Future<void> addSessionMemory(
+  /// 添加事实记忆，但不自动合并相似事实，改为返回合并候选供 UI 决策。
+  Future<FactSummarySaveResult> addFactSummary(
     SummaryEntity summary, {
-    double similarityThreshold = 0.6,
+    double? similarityThreshold,
   }) async {
+    final factSummary = summary.type == MemoryType.fact
+        ? summary
+        : summary.copyWith(type: MemoryType.fact);
+    final duplicate =
+        _findExactDuplicate(getSummariesByType(MemoryType.fact), factSummary);
+
+    if (duplicate != null) {
+      final updated = duplicate.copyWith(
+        lastAccessedAt: DateTime.now(),
+        accessCount: duplicate.accessCount + 1,
+        updatedAt: DateTime.now(),
+      );
+      await updateSummary(updated);
+      return FactSummarySaveResult(
+        savedSummary: updated,
+        wasExactDuplicate: true,
+      );
+    }
+
+    await addSummary(factSummary);
+    final savedSummary = getSummary(factSummary.id) ?? factSummary;
+    if (savedSummary.type != MemoryType.fact) {
+      return FactSummarySaveResult(savedSummary: savedSummary);
+    }
+
+    return FactSummarySaveResult(
+      savedSummary: savedSummary,
+      mergeCandidates: findMergeCandidates(
+        savedSummary,
+        threshold: similarityThreshold,
+        allowedTypes: const <MemoryType>{MemoryType.fact},
+      ),
+    );
+  }
+
+  /// 添加会话记忆（仅在会话内合并）
+  Future<void> addSessionMemory(SummaryEntity summary) async {
     final sessionSummaries = getSummariesByType(MemoryType.session);
-    SummaryEntity? bestMatch;
-    double bestScore = 0.0;
-    var didMutate = false;
 
     final duplicate = _findExactDuplicate(sessionSummaries, summary);
     if (duplicate != null) {
@@ -152,36 +191,7 @@ class SummaryUseCases {
           updatedAt: DateTime.now(),
         ),
       );
-      didMutate = true;
     } else {
-      for (final existing in sessionSummaries) {
-        if (_isSameTopic(existing, summary)) {
-          final merged = _mergeMemories(existing, summary);
-          await updateSummary(merged.copyWith(updatedAt: DateTime.now()));
-          didMutate = true;
-          break;
-        }
-
-        final similarity = SimilarityUtils.calculateMemorySimilarity(
-          summary.title,
-          summary.content,
-          existing.title,
-          existing.content,
-        );
-        if (similarity > bestScore) {
-          bestScore = similarity;
-          bestMatch = existing;
-        }
-      }
-
-      if (!didMutate && bestMatch != null && bestScore >= similarityThreshold) {
-        final merged = _mergeMemories(bestMatch, summary);
-        await updateSummary(merged);
-        didMutate = true;
-      }
-    }
-
-    if (!didMutate) {
       await addSummary(summary.copyWith(type: MemoryType.session));
     }
 
@@ -244,15 +254,6 @@ class SummaryUseCases {
     return null;
   }
 
-  bool _isSameTopic(SummaryEntity a, SummaryEntity b) {
-    final titleA = _normalizeTitle(a.title);
-    final titleB = _normalizeTitle(b.title);
-    if (titleA.isEmpty || titleB.isEmpty) return false;
-    if (titleA == titleB) return true;
-    if (titleA.contains(titleB) || titleB.contains(titleA)) return true;
-    return false;
-  }
-
   String _normalizeTitle(String title) {
     return title
         .toLowerCase()
@@ -301,14 +302,13 @@ class SummaryUseCases {
   }
 
   /// 应用遗忘曲线
-  /// 30 天后开始衰减，重要性最低保留 0.1
   Future<void> applyForgettingCurve() async {
     final allSummaries = getAllSummaries();
     final now = DateTime.now();
+    final curve = policyConfig.forgettingCurve;
 
     for (final summary in allSummaries) {
-      if (summary.type == MemoryType.core ||
-          summary.type == MemoryType.template) {
+      if (summary.type == MemoryType.core) {
         continue;
       }
 
@@ -321,13 +321,22 @@ class SummaryUseCases {
       }
 
       final daysOld = now.difference(current.createdAt).inDays;
-      if (daysOld <= 30) {
+      if (daysOld <= curve.startDays) {
         continue;
       }
 
-      final decayFactor = max(0.1, 1.0 - ((daysOld - 30) / 60) * 0.9);
-      final newImportance =
-          (current.importance * decayFactor).clamp(0.1, 1.0).toDouble();
+      final decayFactor = max(
+        curve.minImportance,
+        1.0 -
+            ((daysOld - curve.startDays) / curve.decayPeriodDays) *
+                curve.decayRate,
+      );
+      final newImportance = (current.importance * decayFactor)
+          .clamp(
+            curve.minImportance,
+            1.0,
+          )
+          .toDouble();
 
       if (newImportance != current.importance) {
         await repository.updateSummary(
@@ -342,12 +351,13 @@ class SummaryUseCases {
 
   /// 清理过期会话记忆（默认 2 小时）
   Future<void> cleanupSessionMemories({
-    Duration maxAge = _defaultSessionMaxAge,
+    Duration? maxAge,
   }) async {
     await checkAndMergeSessionBatches();
 
     final sessionMemories = getSummariesByType(MemoryType.session);
     final now = DateTime.now();
+    final effectiveMaxAge = maxAge ?? policyConfig.sessionMaxAge;
 
     for (final session in sessionMemories) {
       if (session.isSessionProtected) {
@@ -356,7 +366,7 @@ class SummaryUseCases {
 
       final referenceTime =
           session.lastAccessedAt ?? session.updatedAt ?? session.createdAt;
-      if (now.difference(referenceTime) > maxAge) {
+      if (now.difference(referenceTime) > effectiveMaxAge) {
         await deleteSummary(session.id);
       }
     }
@@ -365,13 +375,32 @@ class SummaryUseCases {
   /// 查找相似记忆
   List<SummaryEntity> findSimilarMemories(
     SummaryEntity target, {
-    double threshold = 0.5,
+    double? threshold,
   }) {
-    final allSummaries = getAllSummaries();
-    final similar = <SummaryEntity>[];
+    return findMergeCandidates(
+      target,
+      threshold: threshold,
+      allowedTypes: const <MemoryType>{
+        MemoryType.fact,
+        MemoryType.session,
+        MemoryType.core,
+      },
+    ).map((candidate) => candidate.summary).toList(growable: false);
+  }
 
-    for (final summary in allSummaries) {
-      if (summary.id == target.id) continue;
+  List<SummaryMergeCandidate> findMergeCandidates(
+    SummaryEntity target, {
+    double? threshold,
+    Set<MemoryType> allowedTypes = const <MemoryType>{MemoryType.fact},
+  }) {
+    final effectiveThreshold =
+        threshold ?? policyConfig.similarity.relatedMemoryThreshold;
+    final candidates = <SummaryMergeCandidate>[];
+
+    for (final summary in getAllSummaries()) {
+      if (summary.id == target.id || !allowedTypes.contains(summary.type)) {
+        continue;
+      }
 
       final similarity = SimilarityUtils.calculateMemorySimilarity(
         target.title,
@@ -380,31 +409,95 @@ class SummaryUseCases {
         summary.content,
       );
 
-      if (similarity >= threshold) {
-        similar.add(summary);
+      if (similarity >= effectiveThreshold) {
+        candidates.add(
+          SummaryMergeCandidate(
+            summary: summary,
+            similarity: similarity,
+          ),
+        );
       }
     }
 
-    return similar;
+    candidates.sort((a, b) => b.similarity.compareTo(a.similarity));
+    return candidates;
   }
 
   /// 手动合并两个记忆
   Future<void> mergeMemories(String id1, String id2) async {
-    final summary1 = getSummary(id1);
-    final summary2 = getSummary(id2);
+    await mergeMemoriesWithResolution(
+      primaryId: id1,
+      secondaryId: id2,
+      resolution: const SummaryMergeResolution(),
+    );
+  }
 
-    if (summary1 == null || summary2 == null) {
+  Future<void> mergeMemoriesWithResolution({
+    required String primaryId,
+    required String secondaryId,
+    SummaryMergeResolution resolution = const SummaryMergeResolution(),
+  }) async {
+    final primarySummary = getSummary(primaryId);
+    final secondarySummary = getSummary(secondaryId);
+
+    if (primarySummary == null || secondarySummary == null) {
       throw ArgumentError('找不到指定的记忆');
     }
+    if (primarySummary.type != MemoryType.fact ||
+        secondarySummary.type != MemoryType.fact) {
+      throw StateError('当前仅支持事实记忆手动合并');
+    }
 
-    final merged = _mergeMemories(summary1, summary2);
+    final merged = buildMergedSummary(
+      primarySummary,
+      secondarySummary,
+      resolution: resolution,
+    );
     await updateSummary(merged);
-    await deleteSummary(summary2.id);
+    await deleteSummary(secondarySummary.id);
+  }
+
+  SummaryEntity buildMergedSummary(
+    SummaryEntity primary,
+    SummaryEntity secondary, {
+    SummaryMergeResolution resolution = const SummaryMergeResolution(),
+  }) {
+    return primary.copyWith(
+      title: _resolveTextChoice(
+        existingValue: primary.title,
+        incomingValue: secondary.title,
+        choice: resolution.title,
+        combine: _mergeTitle,
+      ),
+      content: _resolveTextChoice(
+        existingValue: primary.content,
+        incomingValue: secondary.content,
+        choice: resolution.content,
+        combine: _mergeContent,
+      ),
+      tags: _resolveTagChoice(
+        existingTags: primary.tags,
+        incomingTags: secondary.tags,
+        choice: resolution.tags,
+      ),
+      createdAt: primary.createdAt.isBefore(secondary.createdAt)
+          ? primary.createdAt
+          : secondary.createdAt,
+      updatedAt: DateTime.now(),
+      lastAccessedAt: _latestDate(
+        primary.lastAccessedAt,
+        secondary.lastAccessedAt,
+      ),
+      topic: primary.topic ?? secondary.topic,
+      importance: (primary.importance + secondary.importance) / 2,
+      accessCount: primary.accessCount + secondary.accessCount,
+    );
   }
 
   Future<void> _upgradeFactToCoreIfNeeded(String id) async {
     final summary = getSummary(id);
-    if (summary == null || !summary.shouldUpgradeToCore) {
+    if (summary == null ||
+        !summary.shouldUpgradeToCoreWithPolicy(policyConfig)) {
       return;
     }
 
@@ -419,6 +512,7 @@ class SummaryUseCases {
   Future<List<_SessionBatch>> _buildSessionBatches(
     List<SummaryEntity> sessions,
   ) async {
+    final batchPolicy = policyConfig.sessionBatching;
     final sortedSessions = List<SummaryEntity>.from(sessions)
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     final batches = <_SessionBatch>[];
@@ -430,7 +524,7 @@ class SummaryUseCases {
       for (final batch in batches) {
         final anchor = batch.sessions.first;
         final ruleScore = _calculateRuleScore(anchor, session);
-        if (ruleScore < 0.3) {
+        if (ruleScore < batchPolicy.minimumRuleScoreForSemanticCheck) {
           continue;
         }
 
@@ -441,10 +535,11 @@ class SummaryUseCases {
         final topicMatches = normalizedBatchTopic.isNotEmpty &&
             normalizedBatchTopic == normalizedSessionTopic;
         final combinedScore = topicMatches
-            ? max(0.85, ruleScore)
-            : (ruleScore * 0.4) + (semanticScore * 0.6);
+            ? max(batchPolicy.topicMatchScoreFloor, ruleScore)
+            : (ruleScore * batchPolicy.ruleWeight) +
+                (semanticScore * batchPolicy.semanticWeight);
 
-        if (combinedScore >= 0.75) {
+        if (combinedScore >= batchPolicy.combinedScoreThreshold) {
           batch.sessions.add(session);
           assigned = true;
           break;
@@ -495,8 +590,9 @@ class SummaryUseCases {
     for (final session in originalSessions) {
       final batch = candidateIds[session.id];
       final nextTopic = batch?.topic ?? session.topic;
-      final nextProtectedUntil =
-          batch == null ? null : now.add(_candidateProtectionWindow);
+      final nextProtectedUntil = batch == null
+          ? null
+          : now.add(policyConfig.candidateProtectionWindow);
       final hasProtectionChanged = batch == null
           ? session.protectedUntil != null
           : session.protectedUntil == null ||
@@ -523,32 +619,23 @@ class SummaryUseCases {
   }
 
   bool _isEligibleForMerge(List<SummaryEntity> sessions) {
-    if (sessions.length < 3) {
-      return false;
-    }
-
-    final totalChars =
-        sessions.fold<int>(0, (sum, session) => sum + session.content.length);
-    if (totalChars < 100) {
-      return false;
-    }
-
-    return sessions.any(
-      (session) => session.accessCount > 0 || session.lastAccessedAt != null,
-    );
+    return sessions.length >=
+            policyConfig.sessionBatching.minimumMergeBatchSize &&
+        sessions.any((session) => session.content.trim().isNotEmpty);
   }
 
   double _calculateRuleScore(SummaryEntity a, SummaryEntity b) {
+    final batchPolicy = policyConfig.sessionBatching;
     double score = 0.0;
 
     final titleA = _normalizeTitle(a.title);
     final titleB = _normalizeTitle(b.title);
     if (titleA.isNotEmpty && titleA == titleB) {
-      score += 0.3;
+      score += batchPolicy.exactTitleMatchWeight;
     } else if (titleA.isNotEmpty &&
         titleB.isNotEmpty &&
         (titleA.contains(titleB) || titleB.contains(titleA))) {
-      score += 0.2;
+      score += batchPolicy.partialTitleMatchWeight;
     }
 
     final similarity = SimilarityUtils.calculateMemorySimilarity(
@@ -557,23 +644,23 @@ class SummaryUseCases {
       b.title,
       b.content,
     );
-    score += similarity * 0.3;
+    score += similarity * batchPolicy.semanticSimilarityWeight;
 
     if (a.tags.isNotEmpty && b.tags.isNotEmpty) {
       final overlap = a.tags.toSet().intersection(b.tags.toSet()).length;
       final maxSize = max(a.tags.length, b.tags.length);
-      score += (overlap / max(1, maxSize)) * 0.2;
+      score += (overlap / max(1, maxSize)) * batchPolicy.tagOverlapWeight;
     }
 
     if (_sourceFamily(a.source) == _sourceFamily(b.source)) {
-      score += 0.1;
+      score += batchPolicy.sameSourceWeight;
     }
 
     final timeDiff = a.createdAt.difference(b.createdAt).abs();
-    if (timeDiff <= const Duration(hours: 6)) {
-      score += 0.1;
-    } else if (timeDiff <= const Duration(days: 1)) {
-      score += 0.05;
+    if (timeDiff <= policyConfig.timeThresholds.shortTerm) {
+      score += batchPolicy.shortTermTimeWeight;
+    } else if (timeDiff <= policyConfig.timeThresholds.mediumTerm) {
+      score += batchPolicy.mediumTermTimeWeight;
     }
 
     return score.clamp(0.0, 1.0);
@@ -582,6 +669,62 @@ class SummaryUseCases {
   String _sourceFamily(String source) {
     final parts = source.split('_');
     return parts.isEmpty ? source : parts.first;
+  }
+
+  String _mergeTitle(String title1, String title2) {
+    final normalized1 = _normalizeTitle(title1);
+    final normalized2 = _normalizeTitle(title2);
+    if (normalized1 == normalized2) {
+      return title1.length >= title2.length ? title1 : title2;
+    }
+    if (title1.contains(title2)) {
+      return title1;
+    }
+    if (title2.contains(title1)) {
+      return title2;
+    }
+    return title2.length >= title1.length ? title2 : title1;
+  }
+
+  String _resolveTextChoice({
+    required String existingValue,
+    required String incomingValue,
+    required SummaryMergeFieldChoice choice,
+    required String Function(String existing, String incoming) combine,
+  }) {
+    switch (choice) {
+      case SummaryMergeFieldChoice.existing:
+        return existingValue;
+      case SummaryMergeFieldChoice.incoming:
+        return incomingValue;
+      case SummaryMergeFieldChoice.combined:
+        return combine(existingValue, incomingValue);
+    }
+  }
+
+  List<String> _resolveTagChoice({
+    required List<String> existingTags,
+    required List<String> incomingTags,
+    required SummaryMergeFieldChoice choice,
+  }) {
+    switch (choice) {
+      case SummaryMergeFieldChoice.existing:
+        return existingTags;
+      case SummaryMergeFieldChoice.incoming:
+        return incomingTags;
+      case SummaryMergeFieldChoice.combined:
+        return <String>{...existingTags, ...incomingTags}.toList();
+    }
+  }
+
+  DateTime? _latestDate(DateTime? left, DateTime? right) {
+    if (left == null) {
+      return right;
+    }
+    if (right == null) {
+      return left;
+    }
+    return left.isAfter(right) ? left : right;
   }
 
   SummaryEntity _buildFactFromBatch(
@@ -616,6 +759,7 @@ class SummaryUseCases {
       topic: batch.topic,
       importance: importance,
     ).copyWith(
+      createdAt: batch.sessions.first.createdAt,
       accessCount: accessCount,
       lastAccessedAt: lastAccessedAt,
       updatedAt: DateTime.now(),

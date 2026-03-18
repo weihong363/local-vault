@@ -45,4 +45,28 @@ class TemplateEntity {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'title': title,
+      'content': content,
+      'tags': tags,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
+    };
+  }
+
+  factory TemplateEntity.fromJson(Map<String, dynamic> json) {
+    return TemplateEntity(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      content: json['content'] as String,
+      tags: List<String>.from(json['tags'] ?? const <String>[]),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
+    );
+  }
 }

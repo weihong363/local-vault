@@ -58,16 +58,17 @@ class GestureConfig {
   factory GestureConfig.fromJson(Map<String, dynamic> json) {
     final gestureTypeIndex = json['gestureType'] as int;
     final actionIndex = json['action'] as int;
-    
+
     // 安全地转换枚举，处理旧的配置数据
-    final gestureType = gestureTypeIndex >= 0 && gestureTypeIndex < GestureType.values.length
-        ? GestureType.values[gestureTypeIndex]
-        : GestureType.tap2; // 默认值
-    
+    final gestureType =
+        gestureTypeIndex >= 0 && gestureTypeIndex < GestureType.values.length
+            ? GestureType.values[gestureTypeIndex]
+            : GestureType.tap2; // 默认值
+
     final action = actionIndex >= 0 && actionIndex < GestureAction.values.length
         ? GestureAction.values[actionIndex]
         : GestureAction.openTemplates; // 默认值
-    
+
     return GestureConfig(
       id: json['id'] as int,
       name: json['name'] as String,
@@ -93,14 +94,6 @@ class GestureConfig {
         gestureType: GestureType.tap3,
         fingerCount: 3,
         action: GestureAction.openSummaries,
-      ),
-      GestureConfig(
-        id: 3,
-        name: '保存摘要',
-        gestureType: GestureType.tap2,
-        fingerCount: 2,
-        action: GestureAction.saveSummary,
-        readOnly: true,
       ),
     ];
   }

@@ -21,15 +21,14 @@ import 'package:local_vault/core/widgets/quick_action_activity_page.dart';
 import 'package:local_vault/features/app_whitelist/presentation/pages/app_whitelist_page.dart';
 import 'package:local_vault/features/gesture_config/presentation/pages/gesture_config_page.dart';
 import 'package:local_vault/features/inject/presentation/pages/inject_page.dart';
-import 'package:local_vault/features/memory/presentation/pages/memory_management_page.dart';
 import 'package:local_vault/features/quick_action/models/quick_action_type.dart';
 import 'package:local_vault/features/quick_action/presentation/pages/quick_action_page.dart';
 import 'package:local_vault/features/save/presentation/pages/save_page.dart';
 import 'package:local_vault/features/search/presentation/pages/search_page.dart';
+import 'package:local_vault/features/settings/presentation/pages/database_inspector_page.dart';
+import 'package:local_vault/features/settings/presentation/pages/diagnostics_page.dart';
 import 'package:local_vault/features/settings/presentation/pages/feedback_page.dart';
-import 'package:local_vault/features/settings/presentation/pages/settings_page.dart';
 import 'package:local_vault/features/summary/presentation/pages/summary_detail_page.dart';
-import 'package:local_vault/features/template/presentation/pages/template_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,7 +75,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
             await _handleSaveFromClipboard(content);
             return true;
           case 'openTemplates':
-            _router.push(AppRoutes.template);
+            _router.go(AppRoutes.template);
             return true;
           case 'openSave':
             _router.push(AppRoutes.save);
@@ -106,9 +105,9 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
     debugPrint('💾 [main] 开始静默保存剪贴板内容，长度：${content.length}');
     try {
       final saveCoordinator = SaveCoordinator();
-      final success = await saveCoordinator.handleQuickAction(
+      final success = await saveCoordinator.handleSilentShortcutSave(
         content: content,
-        actionId: 'quick_save_from_clipboard',
+        actionId: SaveCoordinator.clipboardShortcutActionId,
       );
 
       if (success) {
@@ -176,9 +175,9 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
     debugPrint('💾 [main] 开始静默保存...');
     try {
       final saveCoordinator = SaveCoordinator();
-      final success = await saveCoordinator.handleQuickAction(
+      final success = await saveCoordinator.handleSilentShortcutSave(
         content: text,
-        actionId: 'quick_save_from_share_stream',
+        actionId: SaveCoordinator.shareStreamShortcutActionId,
       );
 
       if (success) {
@@ -310,11 +309,19 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
         ),
         GoRoute(
           path: AppRoutes.settings,
-          builder: (context, state) => const SettingsPage(),
+          builder: (context, state) => const BottomNavigation(currentIndex: 3),
         ),
         GoRoute(
           path: '/feedback',
           builder: (context, state) => const FeedbackPage(),
+        ),
+        GoRoute(
+          path: AppRoutes.databaseInspector,
+          builder: (context, state) => const DatabaseInspectorPage(),
+        ),
+        GoRoute(
+          path: AppRoutes.diagnostics,
+          builder: (context, state) => const DiagnosticsPage(),
         ),
         GoRoute(
           path: AppRoutes.summaryDetail,
@@ -345,7 +352,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
         ),
         GoRoute(
           path: AppRoutes.template,
-          builder: (context, state) => const TemplatePage(),
+          builder: (context, state) => const BottomNavigation(currentIndex: 1),
         ),
         GoRoute(
           path: AppRoutes.quickAction,
@@ -364,7 +371,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
         ),
         GoRoute(
           path: AppRoutes.memoryManagement,
-          builder: (context, state) => const MemoryManagementPage(),
+          builder: (context, state) => const BottomNavigation(currentIndex: 2),
         ),
       ],
     );

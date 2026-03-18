@@ -1,0 +1,45 @@
+{
+  "sessionMaxAge": {
+    "hours": 2
+  },
+  "candidateProtectionWindow": {
+    "hours": 24
+  },
+  "timeThresholds": {
+    "shortTerm": {
+      "hours": 6
+    },
+    "mediumTerm": {
+      "days": 1
+    }
+  },
+  "forgettingCurve": {
+    "startDays": 30,
+    "decayPeriodDays": 60,
+    "minImportance": 0.1,
+    "decayRate": 0.9
+  },
+  "coreUpgrade": {
+    "accessCountThreshold": 10,
+    "importanceThreshold": 0.8
+  },
+  "similarity": {
+    "deduplicationThreshold": 0.7,
+    "relatedMemoryThreshold": 0.5
+  },
+  "sessionBatching": {
+    "minimumMergeBatchSize": 3,
+    "minimumRuleScoreForSemanticCheck": 0.3,
+    "topicMatchScoreFloor": 0.85,
+    "ruleWeight": 0.4,
+    "semanticWeight": 0.6,
+    "combinedScoreThreshold": 0.75,
+    "exactTitleMatchWeight": 0.3,
+    "partialTitleMatchWeight": 0.2,
+    "semanticSimilarityWeight": 0.3,
+    "tagOverlapWeight": 0.2,
+    "sameSourceWeight": 0.1,
+    "shortTermTimeWeight": 0.1,
+    "mediumTermTimeWeight": 0.05
+  }
+}

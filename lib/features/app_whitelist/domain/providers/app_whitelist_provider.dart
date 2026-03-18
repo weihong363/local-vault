@@ -45,11 +45,13 @@ class AppWhitelistNotifier extends StateNotifier<AsyncValue<List<AppInfo>>> {
 
       if (whitelistJson == null || whitelistJson.isEmpty) {
         state = const AsyncData([]);
+        await _syncToNative(const []);
       } else {
         final whitelist = whitelistJson.map((json) {
           return AppInfo.fromJson(jsonDecode(json) as Map<String, dynamic>);
         }).toList();
         state = AsyncData(whitelist);
+        await _syncToNative(whitelist);
       }
     } catch (e) {
       state = AsyncError(e, StackTrace.current);

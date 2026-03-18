@@ -6,6 +6,10 @@ import 'package:local_vault/core/services/summary_save_service.dart';
 /// 这个类充当门面模式（Facade Pattern），简化客户端调用
 class SaveCoordinator {
   static final SaveCoordinator _instance = SaveCoordinator._internal();
+  static const String clipboardShortcutActionId = 'quick_save_from_clipboard';
+  static const String shareStreamShortcutActionId =
+      'quick_save_from_share_stream';
+  static const String tileShortcutActionId = 'silent_save_from_tile';
 
   factory SaveCoordinator() => _instance;
 
@@ -72,6 +76,7 @@ class SaveCoordinator {
     String? actionId,
   }) async {
     debugPrint('⚡ [SaveCoordinator] 处理快捷操作触发保存');
+    debugPrint('🧠 [SaveCoordinator] 快捷静默保存将自动优化标题和标签');
 
     final payload = SavePayload(
       title: '',
@@ -85,6 +90,20 @@ class SaveCoordinator {
       payload: payload,
       context: context,
       showUI: false,
+    );
+  }
+
+  /// 处理快捷方式触发的静默保存
+  ///
+  /// 统一走快捷操作的静默保存链路，确保自动补全标题和标签。
+  Future<bool> handleSilentShortcutSave({
+    required String content,
+    required String actionId,
+  }) async {
+    debugPrint('🤫 [SaveCoordinator] 处理快捷方式静默保存');
+    return handleQuickAction(
+      content: content,
+      actionId: actionId,
     );
   }
 
@@ -146,15 +165,15 @@ class SaveCoordinator {
 
   /// 注册保存前钩子
   void registerBeforeSave(
-    Future<bool> Function(SavePayload payload, SaveContext context) callback
-  ) {
+      Future<bool> Function(SavePayload payload, SaveContext context)
+          callback) {
     _saveService.registerBeforeSave(callback);
   }
 
   /// 注册保存后钩子
   void registerAfterSave(
-    void Function(SavePayload payload, SaveContext context, bool success) callback
-  ) {
+      void Function(SavePayload payload, SaveContext context, bool success)
+          callback) {
     _saveService.registerAfterSave(callback);
   }
 }

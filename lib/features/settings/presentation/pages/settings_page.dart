@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
-import 'package:local_vault/core/providers/theme_provider.dart';
+import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/providers/locale_provider.dart';
+import 'package:local_vault/core/providers/theme_provider.dart';
+import 'package:local_vault/core/services/app_settings_service.dart';
 import 'package:local_vault/core/services/floating_window_service.dart';
+import 'package:local_vault/core/services/storage_management_service.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
 import 'package:local_vault/core/utils/architecture_verifier.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:local_vault/features/settings/presentation/pages/backup_data_page.dart';
+import 'package:local_vault/features/settings/presentation/pages/storage_space_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -18,7 +22,10 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _floatingWindowEnabled = false;
+  bool _slmSummaryMetadataEnabled = false;
   bool _isLoading = true;
+  String _storageSummary = '点击查看明细';
+  String _backupSummary = '创建、分享与恢复本地备份';
 
   @override
   void initState() {
@@ -27,20 +34,62 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    final settingsService = sl<AppSettingsService>();
+    final storageService = sl<StorageManagementService>();
+    final floatingWindowEnabled =
+        await settingsService.isFloatingWindowEnabled();
+    final slmSummaryMetadataEnabled =
+        await settingsService.isSlmSummaryMetadataEnabled();
+    String storageSummary = '点击查看明细';
+    String backupSummary = '创建、分享与恢复本地备份';
+
+    try {
+      final usage = await storageService.inspectStorage();
+      storageSummary =
+          '${StorageManagementService.formatBytes(usage.totalBytes)} · '
+          '${usage.summaryCount} 条摘要 · ${usage.templateCount} 个模板';
+      backupSummary = usage.backupFileCount == 0
+          ? '暂无本地备份，点击创建'
+          : '已保存 ${usage.backupFileCount} 个本地备份';
+    } catch (_) {}
+
+    if (!mounted) {
+      return;
+    }
     setState(() {
-      _floatingWindowEnabled = prefs.getBool('floating_window_enabled') ?? false;
+      _floatingWindowEnabled = floatingWindowEnabled;
+      _slmSummaryMetadataEnabled = slmSummaryMetadataEnabled;
+      _storageSummary = storageSummary;
+      _backupSummary = backupSummary;
       _isLoading = false;
     });
   }
 
+  Future<void> _openStorageSpacePage() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const StorageSpacePage(),
+      ),
+    );
+    await _loadSettings();
+  }
+
+  Future<void> _openBackupDataPage() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const BackupDataPage(),
+      ),
+    );
+    await _loadSettings();
+  }
+
   Future<void> _toggleFloatingWindow(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-      
+    final settingsService = sl<AppSettingsService>();
+
     if (value) {
       // 检查并请求所有必需的权限
       final allGranted = await AppPermissionManager.requestAllPermissions();
-        
+
       if (!allGranted && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -49,10 +98,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         );
       }
-        
+
       try {
         await FloatingWindowService.startFloatingService();
-        await prefs.setBool('floating_window_enabled', true);
+        await settingsService.setFloatingWindowEnabled(true);
         setState(() {
           _floatingWindowEnabled = true;
         });
@@ -63,7 +112,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               duration: Duration(seconds: 2),
             ),
           );
-            
+
           // 显示权限提示
           _showPermissionTips();
         }
@@ -77,7 +126,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     } else {
       try {
         await FloatingWindowService.stopFloatingService();
-        await prefs.setBool('floating_window_enabled', false);
+        await settingsService.setFloatingWindowEnabled(false);
         setState(() {
           _floatingWindowEnabled = false;
         });
@@ -94,6 +143,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         }
       }
     }
+  }
+
+  Future<void> _toggleSlmSummaryMetadata(bool value) async {
+    final settingsService = sl<AppSettingsService>();
+    await settingsService.setSlmSummaryMetadataEnabled(value);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _slmSummaryMetadataEnabled = value;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value ? '已切换为大模型生成标题和标签' : '已切换为本地规则生成标题和标签',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -118,15 +188,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildFloatingWindowSwitch(),
           _buildGestureConfig(),
           _buildAppWhitelist(),
+          _buildDiagnostics(),
           _buildSectionHeader(loc.generalSettings),
+          _buildSummaryMetadataSwitch(),
           _buildThemeSelector(loc, themeMode, ref),
           _buildLanguageSelector(loc, appLocale, ref),
           _buildSectionHeader(loc.storageSettings),
-          _buildMemoryManagement(),
           _buildStorageSpace(loc),
           _buildBackupData(loc),
-          _buildSectionHeader('架构测试'),
+          _buildSectionHeader('架构测试 - DEBUG ONLY'),
           _buildArchitectureVerification(),
+          _buildDatabaseInspector(),
           _buildSectionHeader(loc.about),
           _buildVersionInfo(loc),
           _buildFeedback(loc, context),
@@ -161,6 +233,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  Widget _buildDatabaseInspector() {
+    return ListTile(
+      title: const Text('查询数据库'),
+      subtitle: const Text('查看摘要库与模板库原始记录'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        context.push(AppRoutes.databaseInspector);
+      },
+    );
+  }
+
   Widget _buildFloatingWindowSwitch() {
     return ListTile(
       title: const Text('悬浮窗手势唤醒'),
@@ -191,6 +274,30 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       onTap: () {
         context.push(AppRoutes.appWhitelist);
       },
+    );
+  }
+
+  Widget _buildDiagnostics() {
+    return ListTile(
+      title: const Text('诊断'),
+      subtitle: const Text('查看手势权限、服务和同步状态'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        context.push(AppRoutes.diagnostics);
+      },
+    );
+  }
+
+  Widget _buildSummaryMetadataSwitch() {
+    return ListTile(
+      title: const Text('保存时使用大模型生成标题和标签'),
+      subtitle: const Text(
+        '开启后，保存摘要时将跳过默认规则，直接调用内置模型精炼标题并生成标签',
+      ),
+      trailing: Switch(
+        value: _slmSummaryMetadataEnabled,
+        onChanged: _toggleSlmSummaryMetadata,
+      ),
     );
   }
 
@@ -315,17 +422,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _buildStorageSpace(AppLocalizations loc) {
     return ListTile(
       title: Text(loc.storageSpace),
-      subtitle: const Text('128 MB / 500 MB'),
+      subtitle: Text(_storageSummary),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () {},
+      onTap: _openStorageSpacePage,
     );
   }
 
   Widget _buildBackupData(AppLocalizations loc) {
     return ListTile(
       title: Text(loc.backupData),
+      subtitle: Text(_backupSummary),
       trailing: const Icon(Icons.chevron_right),
-      onTap: () {},
+      onTap: _openBackupDataPage,
     );
   }
 
@@ -335,17 +443,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       subtitle: const Text('v1.0.0'),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {},
-    );
-  }
-
-  Widget _buildMemoryManagement() {
-    return ListTile(
-      title: const Text('记忆管理'),
-      subtitle: const Text('管理、合并和清理记忆'),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        context.push(AppRoutes.memoryManagement);
-      },
     );
   }
 
@@ -361,7 +458,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _showPermissionTips() {
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

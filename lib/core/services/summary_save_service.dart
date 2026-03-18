@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
-import 'package:local_vault/core/utils/summary_text_utils.dart';
+import 'package:local_vault/core/services/summary_metadata_service.dart';
 
 /// 摘要保存触发方式枚举
 enum SaveTriggerType {
@@ -233,7 +233,7 @@ class SummarySaveService {
         debugPrint('🤫 [SummarySaveService] 执行静默保存（新 DDD 架构）');
 
         // 将 Payload 转换为 SummaryEntity
-        final summary = _payloadToSummaryEntity(payload, context);
+        final summary = await _payloadToSummaryEntity(payload, context);
         if (_isRapidDuplicate(summary)) {
           debugPrint('♻️ [SummarySaveService] 检测到短时间重复保存，跳过落库');
           saveSuccess = true;
@@ -245,7 +245,7 @@ class SummarySaveService {
         if (summary.type == MemoryType.session) {
           await useCases.addSessionMemory(summary);
         } else {
-          await useCases.addWithDeduplication(summary);
+          await useCases.addFactSummary(summary);
         }
         _rememberSaveFingerprint(summary);
 
@@ -280,21 +280,16 @@ class SummarySaveService {
   }
 
   /// 将 SavePayload 转换为 SummaryEntity
-  SummaryEntity _payloadToSummaryEntity(
-      SavePayload payload, SaveContext context) {
-    String title = payload.title;
-    if (title.isEmpty) {
-      title = SummaryTextUtils.generateTitle(payload.content);
-    }
-    title = SummaryTextUtils.compressTitle(title);
-
-    final finalContent = payload.remark != null && payload.remark!.isNotEmpty
-        ? '${payload.content}\n\n---备注---\n${payload.remark}'
-        : payload.content;
-
-    final tags = payload.tags.isNotEmpty
-        ? payload.tags
-        : SummaryTextUtils.generateTags(title, finalContent);
+  Future<SummaryEntity> _payloadToSummaryEntity(
+    SavePayload payload,
+    SaveContext context,
+  ) async {
+    final prepared = await sl<SummaryMetadataService>().prepareForSave(
+      title: payload.title,
+      content: payload.content,
+      tags: payload.tags,
+      remark: payload.remark,
+    );
 
     final memoryType = switch (context.triggerType) {
       SaveTriggerType.quickAction => MemoryType.session,
@@ -304,9 +299,9 @@ class SummarySaveService {
     };
 
     return SummaryEntity.create(
-      title: title,
-      content: finalContent,
-      tags: tags,
+      title: prepared.title,
+      content: prepared.content,
+      tags: prepared.tags,
       source: '${payload.sourceType}_${context.triggerType.name}',
       type: memoryType,
     );

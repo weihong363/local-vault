@@ -1,11 +1,12 @@
 import 'dart:math';
 
+import 'package:local_vault/core/config/memory_policy_config.dart';
+
 /// 记忆类型
 enum MemoryType {
   session, // 会话记忆（临时）
   fact, // 普通事实（持久化）
   core, // 核心记忆（持久化，免受遗忘曲线影响）
-  template, // 模板记忆（兼容现有模板功能）
 }
 
 extension MemoryTypeX on MemoryType {
@@ -15,8 +16,6 @@ extension MemoryTypeX on MemoryType {
         return 0;
       case MemoryType.session:
         return 1;
-      case MemoryType.template:
-        return 2;
       case MemoryType.core:
         return 3;
     }
@@ -32,7 +31,8 @@ extension MemoryTypeX on MemoryType {
         case 'core':
           return MemoryType.core;
         case 'template':
-          return MemoryType.template;
+          // 兼容旧版本遗留的模板记忆，统一按 fact 读取。
+          return MemoryType.fact;
       }
     }
 
@@ -45,10 +45,10 @@ extension MemoryTypeX on MemoryType {
     switch (intValue) {
       case 1:
         return MemoryType.session;
-      case 2:
-        return MemoryType.template;
       case 3:
         return MemoryType.core;
+      case 2:
+      // 旧版 template 存储值，继续兼容读取。
       case 0:
       default:
         return MemoryType.fact;
@@ -140,8 +140,13 @@ class SummaryEntity {
   }
 
   bool get shouldUpgradeToCore {
+    return shouldUpgradeToCoreWithPolicy(MemoryPolicyConfig.defaults);
+  }
+
+  bool shouldUpgradeToCoreWithPolicy(MemoryPolicyConfig policyConfig) {
     if (type != MemoryType.fact) return false;
-    return accessCount >= 10 || importance >= 0.8;
+    return accessCount >= policyConfig.coreUpgrade.accessCountThreshold ||
+        importance >= policyConfig.coreUpgrade.importanceThreshold;
   }
 
   bool get isSessionProtected {

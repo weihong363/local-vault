@@ -1,7 +1,8 @@
 import 'dart:async';
-import'package:flutter/foundation.dart';
-import'package:flutter/services.dart';
-import'package:local_vault/core/services/summary_save_service.dart';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:local_vault/core/services/save_coordinator.dart';
 
 /// 分享文本数据模型
 class SharedText {
@@ -16,7 +17,8 @@ class SharedText {
   });
 
   @override
-  String toString() => 'SharedText(text: ${text.substring(0, text.length.clamp(0, 50))}..., timestamp: $timestamp, source: $source)';
+  String toString() =>
+      'SharedText(text: ${text.substring(0, text.length.clamp(0, 50))}..., timestamp: $timestamp, source: $source)';
 }
 
 /// 分享图片数据模型
@@ -32,7 +34,8 @@ class SharedImage {
   });
 
   @override
-  String toString() => 'SharedImage(uris: ${uris.length} images, type: $type, timestamp: $timestamp)';
+  String toString() =>
+      'SharedImage(uris: ${uris.length} images, type: $type, timestamp: $timestamp)';
 }
 
 /// 分享服务 - 单例模式
@@ -46,10 +49,10 @@ class ShareService {
   static const MethodChannel _channel = MethodChannel('local_vault/share');
 
   final StreamController<SharedText> _shareStreamController =
-  StreamController<SharedText>.broadcast();
+      StreamController<SharedText>.broadcast();
 
   final StreamController<SharedImage> _imageStreamController =
-  StreamController<SharedImage>.broadcast();
+      StreamController<SharedImage>.broadcast();
 
   /// 获取分享文本流
   Stream<SharedText> get shareStream => _shareStreamController.stream;
@@ -81,8 +84,8 @@ class ShareService {
       case 'onShareReceived':
         final text = call.arguments as String?;
         if (text != null && text.isNotEmpty) {
-          debugPrint('📥 [ShareService] 收到分享文本：${text.substring(
-              0, text.length.clamp(0, 50))}...');
+          debugPrint(
+              '📥 [ShareService] 收到分享文本：${text.substring(0, text.length.clamp(0, 50))}...');
           _shareStreamController.add(SharedText(
             text: text,
             timestamp: DateTime.now(),
@@ -108,9 +111,8 @@ class ShareService {
           }
 
           if (uris.isNotEmpty) {
-            debugPrint('🖼️ [ShareService] 收到${type == 'single'
-                ? '单张'
-                : '多张'}图片分享：${uris.length} 张');
+            debugPrint(
+                '🖼️ [ShareService] 收到${type == 'single' ? '单张' : '多张'}图片分享：${uris.length} 张');
             _imageStreamController.add(SharedImage(
               uris: uris,
               timestamp: DateTime.now(),
@@ -121,14 +123,13 @@ class ShareService {
         break;
 
       case 'onQuickSaveRequested':
-      // 处理快速保存请求（来自控制中心或手势）
+        // 处理快速保存请求（来自控制中心或手势）
         final clipboardText = call.arguments as String?;
         debugPrint('⚡ [ShareService] 收到快速保存请求');
         if (clipboardText != null && clipboardText.isNotEmpty) {
           debugPrint('📋 [ShareService] 剪贴板内容长度：${clipboardText.length}');
-          debugPrint('📋 [ShareService] 内容预览：${clipboardText.substring(
-              0, clipboardText.length.clamp(0, 100))}${clipboardText.length >
-              100 ? '...' : ''}');
+          debugPrint(
+              '📋 [ShareService] 内容预览：${clipboardText.substring(0, clipboardText.length.clamp(0, 100))}${clipboardText.length > 100 ? '...' : ''}');
           // 直接通过 Stream 推送给监听者
           debugPrint('📤 [ShareService] 正在推送到 Stream...');
           _shareStreamController.add(SharedText(
@@ -143,14 +144,13 @@ class ShareService {
         break;
 
       case 'saveFromClipboard':
-      // 处理从 QuickSaveActivity 直接调用的保存请求（静默保存）
+        // 处理从 QuickSaveActivity 直接调用的保存请求（静默保存）
         final clipboardText = call.arguments as String?;
         debugPrint('🔇 [ShareService] 收到静默保存请求，将直接保存到数据库');
         if (clipboardText != null && clipboardText.isNotEmpty) {
           debugPrint('📋 [ShareService] 剪贴板内容长度：${clipboardText.length}');
-          debugPrint('📋 [ShareService] 内容预览：${clipboardText.substring(
-              0, clipboardText.length.clamp(0, 100))}${clipboardText.length >
-              100 ? '...' : ''}');
+          debugPrint(
+              '📋 [ShareService] 内容预览：${clipboardText.substring(0, clipboardText.length.clamp(0, 100))}${clipboardText.length > 100 ? '...' : ''}');
           _silentSave(clipboardText);
         } else {
           debugPrint('⚠️ [ShareService] 剪贴板为空');
@@ -168,8 +168,8 @@ class ShareService {
       debugPrint('🔍 [ShareService] 尝试获取待处理的分享文本...');
       final text = await _channel.invokeMethod<String>('getPendingShareText');
       if (text != null && text.isNotEmpty) {
-        debugPrint('📥 [ShareService] 被动拉取到分享文本：${text.substring(
-            0, text.length.clamp(0, 50))}...');
+        debugPrint(
+            '📥 [ShareService] 被动拉取到分享文本：${text.substring(0, text.length.clamp(0, 50))}...');
 
         // 同时也推送到流中
         _shareStreamController.add(SharedText(
@@ -217,21 +217,11 @@ class ShareService {
   Future<void> _silentSave(String content) async {
     try {
       debugPrint('💾 [ShareService] 开始静默保存到数据库...');
+      debugPrint('🧠 [ShareService] 使用快捷保存链路，自动优化标题和标签');
 
-      // 使用 SummarySaveService 直接保存
-      final summarySaveService = SummarySaveService();
-
-      // 创建 SavePayload
-      final payload = SavePayload.fromShare(content);
-
-      // 创建保存上下文
-      final context = SaveContext.manual(source: 'silent_save_from_tile');
-
-      // 执行保存（不显示 UI）
-      final success = await summarySaveService.save(
-        payload: payload,
-        context: context,
-        showUI: false,
+      final success = await SaveCoordinator().handleSilentShortcutSave(
+        content: content,
+        actionId: SaveCoordinator.tileShortcutActionId,
       );
 
       if (success) {

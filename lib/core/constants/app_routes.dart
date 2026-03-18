@@ -13,4 +13,6 @@ class AppRoutes {
   static const String quickActionActivity = '/quick-action-activity';
   static const String template = '/template';
   static const String memoryManagement = '/memory-management';
+  static const String databaseInspector = '/database-inspector';
+  static const String diagnostics = '/diagnostics';
 }

@@ -3,6 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/features/app_whitelist/domain/providers/app_whitelist_provider.dart';
 import 'package:local_vault/features/app_whitelist/models/app_info.dart';
 
+enum _AppVisibilityFilter {
+  all,
+  selected,
+  unselected,
+}
+
 class AppWhitelistPage extends ConsumerStatefulWidget {
   const AppWhitelistPage({super.key});
 
@@ -13,6 +19,7 @@ class AppWhitelistPage extends ConsumerStatefulWidget {
 class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  _AppVisibilityFilter _visibilityFilter = _AppVisibilityFilter.all;
 
   @override
   void dispose() {
@@ -159,6 +166,25 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
                     ],
                   ),
                 ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildFilterChip(
+                    label: '全部',
+                    filter: _AppVisibilityFilter.all,
+                  ),
+                  _buildFilterChip(
+                    label: '已选择',
+                    filter: _AppVisibilityFilter.selected,
+                  ),
+                  _buildFilterChip(
+                    label: '未选择',
+                    filter: _AppVisibilityFilter.unselected,
+                  ),
+                ],
+              ),
             ],
           ),
         );
@@ -188,7 +214,33 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
                 app.packageName.toLowerCase().contains(lowerQuery);
           }).toList();
 
-    if (filteredApps.isEmpty) {
+    final visibleApps = filteredApps.where((app) {
+      switch (_visibilityFilter) {
+        case _AppVisibilityFilter.all:
+          return true;
+        case _AppVisibilityFilter.selected:
+          return whitelist.contains(app);
+        case _AppVisibilityFilter.unselected:
+          return !whitelist.contains(app);
+      }
+    }).toList()
+      ..sort((a, b) {
+        final aSelected = whitelist.contains(a);
+        final bSelected = whitelist.contains(b);
+        if (aSelected != bSelected) {
+          return aSelected ? -1 : 1;
+        }
+        return a.appName.toLowerCase().compareTo(b.appName.toLowerCase());
+      });
+
+    if (visibleApps.isEmpty) {
+      final emptyTitle = switch (_visibilityFilter) {
+        _AppVisibilityFilter.all =>
+          _searchQuery.isEmpty ? '没有找到应用' : '没有找到匹配的应用',
+        _AppVisibilityFilter.selected => '还没有已选择的应用',
+        _AppVisibilityFilter.unselected => '没有未选择的应用',
+      };
+
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -200,7 +252,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              _searchQuery.isEmpty ? '没有找到应用' : '没有找到匹配的应用',
+              emptyTitle,
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 16,
@@ -213,7 +265,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
 
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: filteredApps.length,
+      itemCount: visibleApps.length,
       separatorBuilder: (context, index) => Divider(
         height: 1,
         indent: 16,
@@ -221,11 +273,12 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
         color: Colors.grey[200],
       ),
       itemBuilder: (context, index) {
-        final app = filteredApps[index];
+        final app = visibleApps[index];
         final isSelected = whitelist.contains(app);
-        
+
         return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           leading: Container(
             width: 48,
             height: 48,
@@ -237,7 +290,9 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
             ),
             child: Icon(
               Icons.android,
-              color: isSelected ? Theme.of(context).primaryColor : Colors.grey[600],
+              color: isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey[600],
               size: 28,
             ),
           ),
@@ -264,6 +319,22 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
             ref.read(appWhitelistProvider.notifier).toggleApp(app);
           },
         );
+      },
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required _AppVisibilityFilter filter,
+  }) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _visibilityFilter == filter,
+      onSelected: (selected) {
+        if (!selected) return;
+        setState(() {
+          _visibilityFilter = filter;
+        });
       },
     );
   }

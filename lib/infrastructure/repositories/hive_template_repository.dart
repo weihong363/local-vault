@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import 'package:local_vault/core/constants/app_storage.dart';
 import 'package:local_vault/core/domain/entities/template_entity.dart';
 import 'package:local_vault/core/domain/repositories/template_repository_interface.dart';
 
 /// TemplateRepository 的 Hive 实现
 class HiveTemplateRepository implements TemplateRepositoryInterface {
-  static const String _boxName = 'templates_v2';
+  static final String _boxName = AppStorage.templateBoxName;
   Box? _box;
 
   @override
@@ -14,7 +15,8 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
       debugPrint('🔄 [HiveTemplateRepository] 正在打开 Hive box: $_boxName');
       if (_box == null) {
         _box = await Hive.openBox(_boxName);
-        debugPrint('✅ [HiveTemplateRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
+        debugPrint(
+            '✅ [HiveTemplateRepository] Hive box 打开成功，包含 ${_box!.length} 条记录');
 
         // 首次初始化时添加默认模板
         if (_box!.isEmpty) {
@@ -34,7 +36,7 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
   /// 添加默认模板
   Future<void> _addDefaultTemplates() async {
     debugPrint('📝 [HiveTemplateRepository] 正在添加默认模板...');
-    
+
     final defaultTemplates = [
       TemplateEntity(
         id: 'default_summary',
@@ -104,8 +106,9 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
     for (final template in defaultTemplates) {
       await addTemplate(template);
     }
-    
-    debugPrint('✅ [HiveTemplateRepository] 已添加 ${defaultTemplates.length} 个默认模板');
+
+    debugPrint(
+        '✅ [HiveTemplateRepository] 已添加 ${defaultTemplates.length} 个默认模板');
   }
 
   Box get _templateBox {
@@ -148,26 +151,12 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
 
   @override
   Future<void> addTemplate(TemplateEntity template) async {
-    await _templateBox.put(template.id, {
-      'id': template.id,
-      'title': template.title,
-      'content': template.content,
-      'tags': template.tags,
-      'createdAt': template.createdAt.toIso8601String(),
-      'updatedAt': template.updatedAt?.toIso8601String(),
-    });
+    await _templateBox.put(template.id, template.toJson());
   }
 
   @override
   Future<void> updateTemplate(TemplateEntity template) async {
-    await _templateBox.put(template.id, {
-      'id': template.id,
-      'title': template.title,
-      'content': template.content,
-      'tags': template.tags,
-      'createdAt': template.createdAt.toIso8601String(),
-      'updatedAt': template.updatedAt?.toIso8601String(),
-    });
+    await _templateBox.put(template.id, template.toJson());
   }
 
   @override
@@ -206,13 +195,15 @@ class HiveTemplateRepository implements TemplateRepositoryInterface {
   }
 
   TemplateEntity _fromMap(Map<String, dynamic> map) {
-    return TemplateEntity(
-      id: map['id'] as String,
-      title: map['title'] as String,
-      content: map['content'] as String,
-      tags: _parseTags(map['tags']),
-      createdAt: _parseDate(map['createdAt']),
-      updatedAt: map['updatedAt'] != null ? _parseDate(map['updatedAt']) : null,
-    );
+    return TemplateEntity.fromJson(<String, dynamic>{
+      'id': map['id'],
+      'title': map['title'],
+      'content': map['content'],
+      'tags': _parseTags(map['tags']),
+      'createdAt': _parseDate(map['createdAt']).toIso8601String(),
+      'updatedAt': map['updatedAt'] != null
+          ? _parseDate(map['updatedAt']).toIso8601String()
+          : null,
+    });
   }
 }

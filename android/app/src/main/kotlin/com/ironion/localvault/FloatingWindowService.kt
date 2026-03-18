@@ -196,28 +196,42 @@ class FloatingWindowService : Service(), SensorEventListener {
             3 -> PREF_GESTURE_TAP_3_ACTION
             else -> return
         }
-        
+
         val actionIndex = prefs.getInt(actionKey, if (tapCount == 2) 0 else 2)
         Log.d(TAG, "配置的动作索引：$actionIndex")
-        
-        val intent = Intent(this, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        
-        when (actionIndex) {
-           0 -> {
-             intent.action = "OPEN_TEMPLATES"
-           }
-         1 -> {
-               // 保存摘要 - 从剪贴板读取内容并保存
-            Log.d(TAG, "触发快速保存摘要功能")
-            intent.action= "QUICK_SAVE"
-           }
-        2 -> {
-            intent.action = "OPEN_SUMMARIES"
-           }
-       }
-        
-        startActivity(intent)
+
+        val launchIntent = when (actionIndex) {
+            0 -> QuickActionActivity.createIntent(
+                this,
+                QuickActionActivity.ACTION_TEMPLATES
+            ).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+
+            1 -> {
+                Log.d(TAG, "触发快速保存摘要功能")
+                Intent(this, QuickSaveActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    action = "QUICK_SAVE_FROM_NOTIFICATION"
+                }
+            }
+
+            2 -> QuickActionActivity.createIntent(
+                this,
+                QuickActionActivity.ACTION_SUMMARIES
+            ).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+
+            else -> null
+        }
+
+        if (launchIntent == null) {
+            Log.w(TAG, "未识别的动作索引：$actionIndex")
+            return
+        }
+
+        startActivity(launchIntent)
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}

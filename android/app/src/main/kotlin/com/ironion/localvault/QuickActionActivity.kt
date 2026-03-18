@@ -1,8 +1,11 @@
 package com.ironion.localvault
 
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.RenderMode
@@ -18,6 +21,7 @@ class QuickActionActivity : FlutterActivity() {
     companion object {
         private const val TAG = "QuickActionActivity"
         private const val CHANNEL = "com.ironion.localvault/quick_action"
+        private const val PERMISSIONS_CHANNEL = "local_vault/permissions"
         private const val EXTRA_ACTION_TYPE = "action_type"
 
         const val ACTION_TEMPLATES = "OPEN_TEMPLATES"
@@ -139,10 +143,70 @@ class QuickActionActivity : FlutterActivity() {
                 }
             }
         }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            PERMISSIONS_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "checkUsageStatsPermission" -> {
+                    result.success(hasUsageStatsPermission())
+                }
+
+                "requestUsageStatsPermission" -> {
+                    requestUsageStatsPermission()
+                    result.success(null)
+                }
+
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "QuickActionActivity onDestroy")
+    }
+
+    private fun hasUsageStatsPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            val usageStatsManager =
+                getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val time = System.currentTimeMillis()
+            val stats = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY,
+                time - 1000 * 60,
+                time
+            )
+            stats != null && stats.isNotEmpty()
+        } else {
+            true
+        }
+    }
+
+    private fun requestUsageStatsPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) {
+            return
+        }
+
+        val usageAccessIntent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        val fallbackIntent = Intent(Settings.ACTION_SETTINGS)
+
+        when {
+            usageAccessIntent.resolveActivity(packageManager) != null -> {
+                startActivity(usageAccessIntent)
+            }
+
+            fallbackIntent.resolveActivity(packageManager) != null -> {
+                Log.w(TAG, "Usage Access 设置页不可用，降级跳转到系统设置")
+                startActivity(fallbackIntent)
+            }
+
+            else -> {
+                Log.e(TAG, "无法打开任何系统设置页面")
+            }
+        }
     }
 }
