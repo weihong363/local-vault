@@ -1,7 +1,7 @@
 {
   "name": "LocalVault",
   "short_name": "LocalVault",
-  "description": "AI 聊天的本地记忆库 - 跨对话、跨平台、100% 本地",
+  "description": "AI 的本地记忆库 - 跨对话、跨平台、100% 本地",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#121212",
