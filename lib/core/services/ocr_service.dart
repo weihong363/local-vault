@@ -25,6 +25,8 @@ class OcrResult {
 
 /// OCR 服务 - 单例模式
 class OcrService {
+  static const String imageFileReadError = 'Unable to read image file';
+
   static final OcrService _instance = OcrService._internal();
   factory OcrService() => _instance;
   OcrService._internal();
@@ -47,7 +49,7 @@ class OcrService {
           text: '',
           imagePaths: [],
           success: false,
-          error: '无法获取图片文件',
+          error: imageFileReadError,
         );
       }
 
@@ -93,7 +95,7 @@ class OcrService {
       debugPrint(
           '🔍 [OcrService] Starting batch recognition for ${uriStrings.length} image(s)');
 
-      final allTexts = <String>[];
+      final combinedSections = <String>[];
       final allPaths = <String>[];
 
       for (int i = 0; i < uriStrings.length; i++) {
@@ -102,16 +104,19 @@ class OcrService {
 
         final result = await recognizeTextFromUri(uriStrings[i]);
         if (result.success) {
-          allTexts.add(result.text);
+          final imageNumber = combinedSections.length + 1;
+          final sectionText = uriStrings.length > 1
+              ? '--- Image $imageNumber ---\n\n${result.text}'
+              : result.text;
+          combinedSections.add(sectionText);
           allPaths.addAll(result.imagePaths);
         }
       }
 
-      final combinedText =
-          allTexts.join('\n\n--- 图片 ${allTexts.length} ---\n\n');
+      final combinedText = combinedSections.join('\n\n');
 
       debugPrint(
-          '✅ [OcrService] Batch recognition finished for ${allTexts.length} image(s)');
+          '✅ [OcrService] Batch recognition finished for ${combinedSections.length} image(s)');
 
       return OcrResult(
         text: combinedText,

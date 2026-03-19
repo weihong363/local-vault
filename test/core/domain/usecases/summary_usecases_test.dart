@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_vault/core/config/memory_policy_config.dart';
+import 'package:local_vault/core/domain/entities/rule_semantic_profile.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
@@ -447,6 +448,62 @@ void main() {
       expect(facts.single.accessCount, 3);
     });
 
+    test('mergeMemoriesWithResolution throws neutral error for missing memory',
+        () async {
+      expect(
+        () => useCases.mergeMemoriesWithResolution(
+          primaryId: 'missing_primary',
+          secondaryId: 'missing_secondary',
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            'Requested memory could not be found',
+          ),
+        ),
+      );
+    });
+
+    test(
+        'mergeMemoriesWithResolution rejects non-fact memories with neutral error',
+        () async {
+      await useCases.addSummary(
+        SummaryEntity(
+          id: 'session_memory',
+          title: '临时记录',
+          content: '仅用于会话内提醒',
+          createdAt: DateTime.now(),
+          type: MemoryType.session,
+          source: 'manual',
+        ),
+      );
+      await useCases.addSummary(
+        SummaryEntity(
+          id: 'fact_memory',
+          title: '正式记录',
+          content: '需要长期保存',
+          createdAt: DateTime.now(),
+          type: MemoryType.fact,
+          source: 'manual',
+        ),
+      );
+
+      expect(
+        () => useCases.mergeMemoriesWithResolution(
+          primaryId: 'session_memory',
+          secondaryId: 'fact_memory',
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'Manual merge currently supports fact memories only',
+          ),
+        ),
+      );
+    });
+
     test('manual upgrade promotes fact to core and raises importance floor',
         () async {
       await useCases.addSummary(
@@ -474,14 +531,98 @@ void main() {
 }
 
 class _FakeMemorySlmService extends MemorySLMService {
+  String _resolveTopic(String title, String content, {String? existingTopic}) {
+    final stableExisting = existingTopic?.trim() ?? '';
+    if (stableExisting.isNotEmpty) {
+      return stableExisting;
+    }
+
+    final normalizedTitle = title.toLowerCase();
+    final normalizedContent = content.toLowerCase();
+    if (title.contains('买菜') ||
+        normalizedContent.contains('牛奶') ||
+        normalizedContent.contains('面包')) {
+      return '购物清单';
+    }
+    if (normalizedTitle.contains('project launch')) {
+      return 'project launch';
+    }
+    if (normalizedTitle.contains('rag') || normalizedContent.contains('rag')) {
+      return 'RAG';
+    }
+    return title.trim().isNotEmpty ? title.trim() : '购物清单';
+  }
+
+  RuleSemanticProfile _buildProfile(
+    String topic, {
+    required List<String> tags,
+  }) {
+    final normalizedTopic = topic.trim();
+    final lowerTopic = normalizedTopic.toLowerCase();
+    final resolvedTags =
+        tags.isEmpty ? <String>[normalizedTopic] : List<String>.from(tags);
+
+    if (lowerTopic == 'rag') {
+      return RuleSemanticProfile(
+        language: RuleSemanticLanguage.cjk,
+        domainKey: 'rag',
+        domainLabel: 'RAG',
+        facetKey: '',
+        facetLabel: '',
+        displayTopic: 'RAG',
+        displayTitle: 'RAG',
+        tags: resolvedTags,
+        keywords: <String>['RAG', ...resolvedTags],
+        confidence: 0.9,
+      );
+    }
+
+    return RuleSemanticProfile(
+      language: RuleSemanticLanguage.cjk,
+      domainKey: '',
+      domainLabel: '',
+      facetKey: normalizedTopic,
+      facetLabel: normalizedTopic,
+      displayTopic: normalizedTopic,
+      displayTitle: normalizedTopic,
+      tags: resolvedTags,
+      keywords: <String>[normalizedTopic, ...resolvedTags],
+      confidence: 0.8,
+    );
+  }
+
+  @override
+  RuleSemanticProfile describeTextSemantics({
+    required String title,
+    required String content,
+    List<String> tags = const <String>[],
+  }) {
+    return _buildProfile(
+      _resolveTopic(title, content),
+      tags: tags,
+    );
+  }
+
+  @override
+  RuleSemanticProfile describeSummarySemantics(SummaryEntity summary) {
+    return _buildProfile(
+      _resolveTopic(
+        summary.title,
+        summary.content,
+        existingTopic: summary.topic,
+      ),
+      tags: summary.tags,
+    );
+  }
+
   @override
   Future<MemorySlmResponse<String>> extractTopic(
     String title,
     String content,
   ) async {
-    return const MemorySlmResponse<String>(
+    return MemorySlmResponse<String>(
       success: true,
-      data: '购物清单',
+      data: _resolveTopic(title, content),
       fallbackUsed: MemorySlmFallbackMode.rules,
       latencyMs: 0,
     );

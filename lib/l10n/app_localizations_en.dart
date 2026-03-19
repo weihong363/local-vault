@@ -124,6 +124,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveToVault => 'Save to Vault';
 
   @override
+  String get showFullContent => 'Show full content';
+
+  @override
   String get copiedToClipboard => 'Copied to Clipboard';
 
   @override
@@ -247,19 +250,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get slmInferenceSettingDescription =>
-      'Controls whether the app may enter the future SLM inference path. The current summary save flow still uses the local rule-based result until a compatible SLM provider is integrated.';
+      'This preference is reserved for future compatibility. The current app version always uses local rules for titles, tags, and topics.';
 
   @override
   String get slmInferenceEnabledMessage =>
-      'SLM inference enabled. The current summary save flow still uses local rules until a compatible SLM provider is integrated.';
+      'SLM preference enabled. The current app version still uses local rules for titles, tags, and topics.';
 
   @override
   String get slmInferenceDisabledMessage =>
-      'SLM inference disabled. Summary save stays on the local rule path.';
+      'SLM preference disabled. The current app version still uses local rules for titles, tags, and topics.';
 
   @override
   String get titleTagsUseBuiltInModel =>
-      'Title and tags now use the built-in model';
+      'Title and tags now use the native SLM runtime';
 
   @override
   String get titleTagsUseLocalRuleGenerator =>
@@ -314,6 +317,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notAllPermissionsGranted =>
       'Not all permissions were granted. Gesture features may not work correctly.';
+
+  @override
+  String get permissionsRequiredTitle => 'Permissions required';
+
+  @override
+  String get permissionsRequiredMessage =>
+      'To make gesture wake-up work correctly, grant the following permissions:\n\n1. Overlay permission: used to display the gesture detection area over other apps\n2. Usage Access permission: used to detect the current foreground app so gesture areas can appear in allowlisted apps\n\nPlease grant these permissions on the next screens.';
+
+  @override
+  String get usageAccessPermissionRequiredTitle =>
+      'Usage Access permission required';
+
+  @override
+  String get usageAccessPermissionRequiredMessage =>
+      'Usage Access permission is missing.\n\nWithout it:\n• The app cannot detect which app is currently active\n• Gesture wake-up will not work correctly in other apps\n\nTap \"Grant access\" to open system settings and enable the permission for this app.';
 
   @override
   String get floatingWindowServiceStarted => 'Floating window service started';
@@ -1288,11 +1306,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get experimentalNativeInferenceEnabledDescription =>
-      'This build allows attempts to enter the native SLM inference path. On Android, it is currently enabled whenever the SLM inference switch is on.';
+      'The current app version defaults to pure rule mode; this state is kept only for future extensibility.';
 
   @override
   String get experimentalNativeInferenceDisabledDescription =>
-      'This build or runtime setting currently disables the native SLM inference path, so SLM remains in rule-fallback mode.';
+      'The current app version has switched to a pure rule engine, so the native inference path is no longer used.';
 
   @override
   String get nativeInferenceSupportTitle => 'Native inference support';
@@ -1303,7 +1321,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nativeInferenceSupportUnavailableDescription =>
-      'This environment does not currently support native inference, so runtime will degrade automatically.';
+      'This app version no longer provides native inference. Titles, tags, and topics are generated with local rules.';
 
   @override
   String get nativeSymbolDetectionTitle => 'Native symbol detection';
@@ -1349,7 +1367,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get modelAvailabilityFallbackDescription =>
-      'This does not block the main flow, but title, tag, and topic generation will prefer the rule fallback path.';
+      'The current app version uses local rules for title, tag, and topic generation and does not depend on on-device model inference.';
 
   @override
   String modelFileMissingDescription(Object path) {
@@ -1475,6 +1493,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get unableToReadImageFile => 'Unable to read image file';
+
+  @override
   String get previewEnterContent =>
       'Enter content to preview suggested titles and tags';
 
@@ -1514,6 +1535,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get laterLabel => 'Later';
+
+  @override
+  String get grantAccessLabel => 'Grant access';
 
   @override
   String get existingFactMemory => 'Existing fact memory';
@@ -1576,8 +1600,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get applyToForm => 'Apply to form';
 
   @override
-  String get generatedByBuiltInModel => 'Generated by the built-in model';
+  String get generatedByBuiltInModel => 'Generated by the native SLM runtime';
 
   @override
   String get generatedByLocalRules => 'Generated by local rules';
+
+  @override
+  String get pendingSummary => 'Pending summary';
+
+  @override
+  String get temporaryTopic => 'Temporary topic';
+
+  @override
+  String get generalTopic => 'General topic';
+
+  @override
+  String get uncategorized => 'Uncategorized';
+
+  @override
+  String get unknownModelFormat => 'Unknown model format';
+
+  @override
+  String modelFormatBundledSupported(Object extension) {
+    return 'Bundled .$extension asset detected. Local rule mode can continue without a native runtime.';
+  }
+
+  @override
+  String modelFormatUnsupportedForLocalRules(Object extension) {
+    return 'Unsupported .$extension asset for the current local rule mode.';
+  }
+
+  @override
+  String get slmSelfCheckTopicSampleContent =>
+      'This diagnostic sample verifies that local rule-based topic extraction works on this device.';
+
+  @override
+  String get slmSelfCheckMetadataSampleContent =>
+      'This diagnostic sample verifies title and tag generation in the current Local Vault environment. Produce a searchable title and 2 to 4 tags.';
 }

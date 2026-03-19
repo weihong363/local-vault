@@ -93,7 +93,7 @@ class SummaryMetadataService {
     final derivedTags =
         SummaryTextUtils.generateTags(derivedTitle, fullContent);
     final resolvedTitle = preserveManualMetadata &&
-            title != SummaryTextUtils.unnamedTitle &&
+            !SummaryTextUtils.isUnnamedTitleValue(title) &&
             title.isNotEmpty
         ? title
         : derivedTitle;
@@ -101,7 +101,9 @@ class SummaryMetadataService {
         ? tags
         : SummaryTextUtils.sanitizeTags(
             derivedTags,
-            fallbackTitle: resolvedTitle,
+            fallbackTitle: SummaryTextUtils.isUnnamedTitleValue(resolvedTitle)
+                ? null
+                : resolvedTitle,
           );
 
     return PreparedSummaryDraft(
@@ -135,6 +137,6 @@ class SummaryMetadataService {
     if (trimmedRemark.isEmpty) {
       return content;
     }
-    return '$content\n\n---备注---\n$trimmedRemark';
+    return '$content\n\n---Remark---\n$trimmedRemark';
   }
 }

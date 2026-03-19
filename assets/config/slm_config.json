@@ -3,7 +3,7 @@
     "bundledFileName": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
     "bundledAssetPath": "models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
     "modelDirectoryName": "models",
-    "cacheDirectoryName": "mediapipe_cache"
+    "cacheDirectoryName": "slm_cache"
   },
   "runtime": {
     "requestTimeoutSeconds": 10,

@@ -22,7 +22,7 @@ Local Vault 的 SLM 集成已经进入“可运行的增强层”阶段，而不
 
 ### 模型与推理框架
 
-- 推理框架：`mediapipe_genai`
+- 推理框架：当前默认走本地规则引擎
 - 当前配置目标模型：`qwen2.5-0.5b-instruct-q4_k_m.gguf`
 - 模型资源路径配置：`models/qwen2.5-0.5b-instruct-q4_k_m.gguf`
 - Android 构建会尝试从 `assets/models/` 同步该模型到生成资产目录
@@ -212,7 +212,7 @@ SavePage / SummarySaveService / SaveCoordinator
 SLM 不只体现在推理本身，当前还配套了存储能力：
 
 - `StorageManagementService.inspectStorage()` 会统计模型文件和缓存占用
-- `StorageManagementService.clearModelCache()` 可清理 MediaPipe 缓存
+- `StorageManagementService.clearModelCache()` 可清理 SLM 运行缓存
 - 备份导出不会丢失摘要和模板主数据
 - 数据库查询页可直接检查摘要库是否存在旧模板遗留或脏数据
 

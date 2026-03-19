@@ -2,11 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:local_vault/core/config/memory_policy_config.dart';
+import 'package:local_vault/core/domain/entities/rule_semantic_profile.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
+import 'package:local_vault/core/utils/topic_placeholder_utils.dart';
 
 /// 摘要业务用例
 class SummaryUseCases {
@@ -242,7 +244,7 @@ class SummaryUseCases {
 
     var mergedCount = 0;
     for (final batch in batches) {
-      if (!_isEligibleForMerge(batch.sessions)) {
+      if (!_isEligibleForMerge(batch)) {
         continue;
       }
 
@@ -473,11 +475,11 @@ class SummaryUseCases {
     final secondarySummary = getSummary(secondaryId);
 
     if (primarySummary == null || secondarySummary == null) {
-      throw ArgumentError('找不到指定的记忆');
+      throw ArgumentError('Requested memory could not be found');
     }
     if (primarySummary.type != MemoryType.fact ||
         secondarySummary.type != MemoryType.fact) {
-      throw StateError('当前仅支持事实记忆手动合并');
+      throw StateError('Manual merge currently supports fact memories only');
     }
 
     final merged = buildMergedSummary(
@@ -551,16 +553,31 @@ class SummaryUseCases {
 
     for (final rawSession in sortedSessions) {
       final session = await _ensureTopic(rawSession);
+      final sessionProfile = slmService.describeSummarySemantics(session);
       var assigned = false;
 
       for (final batch in batches) {
-        final anchor = batch.sessions.first;
-        final ruleScore = _calculateRuleScore(anchor, session);
-        final normalizedBatchTopic = _normalizeTitle(batch.topic);
-        final normalizedSessionTopic = _normalizeTitle(session.topic ?? '');
-        final topicMatches = _hasStableTopicAlignment(
-          normalizedBatchTopic,
-          normalizedSessionTopic,
+        final anchor = batch.sessions.last;
+        final semanticSimilarity =
+            slmService.calculateSemanticProfileSimilarity(
+          batch.profile,
+          sessionProfile,
+        );
+        final ruleScore = _calculateBatchRuleScore(
+          batch,
+          session,
+          batch.profile,
+          sessionProfile,
+          semanticSimilarity,
+        );
+        final normalizedBatchTopic =
+            _normalizeTitle(batch.profile.displayTopic);
+        final normalizedSessionTopic =
+            _normalizeTitle(sessionProfile.displayTopic);
+        final topicMatches = slmService.hasStableSemanticAlignment(
+          batch.profile,
+          sessionProfile,
+          minTagOverlap: 1,
         );
         final hasSharedContext = _hasSharedBatchingContext(anchor, session);
         final canBypassRuleGate = topicMatches && hasSharedContext;
@@ -576,15 +593,7 @@ class SummaryUseCases {
           continue;
         }
 
-        final semanticResponse = canBypassRuleGate
-            ? const MemorySlmResponse<bool>(
-                success: true,
-                data: true,
-                fallbackUsed: MemorySlmFallbackMode.rules,
-                latencyMs: 0,
-              )
-            : await slmService.isSameTopic(anchor, session);
-        final semanticScore = semanticResponse.data ? 1.0 : 0.0;
+        final semanticScore = topicMatches ? 1.0 : 0.0;
         final canUseTopicShortcut = canBypassRuleGate ||
             (topicMatches &&
                 ruleScore >= max(0.6, batchPolicy.topicMatchScoreFloor - 0.25));
@@ -594,9 +603,9 @@ class SummaryUseCases {
                 (semanticScore * batchPolicy.semanticWeight);
 
         debugPrint(
-          '🧩 [SessionBatch] Comparing ${session.id} -> ${anchor.id} '
+          '🧩 [SessionBatch] Comparing ${session.id} -> ${batch.sessions.first.id} '
           'topicMatch=$topicMatches shortcut=$canUseTopicShortcut '
-          'semantic=${semanticResponse.data} fallback=${semanticResponse.fallbackUsed.name} '
+          'semantic=$topicMatches fallback=rules '
           'ruleScore=${ruleScore.toStringAsFixed(2)} '
           'combined=${combinedScore.toStringAsFixed(2)} '
           'batchTopic="$normalizedBatchTopic" sessionTopic="$normalizedSessionTopic"',
@@ -604,8 +613,11 @@ class SummaryUseCases {
 
         if (combinedScore >= batchPolicy.combinedScoreThreshold) {
           batch.sessions.add(session);
+          batch.sessionProfiles.add(sessionProfile);
+          batch.matchScores.add(combinedScore);
+          batch.profile = slmService.describeBatchSemantics(batch.sessions);
           debugPrint(
-            '✅ [SessionBatch] ${session.id} joined batch ${anchor.id}, '
+            '✅ [SessionBatch] ${session.id} joined batch ${batch.sessions.first.id}, '
             'combined=${combinedScore.toStringAsFixed(2)}',
           );
           assigned = true;
@@ -616,35 +628,16 @@ class SummaryUseCases {
       if (!assigned) {
         batches.add(
           _SessionBatch(
-            topic: session.topic ?? _normalizeTitle(session.title),
+            profile: sessionProfile,
             sessions: <SummaryEntity>[session],
+            sessionProfiles: <RuleSemanticProfile>[sessionProfile],
+            matchScores: <double>[],
           ),
         );
       }
     }
 
     return batches;
-  }
-
-  bool _isStableComparableTopic(String topic) {
-    return topic.isNotEmpty &&
-        topic != _normalizeTitle('临时主题') &&
-        topic != _normalizeTitle('general topic') &&
-        topic != _normalizeTitle('待整理摘要') &&
-        topic != _normalizeTitle('未命名摘要');
-  }
-
-  bool _hasStableTopicAlignment(String left, String right) {
-    if (!_isStableComparableTopic(left) || !_isStableComparableTopic(right)) {
-      return false;
-    }
-    if (left == right) {
-      return true;
-    }
-
-    final shorter = left.length <= right.length ? left : right;
-    final longer = shorter == left ? right : left;
-    return shorter.length >= 3 && longer.contains(shorter);
   }
 
   bool _hasSharedBatchingContext(SummaryEntity a, SummaryEntity b) {
@@ -751,18 +744,56 @@ class SummaryUseCases {
     }
   }
 
-  bool _isEligibleForMerge(List<SummaryEntity> sessions) {
-    return sessions.length >=
-            policyConfig.sessionBatching.minimumMergeBatchSize &&
+  bool _isEligibleForMerge(_SessionBatch batch) {
+    final sessions = batch.sessions;
+    final hasContent =
         sessions.any((session) => session.content.trim().isNotEmpty);
+    if (!hasContent) {
+      return false;
+    }
+
+    if (sessions.length >= policyConfig.sessionBatching.minimumMergeBatchSize) {
+      return true;
+    }
+
+    return _isHighConfidencePair(batch);
   }
 
-  double _calculateRuleScore(SummaryEntity a, SummaryEntity b) {
+  bool _isStableComparableTopic(String topic) {
+    return topic.isNotEmpty && !TopicPlaceholderUtils.isPlaceholderTopic(topic);
+  }
+
+  bool _isHighConfidencePair(_SessionBatch batch) {
+    if (batch.sessions.length != 2 ||
+        batch.matchScores.isEmpty ||
+        !batch.profile.hasDomain) {
+      return false;
+    }
+
+    final distinctFacetKeys = batch.sessionProfiles
+        .map((profile) => profile.facetKey)
+        .where((key) => key.isNotEmpty)
+        .toSet();
+    if (distinctFacetKeys.length != 1) {
+      return false;
+    }
+
+    final coherenceScore = batch.matchScores.reduce(min);
+    return coherenceScore >= 0.88 && batch.profile.confidence >= 0.65;
+  }
+
+  double _calculateBatchRuleScore(
+    _SessionBatch batch,
+    SummaryEntity session,
+    RuleSemanticProfile batchProfile,
+    RuleSemanticProfile sessionProfile,
+    double semanticSimilarity,
+  ) {
     final batchPolicy = policyConfig.sessionBatching;
     double score = 0.0;
 
-    final titleA = _normalizeTitle(a.title);
-    final titleB = _normalizeTitle(b.title);
+    final titleA = _normalizeTitle(batchProfile.displayTitle);
+    final titleB = _normalizeTitle(sessionProfile.displayTitle);
     if (titleA.isNotEmpty && titleA == titleB) {
       score += batchPolicy.exactTitleMatchWeight;
     } else if (titleA.isNotEmpty &&
@@ -771,25 +802,34 @@ class SummaryUseCases {
       score += batchPolicy.partialTitleMatchWeight;
     }
 
-    final similarity = SimilarityUtils.calculateMemorySimilarity(
-      a.title,
-      a.content,
-      b.title,
-      b.content,
-    );
-    score += similarity * batchPolicy.semanticSimilarityWeight;
+    score += semanticSimilarity * batchPolicy.semanticSimilarityWeight;
 
-    if (a.tags.isNotEmpty && b.tags.isNotEmpty) {
-      final overlap = a.tags.toSet().intersection(b.tags.toSet()).length;
-      final maxSize = max(a.tags.length, b.tags.length);
+    if (batchProfile.domainKey.isNotEmpty &&
+        batchProfile.domainKey == sessionProfile.domainKey) {
+      score += 0.12;
+    }
+
+    if (batchProfile.domainKey.isNotEmpty &&
+        batchProfile.facetKey.isNotEmpty &&
+        batchProfile.facetKey == sessionProfile.facetKey) {
+      score += 0.12;
+    }
+
+    final batchTags = batch.sessions.expand((item) => item.tags).toSet();
+    if (batchTags.isNotEmpty && session.tags.isNotEmpty) {
+      final overlap = batchTags.intersection(session.tags.toSet()).length;
+      final maxSize = max(batchTags.length, session.tags.length);
       score += (overlap / max(1, maxSize)) * batchPolicy.tagOverlapWeight;
     }
 
-    if (_sourceFamily(a.source) == _sourceFamily(b.source)) {
+    if (batch.sessions.any(
+      (item) => _sourceFamily(item.source) == _sourceFamily(session.source),
+    )) {
       score += batchPolicy.sameSourceWeight;
     }
 
-    final timeDiff = a.createdAt.difference(b.createdAt).abs();
+    final anchor = batch.sessions.last;
+    final timeDiff = anchor.createdAt.difference(session.createdAt).abs();
     if (timeDiff <= policyConfig.timeThresholds.shortTerm) {
       score += batchPolicy.shortTermTimeWeight;
     } else if (timeDiff <= policyConfig.timeThresholds.mediumTerm) {
@@ -902,10 +942,16 @@ class SummaryUseCases {
 
 class _SessionBatch {
   _SessionBatch({
-    required this.topic,
+    required this.profile,
     required this.sessions,
+    required this.sessionProfiles,
+    required this.matchScores,
   });
 
-  final String topic;
+  RuleSemanticProfile profile;
   final List<SummaryEntity> sessions;
+  final List<RuleSemanticProfile> sessionProfiles;
+  final List<double> matchScores;
+
+  String get topic => profile.displayTopic;
 }

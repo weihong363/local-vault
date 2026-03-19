@@ -216,7 +216,9 @@ class _SavePageState extends ConsumerState<SavePage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      loc.ocrFailedMessage(result.error ?? loc.unknownError),
+                      loc.ocrFailedMessage(
+                        _localizeOcrError(loc, result.error),
+                      ),
                     ),
                   ),
                 ],
@@ -253,6 +255,16 @@ class _SavePageState extends ConsumerState<SavePage> {
         });
       }
     }
+  }
+
+  String _localizeOcrError(AppLocalizations loc, String? error) {
+    if (error == null || error.isEmpty) {
+      return loc.unknownError;
+    }
+    if (error == OcrService.imageFileReadError) {
+      return loc.unableToReadImageFile;
+    }
+    return error;
   }
 
   // _loadShareTextFromChannel was removed.

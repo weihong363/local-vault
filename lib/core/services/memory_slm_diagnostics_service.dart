@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:local_vault/core/providers/locale_provider.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 import 'package:path_provider/path_provider.dart';
 
 class MemorySlmDiagnosticsSnapshot {
@@ -119,7 +122,7 @@ class MemorySlmDiagnosticsService {
       nativeSymbolsAvailable: _slmService.nativeSymbolsAvailable,
       modelFormatSupported: _slmService
           .isSupportedNativeModelFileName(config.model.bundledFileName),
-      modelFormatDescription: _slmService
+      modelFormatDescription: await _slmService
           .describeNativeModelFileSupport(config.model.bundledFileName),
       bundledFileName: config.model.bundledFileName,
       bundledAssetPath: config.model.bundledAssetPath,
@@ -137,14 +140,14 @@ class MemorySlmDiagnosticsService {
 
   Future<MemorySlmSelfCheckResult> runSelfCheck() async {
     await _slmService.initialize();
+    final localizations = await _loadLocalizations();
 
     final topicResponse = await _slmService.extractTopic(
-      'Local Vault SLM 自检',
-      '请提取这段诊断样例的主题，用于验证当前设备上的 SLM 推理或规则回退链路是否可用。',
+      localizations.slmSelfCheckTitle,
+      localizations.slmSelfCheckTopicSampleContent,
     );
     final metadataResponse = await _slmService.generateSummaryMetadata(
-      content:
-          '这是一条用于验证 Local Vault 当前设备环境中标题与标签生成能力的自检样例，请输出一个可检索的标题和 2 到 4 个标签。',
+      content: localizations.slmSelfCheckMetadataSampleContent,
     );
 
     return MemorySlmSelfCheckResult(
@@ -158,6 +161,33 @@ class MemorySlmDiagnosticsService {
       metadataFallbackMode: metadataResponse.fallbackUsed,
       metadataLatencyMs: metadataResponse.latencyMs,
     );
+  }
+
+  Future<AppLocalizations> _loadLocalizations() async {
+    final appLocale = await LocaleManager.loadLocale();
+    final savedLocale = LocaleManager.getLocale(appLocale);
+    return lookupAppLocalizations(
+      _supportedLocale(savedLocale ?? ui.PlatformDispatcher.instance.locale),
+    );
+  }
+
+  ui.Locale _supportedLocale(ui.Locale locale) {
+    switch (locale.languageCode) {
+      case 'zh':
+        return const ui.Locale('zh');
+      case 'ja':
+        return const ui.Locale('ja');
+      case 'ko':
+        return const ui.Locale('ko');
+      case 'es':
+        return const ui.Locale('es');
+      case 'fr':
+        return const ui.Locale('fr');
+      case 'de':
+        return const ui.Locale('de');
+      default:
+        return const ui.Locale('en');
+    }
   }
 
   Future<int> _sizeOfDirectory(Directory directory) async {

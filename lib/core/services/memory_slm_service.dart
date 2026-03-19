@@ -1,19 +1,18 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:ffi';
-import 'dart:io';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart'
-    show MethodChannel, MissingPluginException, PlatformException;
+import 'package:local_vault/core/domain/entities/rule_semantic_profile.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/providers/locale_provider.dart';
 import 'package:local_vault/core/services/app_settings_service.dart';
 import 'package:local_vault/core/services/memory_slm_config.dart';
+import 'package:local_vault/core/utils/similarity_utils.dart';
 import 'package:local_vault/core/utils/summary_text_utils.dart';
+import 'package:local_vault/core/utils/topic_placeholder_utils.dart';
 import 'package:local_vault/l10n/app_localizations.dart';
-import 'package:path_provider/path_provider.dart';
 
 typedef ModelDownloadProgressCallback = void Function(double progress);
 
@@ -84,23 +83,187 @@ class MemorySLMService {
   MemorySLMService({
     MemorySlmConfiguration configuration = const MemorySlmConfiguration(),
     AppSettingsService? settingsService,
+    RuleSemanticProfile? Function({
+      required String title,
+      required String content,
+      List<String> tags,
+    })? semanticProfileResolver,
   })  : _configuration = configuration,
-        _settingsService = settingsService ?? AppSettingsService();
+        _settingsService = settingsService ?? AppSettingsService(),
+        _semanticProfileResolver = semanticProfileResolver;
 
   final MemorySlmConfiguration _configuration;
   final AppSettingsService _settingsService;
+  final RuleSemanticProfile? Function({
+    required String title,
+    required String content,
+    List<String> tags,
+  })? _semanticProfileResolver;
 
-  static const MethodChannel _modelAssetChannel =
-      MethodChannel('local_vault/model_assets');
-  static const bool _experimentalNativeInferenceEnabled = bool.fromEnvironment(
-    'ENABLE_MEDIAPIPE_SLM',
-    defaultValue: true,
-  );
-  static const String _nativeInferenceFlagName = 'ENABLE_MEDIAPIPE_SLM';
-  static const Set<String> _supportedNativeModelExtensions = <String>{
+  static const Set<String> _supportedBundledModelExtensions = <String>{
+    'gguf',
+  };
+  static const Set<String> _ragDirectAliases = <String>{
+    '检索增强生成',
+    '検索拡張生成',
+    '검색 증강 생성',
+    'retrieval augmented generation',
+    'generación aumentada por recuperación',
+    'generacion aumentada por recuperacion',
+    'génération augmentée par récupération',
+    'generation augmentee par recuperation',
+  };
+  static final List<Pattern> _ragSecondarySignals = <Pattern>[
+    '向量',
+    '召回',
+    '重排',
+    '检索',
+    '知识库',
+    'ベクトル',
+    '検索',
+    'リランキング',
+    '知識ベース',
+    '벡터',
+    '검색',
+    '리랭크',
+    '재정렬',
+    '지식베이스',
+    'recuperación',
+    'recuperacion',
+    'reordenación',
+    'reordenacion',
+    'base de conocimiento',
+    'recherche vectorielle',
+    'reclassement',
+    'base de connaissances',
+    'vektor',
+    'neubewertung',
+    'wissensbasis',
+    RegExp(r'\bembedding\b'),
+    RegExp(r'\bembeddings\b'),
+    RegExp(r'\bchunk\b'),
+    RegExp(r'\brerank\b'),
+    RegExp(r'\bfaiss\b'),
+    RegExp(r'\bmilvus\b'),
+    RegExp(r'\bqdrant\b'),
+  ];
+  static const Set<String> _llmAliases = <String>{
+    '大语言模型',
+    '大規模言語モデル',
+    '대규모 언어 모델',
+    'modelo de lenguaje grande',
+    'grand modèle de langage',
+    'grand modele de langage',
+    'großes sprachmodell',
+    'grosses sprachmodell',
+  };
+  static const Set<String> _slmAliases = <String>{
+    '小语言模型',
+    '小規模言語モデル',
+    '소형 언어 모델',
+    'modelo de lenguaje pequeño',
+    'modelo de lenguaje pequeno',
+    'petit modèle de langage',
+    'petit modele de langage',
+    'kleines sprachmodell',
+  };
+  static const Set<String> _ocrAliases = <String>{
+    '文字识别',
+    '光学文字認識',
+    '텍스트 인식',
+    '광학 문자 인식',
+    'reconocimiento óptico de caracteres',
+    'reconocimiento optico de caracteres',
+    'reconnaissance optique de caractères',
+    'reconnaissance optique de caracteres',
+    'optische zeichenerkennung',
+  };
+  static final RegExp _latinScriptRegex = RegExp(r'[A-Za-zÀ-ÖØ-öø-ÿĀ-žẞß]');
+  static const List<String> _cjkTopicTemplateSuffixes = <String>[
+    '登录页改版',
+    '发布计划',
+    '发布节奏',
+    '回滚预案',
+    '权限诊断',
+    '白名单配置',
+    '数据库查询',
+    '数据库检查',
+    '模板管理',
+    '记忆管理',
+    '清单',
+    '方案',
+    '计划',
+    '问题',
+    '决策',
+    '流程',
+    '改版',
+    '优化',
+    '修复',
+    '发布',
+    '上线',
+    '回滚',
+    '诊断',
+    '备份',
+    '数据库',
+    '模板',
+    '记忆',
+    '配置',
+    '权限',
+    '同步',
+    '会议',
+    '复盘',
+    '需求',
+  ];
+  static const List<String> _latinTopicTemplateSuffixes = <String>[
+    'plan',
+    'issue',
+    'decision',
+    'review',
+    'checklist',
+    'redesign',
+    'launch',
+    'release',
+    'rollback',
+    'diagnostics',
+    'diagnostic',
+    'permission',
+    'permissions',
+    'backup',
+    'database',
+    'template',
+    'memory',
+    'sync',
+  ];
+  static const Set<String> _genericTopicKeywords = <String>{
+    '计划',
+    '方案',
+    '问题',
+    '会议',
+    '同步',
+    '任务',
+    '待办',
+    '内容',
+    '记录',
+    '更新',
+    'plan',
+    'issue',
+    'meeting',
+    'sync',
     'task',
-    'bin',
-    'litertlm',
+    'todo',
+    'content',
+    'record',
+    'update',
+    'review',
+    'summary',
+    '計画',
+    '会議',
+    '同期',
+    '記録',
+    '회의',
+    '계획',
+    '기록',
+    '동기화',
   };
 
   final LinkedHashMap<String, String> _topicCache = LinkedHashMap();
@@ -108,43 +271,40 @@ class MemorySLMService {
 
   Future<void>? _initializing;
   bool _isInitialized = false;
-  bool _isModelAvailable = false;
   Future<void> _requestQueue = Future<void>.value();
   bool _runtimeSlmInferenceEnabled = false;
   bool _runtimeSlmInferenceEnabledLoaded = false;
   Future<void>? _runtimeSlmInferenceEnabledLoading;
-  bool? _nativeSymbolsAvailable;
-  DynamicLibrary? _nativeLibrary;
   MemorySlmConfig? _slmConfig;
   Future<MemorySlmConfig>? _slmConfigLoading;
 
-  LlmInferenceEngine? _engine;
-
   bool get isInitialized => _isInitialized;
 
-  bool get isModelAvailable => _isModelAvailable;
+  bool get isModelAvailable => false;
 
-  bool get experimentalNativeInferenceEnabled =>
-      _experimentalNativeInferenceEnabled && _runtimeSlmInferenceEnabled;
+  bool get experimentalNativeInferenceEnabled => false;
 
-  bool get nativeInferenceSupported => _supportsNativeInference;
+  bool get nativeInferenceSupported => false;
 
-  bool get nativeSymbolsAvailable => _hasRequiredNativeSymbols();
+  bool get nativeSymbolsAvailable => false;
 
   bool isSupportedNativeModelFileName(String fileName) {
     final extension = _extractFileExtension(fileName);
-    return _supportedNativeModelExtensions.contains(extension);
+    return _supportedBundledModelExtensions.contains(extension);
   }
 
-  String describeNativeModelFileSupport(String fileName) {
+  Future<String> describeNativeModelFileSupport(String fileName) async {
+    final localizations = await AppLocalizations.delegate.load(
+      await _resolvePreferredLocale(),
+    );
     final extension = _extractFileExtension(fileName);
-    if (_supportedNativeModelExtensions.contains(extension)) {
-      return 'Compatible .$extension model';
+    if (_supportedBundledModelExtensions.contains(extension)) {
+      return localizations.modelFormatBundledSupported(extension);
     }
     if (extension.isEmpty) {
-      return 'Unknown model format';
+      return localizations.unknownModelFormat;
     }
-    return 'Unsupported .$extension model for the current Android native SLM runtime';
+    return localizations.modelFormatUnsupportedForLocalRules(extension);
   }
 
   Future<MemorySlmConfig> resolveConfig() => _loadSlmConfig();
@@ -158,7 +318,8 @@ class MemorySLMService {
     await _settingsService.setSlmInferenceEnabled(enabled);
     _runtimeSlmInferenceEnabled = enabled;
     _runtimeSlmInferenceEnabledLoaded = true;
-    _resetRuntimeInferenceState();
+    _isInitialized = false;
+    _initializing = null;
   }
 
   Future<void> initialize({
@@ -182,45 +343,221 @@ class MemorySLMService {
     try {
       await _ensureRuntimeSlmInferencePreferenceLoaded();
       await _loadSlmConfig();
-      if (!_supportsNativeInference) {
-        _isInitialized = true;
-        _isModelAvailable = false;
-        debugPrint(
-          'ℹ️ [MemorySLMService] No available SLM inference entry point is enabled in this build, '
-          'falling back to rule-based mode.'
-          '${_experimentalNativeInferenceEnabled ? '' : ' To re-enable it, add --dart-define=$_nativeInferenceFlagName=true.'}',
-        );
-        return;
-      }
-
-      final modelFile = await _resolveModelFile();
-      if (!await modelFile.exists()) {
-        final copied = await _tryCopyBundledModel(
-          modelFile,
-          onProgress: onProgress,
-        );
-        if (!copied) {
-          debugPrint(
-            'ℹ️ [MemorySLMService] Bundled model asset not found: '
-            '${_effectiveSlmConfig.model.bundledAssetPath}; falling back to rule-based mode.',
-          );
-        }
-      }
-
-      await _initializeEngineIfSupported(modelFile);
       _isInitialized = true;
+      onProgress?.call(1.0);
       debugPrint(
-        '🧠 [MemorySLMService] Initialization completed, SLM ${_isModelAvailable ? 'available' : 'running in fallback mode'}',
+        '🧠 [MemorySLMService] Initialization completed in local rule mode.',
       );
     } catch (error, stackTrace) {
       _isInitialized = true;
-      _isModelAvailable = false;
       debugPrint(
           '⚠️ [MemorySLMService] Initialization failed, degraded mode enabled: $error');
       debugPrintStack(stackTrace: stackTrace);
     } finally {
       _initializing = null;
     }
+  }
+
+  RuleSemanticProfile describeSummarySemantics(SummaryEntity summary) {
+    return describeTextSemantics(
+      title: summary.title,
+      content: summary.content,
+      tags: summary.tags,
+    );
+  }
+
+  RuleSemanticProfile describeBatchSemantics(Iterable<SummaryEntity> sessions) {
+    final normalizedSessions = sessions
+        .where(
+          (session) =>
+              session.title.trim().isNotEmpty ||
+              session.content.trim().isNotEmpty,
+        )
+        .toList(growable: false);
+    if (normalizedSessions.isEmpty) {
+      return const RuleSemanticProfile.empty();
+    }
+
+    final stableTopics = normalizedSessions
+        .map((session) => session.topic?.trim() ?? '')
+        .where(
+          (topic) =>
+              topic.isNotEmpty &&
+              !TopicPlaceholderUtils.isPlaceholderTopic(topic),
+        )
+        .toSet();
+    final uniqueTitles = normalizedSessions
+        .map((session) => session.title.trim())
+        .where((title) => title.isNotEmpty)
+        .toSet();
+    final combinedTitle = stableTopics.length == 1
+        ? stableTopics.first
+        : uniqueTitles.length == 1
+            ? uniqueTitles.first
+            : normalizedSessions
+                .map((session) => session.title.trim())
+                .where((title) => title.isNotEmpty)
+                .join('\n');
+    final combinedContent = normalizedSessions
+        .map((session) => session.content.trim())
+        .where((content) => content.isNotEmpty)
+        .join('\n');
+    final combinedTags =
+        normalizedSessions.expand((session) => session.tags).toList();
+
+    return describeTextSemantics(
+      title: combinedTitle,
+      content: combinedContent,
+      tags: combinedTags,
+    );
+  }
+
+  RuleSemanticProfile describeTextSemantics({
+    required String title,
+    required String content,
+    List<String> tags = const <String>[],
+  }) {
+    final injectedProfile = _semanticProfileResolver?.call(
+      title: title,
+      content: content,
+      tags: tags,
+    );
+    if (injectedProfile != null) {
+      return injectedProfile;
+    }
+
+    final localizations = _fallbackLocalizationsForText('$title $content');
+    final canonicalTopic = _extractCanonicalTopicAlias(title, content) ?? '';
+    final canonicalKey = _normalizeText(canonicalTopic);
+    final candidates = _collectSemanticCandidates(
+      title: title,
+      content: content,
+      tags: tags,
+      canonicalTopic: canonicalTopic,
+      localizations: localizations,
+    );
+    final bestFacet = _pickBestSemanticFacet(
+      candidates,
+      canonicalKey: canonicalKey,
+    );
+    final displayTopic = _renderSemanticTopic(
+      title: title,
+      content: content,
+      canonicalTopic: canonicalTopic,
+      facet: bestFacet?.label ?? '',
+      localizations: localizations,
+    );
+    final displayTitle = _renderSemanticTitle(
+      title: title,
+      content: content,
+      canonicalTopic: canonicalTopic,
+      facet: bestFacet?.label ?? '',
+      displayTopic: displayTopic,
+    );
+    final resolvedTags = _buildSemanticTags(
+      title: displayTitle,
+      content: content,
+      canonicalTopic: canonicalTopic,
+      facet: bestFacet?.label ?? '',
+      explicitTags: tags,
+    );
+    final keywords = _collectSemanticKeywords(
+      displayTopic: displayTopic,
+      displayTitle: displayTitle,
+      canonicalTopic: canonicalTopic,
+      facet: bestFacet?.label ?? '',
+      tags: resolvedTags,
+      content: content,
+    );
+    final confidence = _estimateSemanticConfidence(
+      canonicalTopic: canonicalTopic,
+      bestFacet: bestFacet,
+      displayTopic: displayTopic,
+      tags: resolvedTags,
+      title: title,
+    );
+
+    return RuleSemanticProfile(
+      language: _detectPrimaryLanguage('$displayTopic $displayTitle') ==
+              _PrimaryLanguage.cjk
+          ? RuleSemanticLanguage.cjk
+          : RuleSemanticLanguage.latin,
+      domainKey: canonicalKey,
+      domainLabel: canonicalTopic,
+      facetKey: _normalizeText(bestFacet?.label ?? ''),
+      facetLabel: bestFacet?.label ?? '',
+      displayTopic: displayTopic,
+      displayTitle: displayTitle,
+      tags: resolvedTags,
+      keywords: keywords,
+      confidence: confidence,
+    );
+  }
+
+  double calculateSemanticProfileSimilarity(
+    RuleSemanticProfile left,
+    RuleSemanticProfile right,
+  ) {
+    if (left.semanticKey.isEmpty || right.semanticKey.isEmpty) {
+      return SimilarityUtils.jaccardSimilarity(
+        '${left.displayTopic} ${left.displayTitle}',
+        '${right.displayTopic} ${right.displayTitle}',
+      );
+    }
+
+    double score = 0.0;
+    if (left.domainKey.isNotEmpty && left.domainKey == right.domainKey) {
+      score += 0.35;
+    }
+    if (left.facetKey.isNotEmpty && left.facetKey == right.facetKey) {
+      score += 0.35;
+    } else if (_isContainedTopic(left.facetKey, right.facetKey)) {
+      score += 0.18;
+    }
+
+    final keywordOverlap = SimilarityUtils.tokenOverlapCoefficient(
+      left.keywords.join(' '),
+      right.keywords.join(' '),
+    );
+    final titleSimilarity = SimilarityUtils.calculateMemorySimilarity(
+      left.displayTitle,
+      left.displayTopic,
+      right.displayTitle,
+      right.displayTopic,
+    );
+    score += keywordOverlap * 0.15;
+    score += titleSimilarity * 0.15;
+    return score.clamp(0.0, 1.0);
+  }
+
+  bool hasStableSemanticAlignment(
+    RuleSemanticProfile left,
+    RuleSemanticProfile right, {
+    int? minTagOverlap,
+  }) {
+    if (left.semanticKey.isNotEmpty && left.semanticKey == right.semanticKey) {
+      return true;
+    }
+
+    if (left.domainKey.isNotEmpty &&
+        left.domainKey == right.domainKey &&
+        left.hasSpecificFacet &&
+        right.hasSpecificFacet &&
+        _isContainedTopic(left.facetKey, right.facetKey)) {
+      return true;
+    }
+
+    final effectiveMinTagOverlap =
+        minTagOverlap ?? _effectiveSlmConfig.heuristics.sameTopicMinTagOverlap;
+    final tagOverlap =
+        left.tags.toSet().intersection(right.tags.toSet()).length;
+    if (tagOverlap >= effectiveMinTagOverlap &&
+        left.domainKey.isNotEmpty &&
+        left.domainKey == right.domainKey) {
+      return true;
+    }
+
+    return calculateSemanticProfileSimilarity(left, right) >= 0.72;
   }
 
   Future<MemorySlmResponse<String>> extractTopic(
@@ -238,7 +575,10 @@ class MemorySLMService {
       );
     }
 
-    final fallbackTopic = _extractTopicFallback(title, content);
+    final fallbackTopic = describeTextSemantics(
+      title: title,
+      content: content,
+    ).displayTopic;
     return _runWithFallback<String>(
       operation: 'extractTopic',
       fallbackData: fallbackTopic,
@@ -247,20 +587,14 @@ class MemorySLMService {
         return _runQueued<MemorySlmResponse<String>>(() async {
           await initialize();
           final stopwatch = Stopwatch()..start();
-          final prompt = _buildTopicPrompt(title, content);
-          final generated = await _runModelPrompt(prompt);
-          final topic = _sanitizeTopicResponse(generated, fallbackTopic);
-          _setCache(_topicCache, cacheKey, topic);
+          _setCache(_topicCache, cacheKey, fallbackTopic);
           stopwatch.stop();
-          final usedModel = generated != null && generated.trim().isNotEmpty;
           return MemorySlmResponse<String>(
             success: true,
-            data: topic,
-            fallbackUsed: usedModel
-                ? MemorySlmFallbackMode.none
-                : MemorySlmFallbackMode.rules,
+            data: fallbackTopic,
+            fallbackUsed: MemorySlmFallbackMode.rules,
             latencyMs: stopwatch.elapsedMilliseconds,
-            errorCode: usedModel ? null : 'slm_model_unavailable',
+            errorCode: 'slm_rule_mode',
           );
         });
       },
@@ -271,7 +605,9 @@ class MemorySLMService {
     SummaryEntity entityA,
     SummaryEntity entityB,
   ) async {
-    final fallback = _isSameTopicFallback(entityA, entityB);
+    final profileA = describeSummarySemantics(entityA);
+    final profileB = describeSummarySemantics(entityB);
+    final fallback = hasStableSemanticAlignment(profileA, profileB);
     return _runWithFallback<bool>(
       operation: 'isSameTopic',
       fallbackData: fallback,
@@ -280,19 +616,13 @@ class MemorySLMService {
         return _runQueued<MemorySlmResponse<bool>>(() async {
           await initialize();
           final stopwatch = Stopwatch()..start();
-          final prompt = _buildSameTopicPrompt(entityA, entityB);
-          final generated = await _runModelPrompt(prompt);
-          final parsed = _parseYesNo(generated);
           stopwatch.stop();
-          final usedModel = parsed != null;
           return MemorySlmResponse<bool>(
             success: true,
-            data: parsed ?? fallback,
-            fallbackUsed: usedModel
-                ? MemorySlmFallbackMode.none
-                : MemorySlmFallbackMode.rules,
+            data: fallback,
+            fallbackUsed: MemorySlmFallbackMode.rules,
             latencyMs: stopwatch.elapsedMilliseconds,
-            errorCode: usedModel ? null : 'slm_model_unavailable',
+            errorCode: 'slm_rule_mode',
           );
         });
       },
@@ -321,19 +651,13 @@ class MemorySLMService {
         return _runQueued<MemorySlmResponse<MemorySlmMergeResult>>(() async {
           await initialize();
           final stopwatch = Stopwatch()..start();
-          final prompt = _buildMergePrompt(sessions);
-          final generated = await _runModelPrompt(prompt);
-          final parsed = _parseMergeResult(generated);
           stopwatch.stop();
-          final usedModel = parsed != null;
           return MemorySlmResponse<MemorySlmMergeResult>(
             success: true,
-            data: parsed ?? fallback,
-            fallbackUsed: usedModel
-                ? MemorySlmFallbackMode.none
-                : MemorySlmFallbackMode.rules,
+            data: fallback,
+            fallbackUsed: MemorySlmFallbackMode.rules,
             latencyMs: stopwatch.elapsedMilliseconds,
-            errorCode: usedModel ? null : 'slm_model_unavailable',
+            errorCode: 'slm_rule_mode',
           );
         });
       },
@@ -369,23 +693,14 @@ class MemorySLMService {
         return _runQueued<MemorySlmResponse<String>>(() async {
           await initialize();
           final stopwatch = Stopwatch()..start();
-          final prompt = await _buildUpgradeReasonPrompt(
-            fact,
-            locale: locale,
-          );
-          final generated = await _runModelPrompt(prompt);
-          final reason = _sanitizeSingleLine(generated) ?? fallback;
-          _setCache(_upgradeReasonCache, cacheKey, reason);
+          _setCache(_upgradeReasonCache, cacheKey, fallback);
           stopwatch.stop();
-          final usedModel = generated != null && generated.trim().isNotEmpty;
           return MemorySlmResponse<String>(
             success: true,
-            data: reason,
-            fallbackUsed: usedModel
-                ? MemorySlmFallbackMode.none
-                : MemorySlmFallbackMode.rules,
+            data: fallback,
+            fallbackUsed: MemorySlmFallbackMode.rules,
             latencyMs: stopwatch.elapsedMilliseconds,
-            errorCode: usedModel ? null : 'slm_model_unavailable',
+            errorCode: 'slm_rule_mode',
           );
         });
       },
@@ -398,15 +713,14 @@ class MemorySLMService {
     List<String> tags = const [],
   }) async {
     final slmConfig = await _loadSlmConfig();
-    final fallback = MemorySlmSummaryMetadata(
-      title: title.trim().isEmpty
-          ? slmConfig.fallbacks.summaryMetadataTitle
-          : title.trim(),
-      tags: tags
-          .map((tag) => tag.trim())
-          .where((tag) => tag.isNotEmpty)
-          .take(slmConfig.limits.summaryMetadataTagCount)
-          .toList(),
+    final locale = await _resolvePreferredLocale();
+    final localizations = lookupAppLocalizations(locale);
+    final fallback = _generateSummaryMetadataFallback(
+      title: title,
+      content: content,
+      tags: tags,
+      localizations: localizations,
+      slmConfig: slmConfig,
     );
 
     try {
@@ -414,31 +728,13 @@ class MemorySLMService {
         () async {
           await initialize();
           final stopwatch = Stopwatch()..start();
-          final prompt = _buildSummaryMetadataPrompt(
-            title: title,
-            content: content,
-            tags: tags,
-          );
-          final generated = await _runModelPrompt(prompt);
-          final parsed = _parseSummaryMetadata(generated);
           stopwatch.stop();
-
-          final usedModel = parsed != null;
           return MemorySlmResponse<MemorySlmSummaryMetadata>(
             success: true,
-            data: MemorySlmSummaryMetadata(
-              title: parsed?.title.trim().isNotEmpty == true
-                  ? parsed!.title.trim()
-                  : fallback.title,
-              tags: parsed?.tags.isNotEmpty == true
-                  ? parsed!.tags
-                  : fallback.tags,
-            ),
-            fallbackUsed: usedModel
-                ? MemorySlmFallbackMode.none
-                : MemorySlmFallbackMode.disabled,
+            data: fallback,
+            fallbackUsed: MemorySlmFallbackMode.rules,
             latencyMs: stopwatch.elapsedMilliseconds,
-            errorCode: usedModel ? null : 'slm_model_unavailable',
+            errorCode: 'slm_rule_mode',
           );
         },
       );
@@ -460,11 +756,8 @@ class MemorySLMService {
   Future<void> dispose() async {
     _topicCache.clear();
     _upgradeReasonCache.clear();
-    _engine?.dispose();
-    _engine = null;
     _slmConfig = null;
     _isInitialized = false;
-    _isModelAvailable = false;
   }
 
   Future<T> _runQueued<T>(Future<T> Function() action) {
@@ -499,131 +792,6 @@ class MemorySLMService {
     return completer.future;
   }
 
-  Future<File> _resolveModelFile() async {
-    final slmConfig = await _loadSlmConfig();
-    final baseDirectory = await getApplicationSupportDirectory();
-    final modelDirectory = Directory(
-      '${baseDirectory.path}/${slmConfig.model.modelDirectoryName}',
-    );
-    if (!await modelDirectory.exists()) {
-      await modelDirectory.create(recursive: true);
-    }
-    return File('${modelDirectory.path}/${slmConfig.model.bundledFileName}');
-  }
-
-  Future<bool> _tryCopyBundledModel(
-    File targetFile, {
-    ModelDownloadProgressCallback? onProgress,
-  }) async {
-    if (!Platform.isAndroid) {
-      return false;
-    }
-
-    try {
-      final slmConfig = await _loadSlmConfig();
-      final copiedPath = await _modelAssetChannel.invokeMethod<String>(
-        'copyBundledModelToFiles',
-        <String, dynamic>{
-          'assetPath': slmConfig.model.bundledAssetPath,
-          'fileName': slmConfig.model.bundledFileName,
-          'targetPath': targetFile.path,
-        },
-      );
-      if (copiedPath == null || copiedPath.isEmpty) {
-        return false;
-      }
-
-      final copiedFile = File(copiedPath);
-      if (!await copiedFile.exists()) {
-        return false;
-      }
-      onProgress?.call(1.0);
-      debugPrint(
-          '📦 [MemorySLMService] Copied model from bundled assets to ${copiedFile.path}');
-      return true;
-    } on PlatformException catch (error) {
-      debugPrint(
-          '⚠️ [MemorySLMService] Native model copy failed: ${error.message}');
-      return false;
-    } on MissingPluginException {
-      debugPrint(
-          'ℹ️ [MemorySLMService] Bundled model not found, trying another loading path');
-      return false;
-    }
-  }
-
-  Future<void> _initializeEngineIfSupported(File modelFile) async {
-    final slmConfig = await _loadSlmConfig();
-    _isModelAvailable = false;
-    if (!_supportsNativeInference || !await modelFile.exists()) {
-      return;
-    }
-
-    if (!isSupportedNativeModelFileName(modelFile.path)) {
-      debugPrint(
-        'ℹ️ [MemorySLMService] Current model ${slmConfig.model.bundledFileName} '
-        'is not in a format supported by the current Android native SLM runtime; '
-        'falling back to rule-based mode. The runtime currently only supports '
-        '${_supportedNativeModelExtensions.map((value) => '.$value').join(', ')}.',
-      );
-      return;
-    }
-
-    try {
-      final appDirectory = await getApplicationSupportDirectory();
-      final cacheDirectory = Directory(
-        '${appDirectory.path}/${slmConfig.model.cacheDirectoryName}',
-      );
-      if (!await cacheDirectory.exists()) {
-        await cacheDirectory.create(recursive: true);
-      }
-
-      final engineOptions = LlmInferenceOptions.cpu(
-        modelPath: modelFile.path,
-        cacheDir: cacheDirectory.path,
-        maxTokens: slmConfig.runtime.maxTokens,
-        temperature: slmConfig.runtime.temperature,
-        topK: slmConfig.runtime.topK,
-      );
-      _engine = LlmInferenceEngine(engineOptions);
-      _isModelAvailable = true;
-    } catch (error, stackTrace) {
-      _disableNativeInference(
-        'Native inference engine initialization failed: $error',
-        stackTrace: stackTrace,
-      );
-    }
-  }
-
-  bool get _supportsNativeInference {
-    if (kIsWeb || !Platform.isAndroid) {
-      return false;
-    }
-    if (!experimentalNativeInferenceEnabled) {
-      return false;
-    }
-    return _hasRequiredNativeSymbols();
-  }
-
-  Future<String?> _runModelPrompt(String prompt) async {
-    final engine = _engine;
-    if (!_isModelAvailable || engine == null) {
-      return null;
-    }
-
-    try {
-      final response = await engine.generateResponse(prompt).join();
-      final trimmed = response.trim();
-      return trimmed.isEmpty ? null : trimmed;
-    } catch (error, stackTrace) {
-      _disableNativeInference(
-        'Model inference failed, switching to rule-based fallback: $error',
-        stackTrace: stackTrace,
-      );
-      return null;
-    }
-  }
-
   Future<MemorySlmResponse<T>> _runWithFallback<T>({
     required String operation,
     required T fallbackData,
@@ -644,65 +812,6 @@ class MemorySLMService {
         errorCode: errorCode,
       );
     }
-  }
-
-  bool _hasRequiredNativeSymbols() {
-    final cached = _nativeSymbolsAvailable;
-    if (cached != null) {
-      return cached;
-    }
-
-    Object? lastError;
-    final libraries = <DynamicLibrary>[DynamicLibrary.process()];
-    try {
-      libraries.insert(0, _resolveNativeLibrary());
-    } catch (error) {
-      lastError = error;
-    }
-
-    for (final library in libraries) {
-      try {
-        library.lookup<NativeFunction<Void Function()>>(
-          'LlmInferenceEngine_CreateSession',
-        );
-        library.lookup<NativeFunction<Void Function()>>(
-          'LlmInferenceEngine_Session_PredictAsync',
-        );
-        _nativeSymbolsAvailable = true;
-        return true;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    _nativeSymbolsAvailable = false;
-    debugPrint(
-      'ℹ️ [MemorySLMService] Required native symbols for the current SLM inference path were not detected, '
-      'this build will use rule-based mode.'
-      '${lastError == null ? '' : ' Details: $lastError'}',
-    );
-
-    return _nativeSymbolsAvailable ?? false;
-  }
-
-  DynamicLibrary _resolveNativeLibrary() {
-    final cached = _nativeLibrary;
-    if (cached != null) {
-      return cached;
-    }
-
-    if (Platform.isAndroid) {
-      final library = DynamicLibrary.open('libllm_inference_engine.so');
-      debugPrint(
-        '✅ [MemorySLMService] Explicitly loaded libllm_inference_engine.so',
-      );
-      _nativeLibrary = library;
-      return library;
-    }
-
-    final library = DynamicLibrary.process();
-    _nativeLibrary = library;
-    return library;
   }
 
   String _extractFileExtension(String fileName) {
@@ -739,252 +848,496 @@ class MemorySLMService {
     }
   }
 
-  void _resetRuntimeInferenceState() {
-    _engine?.dispose();
-    _engine = null;
-    _isInitialized = false;
-    _isModelAvailable = false;
-    _initializing = null;
-  }
-
-  void _disableNativeInference(
-    String reason, {
-    StackTrace? stackTrace,
-  }) {
-    debugPrint('⚠️ [MemorySLMService] $reason');
-    if (stackTrace != null) {
-      debugPrintStack(stackTrace: stackTrace);
-    }
-    _engine?.dispose();
-    _engine = null;
-    _isModelAvailable = false;
-  }
-
-  String _buildTopicPrompt(String title, String content) {
-    final slmConfig = _effectiveSlmConfig;
-    return slmConfig.renderTemplate(
-      slmConfig.prompts.extractTopic,
-      <String, String>{
-        ..._sharedPromptVariables(slmConfig),
-        'title': title,
-        'content': _truncate(content, slmConfig.limits.topicContentChars),
-      },
-    );
-  }
-
-  String _buildSameTopicPrompt(SummaryEntity entityA, SummaryEntity entityB) {
-    final slmConfig = _effectiveSlmConfig;
-    return slmConfig.renderTemplate(
-      slmConfig.prompts.sameTopic,
-      <String, String>{
-        ..._sharedPromptVariables(slmConfig),
-        'titleA': entityA.title,
-        'contentA': _truncate(
-          entityA.content,
-          slmConfig.limits.sameTopicContentChars,
-        ),
-        'titleB': entityB.title,
-        'contentB': _truncate(
-          entityB.content,
-          slmConfig.limits.sameTopicContentChars,
-        ),
-      },
-    );
-  }
-
-  String _buildMergePrompt(List<SummaryEntity> sessions) {
-    final slmConfig = _effectiveSlmConfig;
-    final entries = sessions.asMap().entries.map((entry) {
-      final item = entry.value;
-      return slmConfig.renderTemplate(
-        slmConfig.formatting.mergeSessionEntry,
-        <String, String>{
-          ..._sharedPromptVariables(slmConfig),
-          'index': '${entry.key + 1}',
-          'title': item.title,
-          'content': _truncate(
-            item.content,
-            slmConfig.limits.mergeItemContentChars,
-          ),
-          'tags': item.tags.join(', '),
-        },
-      );
-    }).join('\n');
-
-    return slmConfig.renderTemplate(
-      slmConfig.prompts.mergeSessions,
-      <String, String>{
-        ..._sharedPromptVariables(slmConfig),
-        'entries': entries,
-      },
-    );
-  }
-
-  Future<String> _buildUpgradeReasonPrompt(
-    SummaryEntity fact, {
-    ui.Locale? locale,
-  }) async {
-    final slmConfig = _effectiveSlmConfig;
-    final targetLocale = locale ?? await _resolvePreferredLocale();
-    return slmConfig.renderTemplate(
-      slmConfig.prompts.upgradeReason,
-      <String, String>{
-        ..._sharedPromptVariables(slmConfig),
-        'outputLanguageInstruction':
-            _upgradeReasonOutputLanguageInstruction(targetLocale),
-        'accessCountLabel': _upgradeReasonMetricLabel(
-          targetLocale,
-          english: 'Access count',
-          zh: '访问次数',
-          ja: 'アクセス数',
-          ko: '방문 수',
-          es: 'Número de accesos',
-          fr: 'Nombre de consultations',
-          de: 'Anzahl der Aufrufe',
-        ),
-        'importanceLabel': _upgradeReasonMetricLabel(
-          targetLocale,
-          english: 'Importance',
-          zh: '重要度',
-          ja: '重要度',
-          ko: '중요도',
-          es: 'Importancia',
-          fr: 'Importance',
-          de: 'Wichtigkeit',
-        ),
-        'createdAtLabel': _upgradeReasonMetricLabel(
-          targetLocale,
-          english: 'Created at',
-          zh: '创建时间',
-          ja: '作成日時',
-          ko: '생성 시각',
-          es: 'Creado el',
-          fr: 'Créé le',
-          de: 'Erstellt am',
-        ),
-        'title': fact.title,
-        'accessCount': fact.accessCount.toString(),
-        'importance': fact.importance.toStringAsFixed(2),
-        'createdAt': fact.createdAt.toIso8601String(),
-      },
-    );
-  }
-
-  String _buildSummaryMetadataPrompt({
+  MemorySlmSummaryMetadata _generateSummaryMetadataFallback({
     required String title,
     required String content,
     required List<String> tags,
+    required AppLocalizations localizations,
+    required MemorySlmConfig slmConfig,
   }) {
-    final slmConfig = _effectiveSlmConfig;
-    final emptyFieldPlaceholder = slmConfig.formatting.emptyFieldPlaceholder;
-    final normalizedTitle = title.trim();
-    final normalizedTags =
-        tags.map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).join(', ');
-    return slmConfig.renderTemplate(
-      slmConfig.prompts.summaryMetadata,
-      <String, String>{
-        ..._sharedPromptVariables(slmConfig),
-        'title':
-            normalizedTitle.isEmpty ? emptyFieldPlaceholder : normalizedTitle,
-        'tags': normalizedTags.isEmpty ? emptyFieldPlaceholder : normalizedTags,
-        'content': _truncate(
-          content,
-          slmConfig.limits.summaryMetadataContentChars,
-        ),
-      },
+    final explicitTitle = title.trim();
+    final generatedTitle = SummaryTextUtils.generateTitle(content).trim();
+    final resolvedTitle = explicitTitle.isNotEmpty
+        ? explicitTitle
+        : generatedTitle.isNotEmpty &&
+                !SummaryTextUtils.isUnnamedTitleValue(generatedTitle)
+            ? generatedTitle
+            : localizations.pendingSummary;
+
+    final explicitTags =
+        tags.map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList();
+    final resolvedTags = explicitTags.isNotEmpty
+        ? explicitTags.take(slmConfig.limits.summaryMetadataTagCount).toList()
+        : SummaryTextUtils.generateTags(
+            resolvedTitle,
+            content,
+            maxTags: slmConfig.limits.summaryMetadataTagCount,
+          );
+
+    return MemorySlmSummaryMetadata(
+      title: resolvedTitle,
+      tags: resolvedTags,
     );
   }
 
-  String _extractTopicFallback(String title, String content) {
-    final canonicalTopic = _extractCanonicalTopicAlias(title, content);
-    if (canonicalTopic != null) {
+  List<_RuleSemanticCandidate> _collectSemanticCandidates({
+    required String title,
+    required String content,
+    required List<String> tags,
+    required String canonicalTopic,
+    required AppLocalizations localizations,
+  }) {
+    final normalizedTitle = title.trim();
+    final normalizedContent = content.trim();
+    final canonicalKey = _normalizeText(canonicalTopic);
+    final candidates = <String, _RuleSemanticCandidate>{};
+
+    void addCandidate(
+      String raw,
+      double baseScore, {
+      bool fromTitle = false,
+      bool fromTemplate = false,
+      bool fromExplicitTag = false,
+    }) {
+      final normalizedCandidate = _normalizeSemanticFacetCandidate(
+        raw,
+        content,
+        canonicalTopic: canonicalTopic,
+        localizations: localizations,
+      );
+      if (!_isMeaningfulRuleTopic(normalizedCandidate)) {
+        return;
+      }
+
+      var score = baseScore;
+      final lowerRaw = raw.toLowerCase();
+      final lowerCandidate = normalizedCandidate.toLowerCase();
+      final lowerTitle = normalizedTitle.toLowerCase();
+      final lowerFullText = '$normalizedTitle $normalizedContent'.toLowerCase();
+
+      if (lowerTitle.contains(lowerRaw) ||
+          lowerTitle.contains(lowerCandidate)) {
+        score += 3.0;
+      }
+
+      final lowerToken = lowerCandidate.replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (lowerToken.isNotEmpty && lowerFullText.contains(lowerToken)) {
+        score += _countPlainOccurrences(lowerFullText, lowerToken).toDouble();
+      }
+
+      score += _topicLengthScore(normalizedCandidate) / 2;
+
+      if (fromExplicitTag) {
+        score += 2.0;
+      }
+
+      if (fromTemplate || _looksLikeTemplateTopic(normalizedCandidate)) {
+        score += 1.5;
+      }
+
+      if (_isCanonicalRuleTopic(lowerCandidate)) {
+        score -= canonicalKey.isEmpty ? 0.5 : 1.0;
+      }
+
+      if (canonicalKey.isNotEmpty &&
+          _normalizeText(normalizedCandidate) == canonicalKey) {
+        score -= 2.5;
+      }
+
+      candidates.update(
+        normalizedCandidate,
+        (previous) => previous.score >= score
+            ? previous
+            : previous.copyWith(score: score),
+        ifAbsent: () => _RuleSemanticCandidate(
+          label: normalizedCandidate,
+          normalizedKey: _normalizeText(normalizedCandidate),
+          score: score,
+          fromTitle: fromTitle,
+          fromTemplate: fromTemplate,
+          fromExplicitTag: fromExplicitTag,
+        ),
+      );
+    }
+
+    for (final match in _extractTemplateTopicMatches(normalizedTitle)) {
+      addCandidate(match, 14.0, fromTitle: true, fromTemplate: true);
+    }
+    for (final match in _extractTemplateTopicMatches(normalizedContent)) {
+      addCandidate(match, 9.0, fromTemplate: true);
+    }
+
+    if (normalizedTitle.isNotEmpty) {
+      addCandidate(SummaryTextUtils.compressTitle(normalizedTitle), 7.0,
+          fromTitle: true);
+      addCandidate(normalizedTitle, 5.5, fromTitle: true);
+    }
+    addCandidate(SummaryTextUtils.generateTitle(normalizedContent), 6.5);
+    addCandidate(
+      SummaryTextUtils.generateTitle('$normalizedTitle\n$normalizedContent'),
+      6.0,
+      fromTitle: normalizedTitle.isNotEmpty,
+    );
+
+    final seedTitle = normalizedTitle.isNotEmpty
+        ? normalizedTitle
+        : SummaryTextUtils.generateTitle(normalizedContent);
+    for (final tag in tags) {
+      addCandidate(tag, 10.0, fromExplicitTag: true);
+    }
+    for (final tag in SummaryTextUtils.generateTags(
+      seedTitle,
+      normalizedContent,
+      maxTags: 4,
+    )) {
+      addCandidate(tag, 8.0, fromTitle: normalizedTitle.contains(tag));
+    }
+
+    final ranked = candidates.values.toList()
+      ..sort((left, right) {
+        final scoreDiff = right.score.compareTo(left.score);
+        if (scoreDiff != 0) {
+          return scoreDiff;
+        }
+        final rightInTitle =
+            _candidateAppearsInTitle(right.label, normalizedTitle);
+        final leftInTitle =
+            _candidateAppearsInTitle(left.label, normalizedTitle);
+        final titleDiff = (rightInTitle ? 1 : 0) - (leftInTitle ? 1 : 0);
+        if (titleDiff != 0) {
+          return titleDiff;
+        }
+        final rightTemplate = _looksLikeTemplateTopic(right.label);
+        final leftTemplate = _looksLikeTemplateTopic(left.label);
+        final templateDiff = (rightTemplate ? 1 : 0) - (leftTemplate ? 1 : 0);
+        if (templateDiff != 0) {
+          return templateDiff;
+        }
+        final lengthDiff = _topicLengthScore(right.label)
+            .compareTo(_topicLengthScore(left.label));
+        if (lengthDiff != 0) {
+          return lengthDiff;
+        }
+        return left.label.length.compareTo(right.label.length);
+      });
+
+    return ranked;
+  }
+
+  _RuleSemanticCandidate? _pickBestSemanticFacet(
+    List<_RuleSemanticCandidate> candidates, {
+    required String canonicalKey,
+  }) {
+    for (final candidate in candidates) {
+      if (candidate.normalizedKey != canonicalKey) {
+        return candidate;
+      }
+    }
+    return candidates.isEmpty ? null : candidates.first;
+  }
+
+  String _renderSemanticTopic({
+    required String title,
+    required String content,
+    required String canonicalTopic,
+    required String facet,
+    required AppLocalizations localizations,
+  }) {
+    if (canonicalTopic.isNotEmpty && facet.isNotEmpty) {
+      var rendered = _isContainedTopic(
+        _normalizeText(facet),
+        _normalizeText(canonicalTopic),
+      )
+          ? facet
+          : '$canonicalTopic $facet';
+      rendered = SummaryTextUtils.compressTitle(rendered);
+      if (_isSemanticTopicTooLong(rendered)) {
+        final shortenedFacet = SummaryTextUtils.generateTags(
+          canonicalTopic,
+          content,
+          maxTags: 4,
+        ).firstWhere(
+          (candidate) =>
+              _normalizeText(candidate) != _normalizeText(canonicalTopic) &&
+              _isMeaningfulRuleTopic(candidate),
+          orElse: () => '',
+        );
+        if (shortenedFacet.isNotEmpty) {
+          final compact = SummaryTextUtils.compressTitle(
+            '$canonicalTopic $shortenedFacet',
+          );
+          if (!_isSemanticTopicTooLong(compact)) {
+            return compact;
+          }
+        }
+        return canonicalTopic;
+      }
+      return rendered;
+    }
+    if (facet.isNotEmpty) {
+      return SummaryTextUtils.compressTitle(facet);
+    }
+    if (canonicalTopic.isNotEmpty) {
       return canonicalTopic;
     }
 
-    final candidate = title.trim().isNotEmpty ? title.trim() : content.trim();
-    final generatedTitle = SummaryTextUtils.generateTitle(candidate);
-    final generatedTags = SummaryTextUtils.generateTags(
-      generatedTitle,
+    final fallbackSeed =
+        title.trim().isNotEmpty ? title.trim() : content.trim();
+    return _normalizeFallbackTopicCandidate(
+      fallbackSeed,
       content,
-      maxTags: 1,
+      localizations: localizations,
     );
-    final semanticCandidate =
-        generatedTags.isNotEmpty ? generatedTags.first : generatedTitle;
-    return _normalizeFallbackTopicCandidate(semanticCandidate, content);
+  }
+
+  String _renderSemanticTitle({
+    required String title,
+    required String content,
+    required String canonicalTopic,
+    required String facet,
+    required String displayTopic,
+  }) {
+    final explicitTitle =
+        title.contains('\n') ? '' : SummaryTextUtils.compressTitle(title);
+    final generatedTitle = SummaryTextUtils.generateTitle('$title\n$content');
+    final candidates = <String>[
+      if (_isReusableSemanticTitle(
+        explicitTitle,
+        canonicalTopic: canonicalTopic,
+        facet: facet,
+      ))
+        explicitTitle,
+      if (displayTopic.trim().isNotEmpty) displayTopic,
+      if (_isReusableSemanticTitle(
+        generatedTitle,
+        canonicalTopic: canonicalTopic,
+        facet: facet,
+      ))
+        generatedTitle,
+      if (canonicalTopic.isNotEmpty) canonicalTopic,
+      SummaryTextUtils.generateTitle(content),
+    ];
+
+    for (final candidate in candidates) {
+      final normalized = SummaryTextUtils.compressTitle(candidate);
+      if (_isMeaningfulRuleTopic(normalized) ||
+          _isCanonicalRuleTopic(_normalizeText(normalized))) {
+        return normalized;
+      }
+    }
+
+    return displayTopic.trim().isNotEmpty
+        ? displayTopic
+        : SummaryTextUtils.generateTitle(content);
+  }
+
+  List<String> _buildSemanticTags({
+    required String title,
+    required String content,
+    required String canonicalTopic,
+    required String facet,
+    required List<String> explicitTags,
+  }) {
+    final combinedTags = <String>[
+      ...explicitTags,
+      if (canonicalTopic.isNotEmpty) canonicalTopic,
+      if (facet.isNotEmpty) facet,
+      ...SummaryTextUtils.generateTags(
+        title,
+        content,
+        maxTags: _effectiveSlmConfig.limits.summaryMetadataTagCount,
+      ),
+    ];
+
+    return SummaryTextUtils.sanitizeTags(
+      combinedTags,
+      maxTags: _effectiveSlmConfig.limits.summaryMetadataTagCount,
+      fallbackTitle: title,
+    );
+  }
+
+  List<String> _collectSemanticKeywords({
+    required String displayTopic,
+    required String displayTitle,
+    required String canonicalTopic,
+    required String facet,
+    required List<String> tags,
+    required String content,
+  }) {
+    final keywords = <String>{
+      if (canonicalTopic.isNotEmpty) canonicalTopic,
+      if (facet.isNotEmpty) facet,
+      if (displayTopic.isNotEmpty) displayTopic,
+      if (displayTitle.isNotEmpty) displayTitle,
+      ...tags,
+      ...SummaryTextUtils.generateTags(
+        displayTitle,
+        content,
+        maxTags: _effectiveSlmConfig.limits.summaryMetadataTagCount,
+      ),
+    };
+
+    return keywords
+        .map((keyword) => SummaryTextUtils.compressTitle(keyword))
+        .where((keyword) => keyword.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  double _estimateSemanticConfidence({
+    required String canonicalTopic,
+    required _RuleSemanticCandidate? bestFacet,
+    required String displayTopic,
+    required List<String> tags,
+    required String title,
+  }) {
+    var confidence = 0.2;
+    if (canonicalTopic.isNotEmpty) {
+      confidence += 0.2;
+    }
+    if (bestFacet != null) {
+      confidence += min(0.35, bestFacet.score / 40);
+    }
+    if (_candidateAppearsInTitle(displayTopic, title)) {
+      confidence += 0.1;
+    }
+    if (tags.isNotEmpty) {
+      confidence += 0.1;
+    }
+    return confidence.clamp(0.0, 1.0);
+  }
+
+  String _normalizeSemanticFacetCandidate(
+    String candidate,
+    String content, {
+    required String canonicalTopic,
+    required AppLocalizations localizations,
+  }) {
+    var normalized = SummaryTextUtils.compressTitle(candidate).trim();
+    if (normalized.isEmpty ||
+        SummaryTextUtils.isUnnamedTitleValue(normalized) ||
+        TopicPlaceholderUtils.isPlaceholderTopic(normalized)) {
+      return '';
+    }
+
+    normalized =
+        TopicPlaceholderUtils.stripLeadingPlaceholder(normalized).trim();
+    if (canonicalTopic.isNotEmpty) {
+      normalized = normalized
+          .replaceFirst(
+            RegExp(
+              '^${RegExp.escape(canonicalTopic)}(?:\\s+|(?=[\\u4E00-\\u9FFF\\u3040-\\u30FF\\uAC00-\\uD7AF]))',
+              caseSensitive: false,
+            ),
+            '',
+          )
+          .trim();
+    }
+
+    if (normalized.isEmpty) {
+      return canonicalTopic.isNotEmpty
+          ? canonicalTopic
+          : _normalizeFallbackTopicCandidate(
+              content,
+              content,
+              localizations: localizations,
+            );
+    }
+
+    return _normalizeFallbackTopicCandidate(
+      normalized,
+      content,
+      localizations: localizations,
+    );
+  }
+
+  bool _isReusableSemanticTitle(
+    String title, {
+    required String canonicalTopic,
+    required String facet,
+  }) {
+    final normalized = title.trim();
+    if (normalized.isEmpty ||
+        SummaryTextUtils.isUnnamedTitleValue(normalized) ||
+        TopicPlaceholderUtils.isPlaceholderTopic(normalized)) {
+      return false;
+    }
+    if (canonicalTopic.isNotEmpty &&
+        facet.isNotEmpty &&
+        _normalizeText(normalized) == _normalizeText(canonicalTopic)) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _isSemanticTopicTooLong(String topic) {
+    if (_detectPrimaryLanguage(topic) == _PrimaryLanguage.cjk) {
+      return topic.length > 14;
+    }
+    final wordCount =
+        topic.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
+    return wordCount > 4;
+  }
+
+  bool _isContainedTopic(String left, String right) {
+    if (left.isEmpty || right.isEmpty) {
+      return false;
+    }
+    if (left == right) {
+      return true;
+    }
+    final shorter = left.length <= right.length ? left : right;
+    final longer = shorter == left ? right : left;
+    return shorter.length >= 3 && longer.contains(shorter);
+  }
+
+  AppLocalizations _fallbackLocalizationsForText(String text) {
+    return lookupAppLocalizations(_detectLocaleForText(text));
+  }
+
+  ui.Locale _detectLocaleForText(String text) {
+    if (RegExp(r'[\uAC00-\uD7AF]').hasMatch(text)) {
+      return const ui.Locale('ko');
+    }
+    if (RegExp(r'[\u3040-\u30FF]').hasMatch(text)) {
+      return const ui.Locale('ja');
+    }
+    if (RegExp(r'[\u4E00-\u9FFF]').hasMatch(text)) {
+      return const ui.Locale('zh');
+    }
+    if (_latinScriptRegex.hasMatch(text)) {
+      return const ui.Locale('en');
+    }
+    return _supportedLocale(ui.PlatformDispatcher.instance.locale);
   }
 
   String? _extractCanonicalTopicAlias(String title, String content) {
     final normalized = '$title $content'.toLowerCase();
 
     if (RegExp(r'\brag\b').hasMatch(normalized) ||
-        normalized.contains('检索增强生成') ||
-        normalized.contains('retrieval augmented generation')) {
+        _containsAnyAlias(normalized, _ragDirectAliases)) {
       return 'RAG';
     }
 
-    final ragSecondarySignals = <Pattern>[
-      '向量',
-      '召回',
-      '重排',
-      '检索',
-      '知识库',
-      RegExp(r'\bembedding\b'),
-      RegExp(r'\bchunk\b'),
-      RegExp(r'\brerank\b'),
-      RegExp(r'\bfaiss\b'),
-      RegExp(r'\bmilvus\b'),
-      RegExp(r'\bqdrant\b'),
-    ];
-    final ragSignalCount = ragSecondarySignals
-        .where(
-          (pattern) => pattern is String
-              ? normalized.contains(pattern)
-              : (pattern as RegExp).hasMatch(normalized),
-        )
-        .length;
+    final ragSignalCount =
+        _countMatchingSignals(normalized, _ragSecondarySignals);
     if (ragSignalCount >= 2) {
       return 'RAG';
     }
 
     if (RegExp(r'\bllm\b').hasMatch(normalized) ||
-        normalized.contains('大语言模型')) {
+        _containsAnyAlias(normalized, _llmAliases)) {
       return 'LLM';
     }
     if (RegExp(r'\bslm\b').hasMatch(normalized) ||
-        normalized.contains('小语言模型')) {
+        _containsAnyAlias(normalized, _slmAliases)) {
       return 'SLM';
     }
     if (RegExp(r'\bocr\b').hasMatch(normalized) ||
-        normalized.contains('文字识别')) {
+        _containsAnyAlias(normalized, _ocrAliases)) {
       return 'OCR';
     }
 
     return null;
-  }
-
-  bool _isSameTopicFallback(SummaryEntity a, SummaryEntity b) {
-    final topicA = _normalizeText(a.topic ?? a.title);
-    final topicB = _normalizeText(b.topic ?? b.title);
-    if (_isStableTopicValue(topicA) &&
-        _isStableTopicValue(topicB) &&
-        topicA == topicB) {
-      return true;
-    }
-
-    final titleA = _normalizeText(a.title);
-    final titleB = _normalizeText(b.title);
-    if (!_isStableTopicValue(titleA) || !_isStableTopicValue(titleB)) {
-      return false;
-    }
-    if (titleA == titleB) {
-      return true;
-    }
-    if (titleA.contains(titleB) || titleB.contains(titleA)) {
-      return true;
-    }
-
-    final tagOverlap = a.tags.toSet().intersection(b.tags.toSet()).length;
-    return tagOverlap >= _effectiveSlmConfig.heuristics.sameTopicMinTagOverlap;
   }
 
   MemorySlmMergeResult _mergeSessionsFallback(List<SummaryEntity> sessions) {
@@ -996,104 +1349,153 @@ class MemorySLMService {
       );
     }
 
-    final mergedTags = <String>{};
-    final buffer = StringBuffer();
+    final orderedSessions = List<SummaryEntity>.from(sessions)
+      ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    final mergeUnits = _extractStructuredMergeUnits(orderedSessions);
+    final mergedContent = _buildStructuredMergeContent(mergeUnits);
+    final mergedProfile = describeBatchSemantics(orderedSessions);
+    final mergedTitle = mergedProfile.displayTitle.trim().isEmpty
+        ? _effectiveSlmConfig.fallbacks.emptyFactTitle
+        : mergedProfile.displayTitle;
+    final mergedTags = _buildMergedSessionTags(
+      orderedSessions,
+      title: mergedTitle,
+      topic: mergedProfile.displayTopic,
+      content: mergedContent,
+    );
+
+    return MemorySlmMergeResult(
+      title: mergedTitle,
+      content: mergedContent,
+      tags: mergedTags,
+    );
+  }
+
+  List<String> _extractStructuredMergeUnits(List<SummaryEntity> sessions) {
+    final units = <String>[];
+
     for (final session in sessions) {
-      mergedTags.addAll(session.tags);
-      if (buffer.isNotEmpty) {
-        buffer.writeln();
-        buffer.writeln();
+      final rawSegments = session.content
+          .split(RegExp(r'\n+|(?<=[。！？!?；;])\s*'))
+          .map(_normalizeMergeUnit)
+          .where((segment) => segment.isNotEmpty);
+
+      for (final segment in rawSegments) {
+        if (_isDuplicateMergeUnit(segment, units)) {
+          continue;
+        }
+        units.add(segment);
       }
-      buffer.write(session.content.trim());
     }
 
-    final topic = _extractTopicFallback(
-      sessions.first.title,
-      buffer.toString(),
-    );
-    return MemorySlmMergeResult(
-      title: sessions.first.title.trim().isEmpty
-          ? topic
-          : sessions.first.title.trim(),
-      content: buffer.toString(),
-      tags: mergedTags
-          .take(_effectiveSlmConfig.limits.fallbackMergeTagCount)
-          .toList(),
-    );
+    if (units.isNotEmpty) {
+      return units;
+    }
+
+    return sessions
+        .map((session) => _normalizeMergeUnit(session.content))
+        .where((segment) => segment.isNotEmpty)
+        .toList();
   }
 
-  MemorySlmMergeResult? _parseMergeResult(String? response) {
-    if (response == null || response.trim().isEmpty) {
-      return null;
-    }
-
-    final slmConfig = _effectiveSlmConfig;
-    final titleMatch = _matchLabeledLine(
-      response,
-      slmConfig.formatting.titleLabel,
-    );
-    final tagsMatch = _matchLabeledLine(
-      response,
-      slmConfig.formatting.tagsLabel,
-    );
-    final contentMatch = _matchLabeledBlock(
-      response,
-      slmConfig.formatting.contentLabel,
-    );
-    final title = titleMatch?.group(1)?.trim();
-    final content = contentMatch?.group(1)?.trim();
-    if (title == null || title.isEmpty || content == null || content.isEmpty) {
-      return null;
-    }
-
-    final tags = tagsMatch
-            ?.group(1)
-            ?.split(RegExp(r'[,，]'))
-            .map((tag) {
-              return tag.trim();
-            })
-            .where((tag) => tag.isNotEmpty)
-            .take(slmConfig.limits.mergeResultTagCount)
-            .toList() ??
-        const <String>[];
-    return MemorySlmMergeResult(
-      title: title,
-      content: content,
-      tags: tags,
-    );
+  String _normalizeMergeUnit(String raw) {
+    return raw
+        .trim()
+        .replaceFirst(RegExp(r'^[-*•\d.)(一二三四五六七八九十、\s]+'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[。；;]+$'), '')
+        .trim();
   }
 
-  MemorySlmSummaryMetadata? _parseSummaryMetadata(String? response) {
-    if (response == null || response.trim().isEmpty) {
-      return null;
+  bool _isDuplicateMergeUnit(String candidate, List<String> existingUnits) {
+    final normalizedCandidate = _normalizeText(candidate);
+    if (normalizedCandidate.isEmpty) {
+      return true;
     }
 
-    final slmConfig = _effectiveSlmConfig;
-    final titleMatch = _matchLabeledLine(
-      response,
-      slmConfig.formatting.titleLabel,
-    );
-    final tagsMatch = _matchLabeledLine(
-      response,
-      slmConfig.formatting.tagsLabel,
-    );
-    final title = _sanitizeSingleLine(titleMatch?.group(1));
-    if (title == null || title.isEmpty) {
-      return null;
+    for (final existing in existingUnits) {
+      final normalizedExisting = _normalizeText(existing);
+      if (normalizedExisting == normalizedCandidate ||
+          normalizedExisting.contains(normalizedCandidate) ||
+          normalizedCandidate.contains(normalizedExisting)) {
+        return true;
+      }
+
+      if (SimilarityUtils.jaccardSimilarity(existing, candidate) >= 0.92) {
+        return true;
+      }
     }
 
-    final tags = tagsMatch
-            ?.group(1)
-            ?.split(RegExp(r'[,，]'))
-            .map((tag) => _sanitizeSingleLine(tag) ?? '')
-            .where((tag) => tag.isNotEmpty)
-            .take(slmConfig.limits.summaryMetadataTagCount)
-            .toList() ??
-        const <String>[];
+    return false;
+  }
 
-    return MemorySlmSummaryMetadata(
-      title: title,
-      tags: tags,
+  String _buildStructuredMergeContent(List<String> units) {
+    if (units.isEmpty) {
+      return '';
+    }
+
+    final paragraphs = <String>[];
+    final currentUnits = <String>[];
+    var currentLength = 0;
+    final separator =
+        _detectPrimaryLanguage(units.join(' ')) == _PrimaryLanguage.cjk
+            ? '；'
+            : '; ';
+
+    void flush() {
+      if (currentUnits.isEmpty) {
+        return;
+      }
+      paragraphs.add(currentUnits.join(separator));
+      currentUnits.clear();
+      currentLength = 0;
+    }
+
+    for (final unit in units) {
+      final extraLength =
+          currentUnits.isEmpty ? unit.length : unit.length + separator.length;
+      final shouldFlush =
+          currentUnits.length >= 2 || (currentLength + extraLength) > 120;
+      if (shouldFlush) {
+        flush();
+      }
+
+      currentUnits.add(unit);
+      currentLength += extraLength;
+
+      if (paragraphs.length >= 2 && currentUnits.length >= 2) {
+        flush();
+      }
+    }
+    flush();
+
+    final merged = paragraphs.take(3).join('\n\n').trim();
+    if (merged.length <= 300) {
+      return merged;
+    }
+    return '${merged.substring(0, 297).trim()}...';
+  }
+
+  List<String> _buildMergedSessionTags(
+    List<SummaryEntity> sessions, {
+    required String title,
+    required String topic,
+    required String content,
+  }) {
+    final combinedTags = <String>[
+      ...sessions.expand((session) => session.tags),
+      if (_isMeaningfulRuleTopic(topic)) topic,
+      ...SummaryTextUtils.generateTags(
+        title,
+        content,
+        maxTags: _effectiveSlmConfig.limits.mergeResultTagCount,
+      ),
+    ];
+
+    return SummaryTextUtils.sanitizeTags(
+      combinedTags,
+      maxTags: _effectiveSlmConfig.limits.mergeResultTagCount,
+      fallbackTitle: SummaryTextUtils.isUnnamedTitleValue(title) ? null : title,
     );
   }
 
@@ -1141,108 +1543,14 @@ class MemorySLMService {
     }
   }
 
-  String _upgradeReasonOutputLanguageInstruction(ui.Locale locale) {
-    final languageName = switch (locale.languageCode) {
-      'zh' => 'Simplified Chinese',
-      'ja' => 'Japanese',
-      'ko' => 'Korean',
-      'es' => 'Spanish',
-      'fr' => 'French',
-      'de' => 'German',
-      _ => 'English',
-    };
-    return 'Write the sentence in $languageName.';
-  }
-
-  String _upgradeReasonMetricLabel(
-    ui.Locale locale, {
-    required String english,
-    required String zh,
-    required String ja,
-    required String ko,
-    required String es,
-    required String fr,
-    required String de,
-  }) {
-    switch (locale.languageCode) {
-      case 'zh':
-        return zh;
-      case 'ja':
-        return ja;
-      case 'ko':
-        return ko;
-      case 'es':
-        return es;
-      case 'fr':
-        return fr;
-      case 'de':
-        return de;
-      default:
-        return english;
-    }
-  }
-
-  String _sanitizeTopicResponse(String? response, String fallback) {
-    final singleLine = _sanitizeSingleLine(response);
-    if (singleLine == null) {
-      return fallback;
-    }
-    final cleaned = singleLine
-        .replaceAll(RegExp(r'^(主题|标签)[:：]\s*'), '')
-        .replaceAll(RegExp("[\"'。，、；：,.!?！？]"), '')
-        .trim();
-    if (cleaned.isEmpty) {
-      return fallback;
-    }
-
-    final language = _detectPrimaryLanguage(cleaned);
-    if (language == _PrimaryLanguage.chinese) {
-      final minChars = _effectiveSlmConfig.limits.topicChineseMinChars;
-      final maxChars = _effectiveSlmConfig.limits.topicChineseMaxChars;
-      final length = cleaned.length.clamp(minChars, maxChars).toInt();
-      return cleaned.substring(0, length);
-    }
-
-    final words = cleaned
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .take(_effectiveSlmConfig.limits.topicEnglishWordCount);
-    final topic = words.join(' ');
-    return topic.isEmpty ? fallback : topic;
-  }
-
-  bool? _parseYesNo(String? response) {
-    final singleLine = _sanitizeSingleLine(response);
-    if (singleLine == null) {
-      return null;
-    }
-    if (singleLine.startsWith('是') ||
-        singleLine.toLowerCase().startsWith('yes')) {
-      return true;
-    }
-    if (singleLine.startsWith('否') ||
-        singleLine.toLowerCase().startsWith('no')) {
-      return false;
-    }
-    return null;
-  }
-
-  String? _sanitizeSingleLine(String? response) {
-    if (response == null) {
-      return null;
-    }
-    final trimmed = response
-        .split('\n')
-        .map((line) => line.trim())
-        .firstWhere((line) => line.isNotEmpty, orElse: () => '');
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  String _fallbackChineseTopic(String input) {
+  String _fallbackCjkTopic(String input, {required AppLocalizations loc}) {
     final slmConfig = _effectiveSlmConfig;
-    final cleaned = input.replaceAll(RegExp(r'[^\u4E00-\u9FFF0-9A-Za-z]'), '');
+    final cleaned = input.replaceAll(
+      RegExp(r'[^\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF0-9A-Za-z]'),
+      '',
+    );
     if (cleaned.isEmpty) {
-      return slmConfig.fallbacks.emptyChineseTopic;
+      return loc.temporaryTopic;
     }
     final take = cleaned.length >= slmConfig.limits.fallbackChineseTopicChars
         ? slmConfig.limits.fallbackChineseTopicChars
@@ -1255,37 +1563,53 @@ class MemorySLMService {
     return cleaned.substring(0, take);
   }
 
-  String _fallbackEnglishTopic(String input) {
+  String _fallbackEnglishTopic(String input, {required AppLocalizations loc}) {
     final slmConfig = _effectiveSlmConfig;
     final words = input
         .split(RegExp(r'\s+'))
-        .map((word) => word.replaceAll(RegExp(r'[^A-Za-z0-9]'), ''))
+        .map(
+          (word) => word.replaceAll(
+            RegExp(r'[^A-Za-zÀ-ÖØ-öø-ÿĀ-žẞß0-9]'),
+            '',
+          ),
+        )
         .where((word) => word.isNotEmpty)
         .take(slmConfig.limits.topicEnglishWordCount)
         .toList();
     if (words.isEmpty) {
-      return slmConfig.fallbacks.emptyEnglishTopic;
+      return loc.generalTopic;
     }
     return words.join(' ');
   }
 
-  String _normalizeFallbackTopicCandidate(String candidate, String content) {
+  String _normalizeFallbackTopicCandidate(
+    String candidate,
+    String content, {
+    required AppLocalizations localizations,
+  }) {
     final trimmed = candidate.trim();
-    if (trimmed.isEmpty || trimmed == SummaryTextUtils.unnamedTitle) {
+    final strippedPlaceholder = TopicPlaceholderUtils.stripLeadingPlaceholder(
+      trimmed,
+    );
+    if (trimmed.isEmpty ||
+        SummaryTextUtils.isUnnamedTitleValue(trimmed) ||
+        TopicPlaceholderUtils.isPlaceholderTopic(trimmed)) {
       final language = _detectPrimaryLanguage(content);
-      return language == _PrimaryLanguage.chinese
-          ? _fallbackChineseTopic(content)
-          : _fallbackEnglishTopic(content);
+      return language == _PrimaryLanguage.cjk
+          ? _fallbackCjkTopic(content, loc: localizations)
+          : _fallbackEnglishTopic(content, loc: localizations);
     }
 
-    final language = _detectPrimaryLanguage(trimmed);
-    if (language == _PrimaryLanguage.chinese) {
-      final cleaned = trimmed
-          .replaceAll(RegExp(r'^(待整理|未命名|临时)'), '')
-          .replaceAll(RegExp(r'[^\u4E00-\u9FFFA-Za-z0-9]'), '')
+    final language = _detectPrimaryLanguage(strippedPlaceholder);
+    if (language == _PrimaryLanguage.cjk) {
+      final cleaned = strippedPlaceholder
+          .replaceAll(
+            RegExp(r'[^\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AFA-Za-z0-9]'),
+            '',
+          )
           .trim();
       if (cleaned.isEmpty) {
-        return _fallbackChineseTopic(content);
+        return _fallbackCjkTopic(content, loc: localizations);
       }
       final maxLength = _effectiveSlmConfig.limits.topicChineseMaxChars;
       return cleaned.length > maxLength
@@ -1293,22 +1617,24 @@ class MemorySLMService {
           : cleaned;
     }
 
-    final words = trimmed
+    final words = strippedPlaceholder
         .split(RegExp(r'\s+'))
         .where((word) => word.isNotEmpty)
         .take(_effectiveSlmConfig.limits.topicEnglishWordCount)
         .toList();
     if (words.isEmpty) {
-      return _fallbackEnglishTopic(content);
+      return _fallbackEnglishTopic(content, loc: localizations);
     }
     return words.join(' ');
   }
 
   _PrimaryLanguage _detectPrimaryLanguage(String text) {
-    final chineseMatches = RegExp(r'[\u4E00-\u9FFF]').allMatches(text).length;
-    final latinMatches = RegExp(r'[A-Za-z]').allMatches(text).length;
-    return chineseMatches >= latinMatches
-        ? _PrimaryLanguage.chinese
+    final cjkMatches = RegExp(r'[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]')
+        .allMatches(text)
+        .length;
+    final latinMatches = _latinScriptRegex.allMatches(text).length;
+    return cjkMatches >= latinMatches
+        ? _PrimaryLanguage.cjk
         : _PrimaryLanguage.english;
   }
 
@@ -1316,56 +1642,134 @@ class MemorySLMService {
     return value
         .toLowerCase()
         .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r'[^\w\u4E00-\u9FFF ]'), '')
+        .replaceAll(
+          RegExp(
+            r'[^A-Za-zÀ-ÖØ-öø-ÿĀ-žẞß0-9_\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF ]',
+          ),
+          '',
+        )
         .trim();
   }
 
-  bool _isStableTopicValue(String value) {
-    if (value.isEmpty) {
+  bool _containsAnyAlias(String normalized, Set<String> aliases) {
+    return aliases.any(normalized.contains);
+  }
+
+  int _countMatchingSignals(String normalized, Iterable<Pattern> patterns) {
+    return patterns
+        .where(
+          (pattern) => pattern is String
+              ? normalized.contains(pattern)
+              : (pattern as RegExp).hasMatch(normalized),
+        )
+        .length;
+  }
+
+  Iterable<String> _extractTemplateTopicMatches(String text) sync* {
+    if (text.trim().isEmpty) {
+      return;
+    }
+
+    final seen = <String>{};
+    for (final suffix in _cjkTopicTemplateSuffixes) {
+      final pattern = RegExp(
+        '[\\u4E00-\\u9FFF\\u3040-\\u30FF\\uAC00-\\uD7AFA-Za-z0-9]{2,18}'
+        '${RegExp.escape(suffix)}',
+      );
+      for (final match in pattern.allMatches(text)) {
+        final value = match.group(0)?.trim();
+        if (value != null && value.isNotEmpty && seen.add(value)) {
+          yield value;
+        }
+      }
+    }
+
+    final latinPattern = RegExp(
+      '\\b(?:[A-Za-zÀ-ÖØ-öø-ÿĀ-žẞß0-9]+(?:\\s+[A-Za-zÀ-ÖØ-öø-ÿĀ-žẞß0-9]+){0,3})\\s+'
+      '(?:${_latinTopicTemplateSuffixes.join('|')})\\b',
+      caseSensitive: false,
+    );
+    for (final match in latinPattern.allMatches(text)) {
+      final value = match.group(0)?.trim();
+      if (value != null && value.isNotEmpty && seen.add(value)) {
+        yield value;
+      }
+    }
+  }
+
+  bool _looksLikeTemplateTopic(String candidate) {
+    final lower = candidate.toLowerCase();
+    return _cjkTopicTemplateSuffixes.any(candidate.endsWith) ||
+        _latinTopicTemplateSuffixes.any(lower.endsWith);
+  }
+
+  bool _isMeaningfulRuleTopic(String candidate) {
+    final normalized = candidate.trim();
+    if (normalized.isEmpty ||
+        SummaryTextUtils.isUnnamedTitleValue(normalized) ||
+        TopicPlaceholderUtils.isPlaceholderTopic(normalized)) {
       return false;
     }
 
-    final normalizedFallbackTitle = _normalizeText(
-      _effectiveSlmConfig.fallbacks.summaryMetadataTitle,
-    );
-    final normalizedChineseTopic = _normalizeText(
-      _effectiveSlmConfig.fallbacks.emptyChineseTopic,
-    );
-    final normalizedEnglishTopic = _normalizeText(
-      _effectiveSlmConfig.fallbacks.emptyEnglishTopic,
-    );
-
-    return value != _normalizeText(SummaryTextUtils.unnamedTitle) &&
-        value != normalizedFallbackTitle &&
-        value != normalizedChineseTopic &&
-        value != normalizedEnglishTopic;
-  }
-
-  String _truncate(String value, int maxLength) {
-    final cleaned = value.trim();
-    if (cleaned.length <= maxLength) {
-      return cleaned;
+    if (_genericTopicKeywords.contains(normalized.toLowerCase()) ||
+        _genericTopicKeywords.contains(normalized)) {
+      return false;
     }
-    return '${cleaned.substring(0, maxLength)}...';
+
+    if (_detectPrimaryLanguage(normalized) == _PrimaryLanguage.cjk) {
+      return normalized.length >= 2 && normalized.length <= 16;
+    }
+
+    final words = normalized
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
+    return words.isNotEmpty && words.length <= 4;
   }
 
-  Map<String, String> _sharedPromptVariables(MemorySlmConfig slmConfig) {
-    return <String, String>{
-      'titleLabel': slmConfig.formatting.titleLabel,
-      'tagsLabel': slmConfig.formatting.tagsLabel,
-      'contentLabel': slmConfig.formatting.contentLabel,
-      'emptyFieldPlaceholder': slmConfig.formatting.emptyFieldPlaceholder,
+  bool _isCanonicalRuleTopic(String topic) {
+    return switch (topic) {
+      'rag' || 'llm' || 'slm' || 'ocr' => true,
+      _ => false,
     };
   }
 
-  RegExpMatch? _matchLabeledLine(String response, String label) {
-    return RegExp('${RegExp.escape(label)}[:：]\\s*(.+)').firstMatch(response);
+  bool _candidateAppearsInTitle(String candidate, String title) {
+    if (title.trim().isEmpty) {
+      return false;
+    }
+    final lowerCandidate = candidate.toLowerCase();
+    final lowerTitle = title.toLowerCase();
+    return lowerTitle.contains(lowerCandidate);
   }
 
-  RegExpMatch? _matchLabeledBlock(String response, String label) {
-    return RegExp(
-      '${RegExp.escape(label)}[:：]\\s*([\\s\\S]+)\$',
-    ).firstMatch(response);
+  int _topicLengthScore(String candidate) {
+    if (_detectPrimaryLanguage(candidate) == _PrimaryLanguage.cjk) {
+      final delta = (candidate.length - 6).abs();
+      return -delta;
+    }
+
+    final wordCount =
+        candidate.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
+    final delta = (wordCount - 2).abs();
+    return -delta;
+  }
+
+  int _countPlainOccurrences(String haystack, String needle) {
+    if (needle.isEmpty || haystack.isEmpty) {
+      return 0;
+    }
+
+    var count = 0;
+    var cursor = 0;
+    while (true) {
+      final next = haystack.indexOf(needle, cursor);
+      if (next == -1) {
+        return count;
+      }
+      count += 1;
+      cursor = next + needle.length;
+    }
   }
 
   void _setCache(
@@ -1439,18 +1843,38 @@ class MemorySLMService {
   }
 }
 
-// TODO SLM API的入口
-get LlmInferenceOptions => null;
-
-class LlmInferenceEngine {
-  LlmInferenceEngine(engineOptions);
-
-  void dispose() {}
-
-  generateResponse(String prompt) {}
+enum _PrimaryLanguage {
+  cjk,
+  english,
 }
 
-enum _PrimaryLanguage {
-  chinese,
-  english,
+class _RuleSemanticCandidate {
+  const _RuleSemanticCandidate({
+    required this.label,
+    required this.normalizedKey,
+    required this.score,
+    required this.fromTitle,
+    required this.fromTemplate,
+    required this.fromExplicitTag,
+  });
+
+  final String label;
+  final String normalizedKey;
+  final double score;
+  final bool fromTitle;
+  final bool fromTemplate;
+  final bool fromExplicitTag;
+
+  _RuleSemanticCandidate copyWith({
+    double? score,
+  }) {
+    return _RuleSemanticCandidate(
+      label: label,
+      normalizedKey: normalizedKey,
+      score: score ?? this.score,
+      fromTitle: fromTitle,
+      fromTemplate: fromTemplate,
+      fromExplicitTag: fromExplicitTag,
+    );
+  }
 }

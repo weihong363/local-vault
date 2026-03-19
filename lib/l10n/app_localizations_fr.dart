@@ -124,6 +124,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get saveToVault => 'Enregistrer dans le coffre';
 
   @override
+  String get showFullContent => 'Afficher le contenu complet';
+
+  @override
   String get copiedToClipboard => 'Copié dans le presse-papiers';
 
   @override
@@ -245,19 +248,19 @@ class AppLocalizationsFr extends AppLocalizations {
       'Vérifier les autorisations, services et l\'état de synchronisation des gestes';
 
   @override
-  String get slmInferenceSettingTitle => 'Enable SLM inference';
+  String get slmInferenceSettingTitle => 'Activer l\'inférence SLM';
 
   @override
   String get slmInferenceSettingDescription =>
-      'Controls whether the app may enter the future SLM inference path. The current summary save flow still uses the local rule-based result until a compatible SLM provider is integrated.';
+      'Ce réglage est réservé à une compatibilité future. La version actuelle de l\'application utilise toujours des règles locales pour les titres, les étiquettes et les sujets.';
 
   @override
   String get slmInferenceEnabledMessage =>
-      'SLM inference enabled. The current summary save flow still uses local rules until a compatible SLM provider is integrated.';
+      'Préférence SLM activée. La version actuelle de l\'application utilise toujours des règles locales pour les titres, les étiquettes et les sujets.';
 
   @override
   String get slmInferenceDisabledMessage =>
-      'SLM inference disabled. Summary save stays on the local rule path.';
+      'Préférence SLM désactivée. La version actuelle de l\'application utilise toujours des règles locales pour les titres, les étiquettes et les sujets.';
 
   @override
   String get titleTagsUseBuiltInModel =>
@@ -320,6 +323,21 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get notAllPermissionsGranted =>
       'Toutes les autorisations n\'ont pas été accordées. Les gestes risquent de ne pas fonctionner correctement.';
+
+  @override
+  String get permissionsRequiredTitle => 'Autorisations requises';
+
+  @override
+  String get permissionsRequiredMessage =>
+      'Pour que le réveil par geste fonctionne correctement, accordez les autorisations suivantes :\n\n1. Autorisation de superposition : permet d\'afficher la zone de détection des gestes au-dessus des autres applications\n2. Autorisation d\'accès à l\'utilisation : permet de détecter l\'application au premier plan afin d\'afficher les zones de gestes dans les applications autorisées\n\nVeuillez accorder ces autorisations dans les écrans suivants.';
+
+  @override
+  String get usageAccessPermissionRequiredTitle =>
+      'L\'autorisation d\'accès à l\'utilisation est requise';
+
+  @override
+  String get usageAccessPermissionRequiredMessage =>
+      'L\'autorisation d\'accès à l\'utilisation est absente.\n\nSans elle :\n• L\'application ne peut pas détecter l\'application actuellement active\n• Le réveil par geste ne fonctionnera pas correctement dans les autres applications\n\nTouchez \"Autoriser l\'accès\" pour ouvrir les paramètres système et activer l\'autorisation pour cette application.';
 
   @override
   String get floatingWindowServiceStarted =>
@@ -835,46 +853,46 @@ class AppLocalizationsFr extends AppLocalizations {
   String get shareBackupSubject => 'Sauvegarde Local Vault';
 
   @override
-  String get confirmLabel => 'Confirm';
+  String get confirmLabel => 'Confirmer';
 
   @override
-  String get clearLabel => 'Clear';
+  String get clearLabel => 'Effacer';
 
   @override
-  String get runningLabel => 'Running...';
+  String get runningLabel => 'En cours...';
 
   @override
-  String get unknownError => 'Unknown error';
+  String get unknownError => 'Erreur inconnue';
 
   @override
-  String get statusEnabled => 'Enabled';
+  String get statusEnabled => 'Activé';
 
   @override
-  String get statusDisabled => 'Disabled';
+  String get statusDisabled => 'Désactivé';
 
   @override
-  String get statusGranted => 'Granted';
+  String get statusGranted => 'Accordé';
 
   @override
-  String get statusNotGranted => 'Not granted';
+  String get statusNotGranted => 'Non accordé';
 
   @override
-  String get statusRunning => 'Running';
+  String get statusRunning => 'En cours';
 
   @override
-  String get statusStopped => 'Stopped';
+  String get statusStopped => 'Arrêté';
 
   @override
-  String get statusUnavailable => 'Unavailable';
+  String get statusUnavailable => 'Indisponible';
 
   @override
-  String get statusAvailable => 'Available';
+  String get statusAvailable => 'Disponible';
 
   @override
-  String get statusMissing => 'Missing';
+  String get statusMissing => 'Manquant';
 
   @override
-  String get statusReady => 'Ready';
+  String get statusReady => 'Prêt';
 
   @override
   String get statusCompatible => 'Compatible';
@@ -883,398 +901,407 @@ class AppLocalizationsFr extends AppLocalizations {
   String get statusIncompatible => 'Incompatible';
 
   @override
-  String get statusInitialized => 'Initialized';
+  String get statusInitialized => 'Initialisé';
 
   @override
-  String get statusNotInitialized => 'Not initialized';
+  String get statusNotInitialized => 'Non initialisé';
 
   @override
-  String get statusDetected => 'Detected';
+  String get statusDetected => 'Détecté';
 
   @override
-  String get statusNotDetected => 'Not detected';
+  String get statusNotDetected => 'Non détecté';
 
   @override
-  String get statusModelUsed => 'Model used';
+  String get statusModelUsed => 'Modèle utilisé';
 
   @override
-  String get statusModelNotUsed => 'Model not used';
+  String get statusModelNotUsed => 'Modèle non utilisé';
 
   @override
-  String get statusInitializationComplete => 'Initialization complete';
+  String get statusInitializationComplete => 'Initialisation terminée';
 
   @override
-  String get statusInitializationIncomplete => 'Initialization incomplete';
+  String get statusInitializationIncomplete => 'Initialisation incomplète';
 
   @override
-  String get gestureConfigurationSaved => 'Configuration saved';
+  String get gestureConfigurationSaved => 'Configuration enregistrée';
 
   @override
   String gestureConfigurationLoadFailed(Object error) {
-    return 'Failed to load gesture configuration: $error';
+    return 'Impossible de charger la configuration des gestes : $error';
   }
 
   @override
-  String get resetToDefaults => 'Reset to defaults';
+  String get resetToDefaults => 'Réinitialiser par défaut';
 
   @override
   String get resetGesturesToDefaultsMessage =>
-      'Reset all gestures back to the default configuration?';
+      'Réinitialiser tous les gestes à la configuration par défaut ?';
 
   @override
-  String get restoredDefaultSettings => 'Restored default settings';
+  String get restoredDefaultSettings => 'Paramètres par défaut restaurés';
 
   @override
-  String get gestureShareOnly => 'Share only';
+  String get gestureShareOnly => 'Partage uniquement';
 
   @override
-  String get gestureActionOpenTemplates => 'Open prompt templates';
+  String get gestureActionOpenTemplates => 'Ouvrir les modèles de prompt';
 
   @override
-  String get gestureActionSaveSummary => 'Save a summary from shared content';
+  String get gestureActionSaveSummary =>
+      'Enregistrer un résumé à partir d\'un contenu partagé';
 
   @override
-  String get gestureActionOpenSavedContext => 'Open saved context';
+  String get gestureActionOpenSavedContext => 'Ouvrir le contexte enregistré';
 
   @override
-  String get gestureDoubleTap => 'Double tap';
+  String get gestureDoubleTap => 'Double appui';
 
   @override
-  String get gestureTripleTap => 'Triple tap';
+  String get gestureTripleTap => 'Triple appui';
 
   @override
-  String get triggerAction => 'Trigger action';
+  String get triggerAction => 'Action à déclencher';
 
   @override
-  String get alreadyUsedByAnotherGesture => 'Already used by another gesture';
+  String get alreadyUsedByAnotherGesture => 'Déjà utilisé par un autre geste';
 
   @override
-  String get searchAppsHint => 'Search apps...';
+  String get searchAppsHint => 'Rechercher des applications...';
 
   @override
   String appWhitelistLoadFailed(Object error) {
-    return 'Load failed: $error';
+    return 'Échec du chargement : $error';
   }
 
   @override
   String selectedAppsCount(Object count) {
-    return '$count app(s) selected';
+    return '$count application(s) sélectionnée(s)';
   }
 
   @override
-  String get clearAllowlistTooltip => 'Clear allowlist';
+  String get clearAllowlistTooltip => 'Effacer la liste d\'autorisation';
 
   @override
-  String get gesturesActiveInAllApps => 'Gestures are active in all apps';
+  String get gesturesActiveInAllApps =>
+      'Les gestes sont actifs dans toutes les applications';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'Toutes';
 
   @override
-  String get filterSelected => 'Selected';
+  String get filterSelected => 'Sélectionnées';
 
   @override
-  String get filterUnselected => 'Unselected';
+  String get filterUnselected => 'Non sélectionnées';
 
   @override
-  String get noAppsFound => 'No apps found';
+  String get noAppsFound => 'Aucune application trouvée';
 
   @override
-  String get noMatchingAppsFound => 'No matching apps found';
+  String get noMatchingAppsFound => 'Aucune application correspondante trouvée';
 
   @override
-  String get noSelectedAppsYet => 'No selected apps yet';
+  String get noSelectedAppsYet =>
+      'Aucune application sélectionnée pour le moment';
 
   @override
-  String get noUnselectedApps => 'No unselected apps';
+  String get noUnselectedApps => 'Aucune application non sélectionnée';
 
   @override
-  String get clearAllowlistTitle => 'Clear allowlist';
+  String get clearAllowlistTitle => 'Effacer la liste d\'autorisation';
 
   @override
   String get clearAllowlistMessage =>
-      'Clear the app allowlist? Gestures will become active in all apps.';
+      'Effacer la liste d\'autorisation des applications ? Les gestes deviendront actifs dans toutes les applications.';
 
   @override
-  String get allowlistCleared => 'Allowlist cleared';
+  String get allowlistCleared => 'Liste d\'autorisation effacée';
 
   @override
-  String get databaseInspector => 'Database Inspector';
+  String get databaseInspector => 'Inspecteur de base de données';
 
   @override
   String failedToOpenDatabase(Object error) {
-    return 'Failed to open database: $error';
+    return 'Impossible d\'ouvrir la base de données : $error';
   }
 
   @override
-  String get summariesTab => 'Summaries';
+  String get summariesTab => 'Résumés';
 
   @override
-  String get templatesTab => 'Templates';
+  String get templatesTab => 'Modèles';
 
   @override
-  String get noSummaryRecordsInBox => 'No summary records in this box';
+  String get noSummaryRecordsInBox =>
+      'Aucun enregistrement de résumé dans cette box';
 
   @override
-  String get noTemplateRecordsInBox => 'No template records in this box';
+  String get noTemplateRecordsInBox =>
+      'Aucun enregistrement de modèle dans cette box';
 
   @override
   String recordsWithIssues(Object count) {
-    return 'Records with issues: $count';
+    return 'Enregistrements avec problèmes : $count';
   }
 
   @override
   String legacyTemplateTypes(Object count) {
-    return 'Legacy template types: $count';
+    return 'Types de modèles hérités : $count';
   }
 
   @override
   String defaultTemplatesCount(Object count) {
-    return 'Default templates: $count';
+    return 'Modèles par défaut : $count';
   }
 
   @override
   String boxMetricLabel(Object boxName) {
-    return 'Box: $boxName';
+    return 'Box : $boxName';
   }
 
   @override
   String recordsMetricLabel(Object count) {
-    return 'Records: $count';
+    return 'Enregistrements : $count';
   }
 
   @override
   String keyMetricLabel(Object key) {
-    return 'Key: $key';
+    return 'Clé : $key';
   }
 
   @override
-  String get noObviousIssuesDetected => 'No obvious issues detected';
+  String get noObviousIssuesDetected => 'Aucun problème évident détecté';
 
   @override
   String issuesMetricLabel(Object count) {
-    return 'Issues: $count';
+    return 'Problèmes : $count';
   }
 
   @override
-  String get copyJson => 'Copy JSON';
+  String get copyJson => 'Copier le JSON';
 
   @override
   String get recordNotMapCorrupted =>
-      'Record is not a Map and may be corrupted';
+      'L\'enregistrement n\'est pas un Map et peut être corrompu';
 
   @override
-  String get unparseableSummaryRecord => 'Unparseable summary record';
+  String get unparseableSummaryRecord => 'Enregistrement de résumé illisible';
 
   @override
-  String get unparseableTemplateRecord => 'Unparseable template record';
+  String get unparseableTemplateRecord => 'Enregistrement de modèle illisible';
 
   @override
   String rawTypeLabel(Object type) {
-    return 'Raw type: $type';
+    return 'Type brut : $type';
   }
 
   @override
   String get legacyTemplateRecordDetected =>
-      'Legacy template-type record detected and will be read as a fact';
+      'Un enregistrement hérité de type modèle a été détecté et sera lu comme un fait';
 
   @override
-  String get missingId => 'Missing id';
+  String get missingId => 'ID manquant';
 
   @override
-  String get titleIsEmpty => 'Title is empty';
+  String get titleIsEmpty => 'Le titre est vide';
 
   @override
-  String get contentIsEmpty => 'Content is empty';
+  String get contentIsEmpty => 'Le contenu est vide';
 
   @override
-  String get accessCountInvalid => 'accessCount is not a valid number';
+  String get accessCountInvalid => 'accessCount n\'est pas un nombre valide';
 
   @override
-  String get accessCountBelowZero => 'accessCount is below 0';
+  String get accessCountBelowZero => 'accessCount est inférieur à 0';
 
   @override
-  String get createdAtCouldNotBeParsed => 'createdAt could not be parsed';
+  String get createdAtCouldNotBeParsed => 'createdAt n\'a pas pu être analysé';
 
   @override
   String summaryDeserializationFailed(Object error) {
-    return 'SummaryEntity deserialization failed: $error';
+    return 'La désérialisation de SummaryEntity a échoué : $error';
   }
 
   @override
   String templateDeserializationFailed(Object error) {
-    return 'TemplateEntity deserialization failed: $error';
+    return 'La désérialisation de TemplateEntity a échoué : $error';
   }
 
   @override
-  String get unknownTime => 'Unknown time';
+  String get unknownTime => 'Heure inconnue';
 
   @override
-  String get untitledSummary => '(Untitled summary)';
+  String get untitledSummary => '(Résumé sans titre)';
 
   @override
-  String get untitledTemplate => '(Untitled template)';
+  String get untitledTemplate => '(Modèle sans titre)';
 
   @override
   String summaryRecordSubtitle(
       Object accessCount, Object createdAt, Object type) {
-    return 'Type: $type  Access: $accessCount  Created: $createdAt';
+    return 'Type : $type  Accès : $accessCount  Créé : $createdAt';
   }
 
   @override
   String templateRecordSubtitle(Object createdAt, Object templateKind) {
-    return '$templateKind  Created: $createdAt';
+    return '$templateKind  Créé : $createdAt';
   }
 
   @override
-  String get defaultTemplateLabel => 'Default template';
+  String get defaultTemplateLabel => 'Modèle par défaut';
 
   @override
-  String get customTemplateLabel => 'Custom template';
+  String get customTemplateLabel => 'Modèle personnalisé';
 
   @override
-  String get refreshDiagnostics => 'Refresh diagnostics';
+  String get refreshDiagnostics => 'Actualiser les diagnostics';
 
   @override
-  String get failedToLoadDiagnostics => 'Failed to load diagnostics';
+  String get failedToLoadDiagnostics => 'Impossible de charger les diagnostics';
 
   @override
-  String get gestureDiagnosticsTitle => 'Gesture diagnostics';
+  String get gestureDiagnosticsTitle => 'Diagnostic des gestes';
 
   @override
   String get gestureDiagnosticsDescription =>
-      'Pull down to refresh permission, service, and native sync state.';
+      'Tirez vers le bas pour actualiser l\'état des permissions, du service et de la synchronisation native.';
 
   @override
-  String get slmDiagnosticsTitle => 'SLM diagnostics';
+  String get slmDiagnosticsTitle => 'Diagnostic SLM';
 
   @override
   String get slmDiagnosticsDescription =>
-      'Inspect the current model, cache, and initialization state, then run a sample self-check inference.';
+      'Inspectez le modèle actuel, le cache et l\'état d\'initialisation, puis lancez une auto-vérification d\'exemple.';
 
   @override
-  String get allowlistedAppsLabel => 'Allowlisted apps';
+  String get allowlistedAppsLabel => 'Applications autorisées';
 
   @override
-  String get floatingGestureLauncherTitle => 'Floating gesture launcher';
+  String get floatingGestureLauncherTitle => 'Lanceur flottant par gestes';
 
   @override
   String get floatingGestureLauncherEnabledDescription =>
-      'The master gesture toggle in settings is enabled.';
+      'L\'interrupteur maître des gestes dans les réglages est activé.';
 
   @override
   String get floatingGestureLauncherDisabledDescription =>
-      'When the master toggle is off, double-tap and triple-tap gestures will not fire.';
+      'Lorsque l\'interrupteur maître est désactivé, les gestes double appui et triple appui ne se déclenchent pas.';
 
   @override
-  String get overlayPermissionTitle => 'Overlay permission';
+  String get overlayPermissionTitle => 'Permission de superposition';
 
   @override
   String get overlayPermissionGrantedDescription =>
-      'The system allows the app to draw over other apps.';
+      'Le système autorise l\'application à s\'afficher au-dessus des autres applications.';
 
   @override
   String get overlayPermissionDeniedDescription =>
-      'Without this permission, the floating overlay service cannot start normally.';
+      'Sans cette permission, le service de superposition flottante ne peut pas démarrer normalement.';
 
   @override
-  String get usageAccessPermissionTitle => 'Usage Access permission';
+  String get usageAccessPermissionTitle =>
+      'Permission d\'accès à l\'utilisation';
 
   @override
   String get usageAccessGrantedDescription =>
-      'The app can identify the current foreground app for allowlist checks.';
+      'L\'application peut identifier l\'application actuellement au premier plan pour vérifier la liste d\'autorisation.';
 
   @override
   String get usageAccessDeniedDescription =>
-      'Without this permission, allowlist matching and cross-app gesture triggers will fail.';
+      'Sans cette permission, la correspondance de la liste d\'autorisation et les déclencheurs de gestes inter-applications échoueront.';
 
   @override
-  String get floatingServiceStatusTitle => 'Floating service status';
+  String get floatingServiceStatusTitle => 'État du service flottant';
 
   @override
   String get floatingServiceRunningDescription =>
-      'The native floating service is currently listening for gestures.';
+      'Le service flottant natif écoute actuellement les gestes.';
 
   @override
   String get floatingServiceEnabledButStoppedDescription =>
-      'The master toggle is enabled, but the native floating service is not running right now.';
+      'L\'interrupteur maître est activé, mais le service flottant natif n\'est pas en cours d\'exécution pour le moment.';
 
   @override
   String get floatingServiceStoppedDescription =>
-      'When the master toggle is off, the service usually remains stopped.';
+      'Lorsque l\'interrupteur maître est désactivé, le service reste généralement arrêté.';
 
   @override
   String get floatingServiceUnavailableDescription =>
-      'The native service state could not be read.';
+      'L\'état du service natif n\'a pas pu être lu.';
 
   @override
-  String get doubleTapActionSyncTitle => 'Double-tap action sync';
+  String get doubleTapActionSyncTitle =>
+      'Synchronisation de l\'action double appui';
 
   @override
   String get doubleTapActionSyncedDescription =>
-      'The double-tap action is synced to the native layer.';
+      'L\'action double appui est synchronisée avec la couche native.';
 
   @override
   String get doubleTapActionOutOfSyncDescription =>
-      'The current double-tap action does not match the native layer. Re-saving gesture settings is recommended.';
+      'L\'action double appui actuelle ne correspond pas à la couche native. Il est recommandé d\'enregistrer à nouveau les réglages de gestes.';
 
   @override
-  String get tripleTapActionSyncTitle => 'Triple-tap action sync';
+  String get tripleTapActionSyncTitle =>
+      'Synchronisation de l\'action triple appui';
 
   @override
   String get tripleTapActionSyncedDescription =>
-      'The triple-tap action is synced to the native layer.';
+      'L\'action triple appui est synchronisée avec la couche native.';
 
   @override
   String get tripleTapActionOutOfSyncDescription =>
-      'The current triple-tap action does not match the native layer. Re-saving gesture settings is recommended.';
+      'L\'action triple appui actuelle ne correspond pas à la couche native. Il est recommandé d\'enregistrer à nouveau les réglages de gestes.';
 
   @override
-  String get allowlistScopeTitle => 'Allowlist scope';
+  String get allowlistScopeTitle => 'Portée de la liste d\'autorisation';
 
   @override
-  String get allAppsValue => 'All apps';
+  String get allAppsValue => 'Toutes les applications';
 
   @override
   String restrictedAppsValue(Object count) {
-    return 'Restricted to $count app(s)';
+    return 'Limité à $count application(s)';
   }
 
   @override
   String get allowlistScopeAllAppsDescription =>
-      'Gestures currently attempt to work in every foreground app.';
+      'Les gestes essaient actuellement de fonctionner dans chaque application au premier plan.';
 
   @override
   String get allowlistScopeRestrictedDescription =>
-      'Only allowlisted foreground apps currently respond to gestures.';
+      'Seules les applications au premier plan autorisées répondent actuellement aux gestes.';
 
   @override
-  String get allowlistNativeSyncTitle => 'Allowlist native sync';
+  String get allowlistNativeSyncTitle =>
+      'Synchronisation native de la liste d\'autorisation';
 
   @override
   String flutterNativeCountLabel(Object flutterCount, Object nativeCount) {
-    return 'Flutter: $flutterCount / Native: $nativeCount';
+    return 'Flutter : $flutterCount / Natif : $nativeCount';
   }
 
   @override
   String actionSyncValue(Object flutterAction, Object nativeAction) {
-    return 'Flutter: $flutterAction / Native: $nativeAction';
+    return 'Flutter : $flutterAction / Natif : $nativeAction';
   }
 
   @override
   String get allowlistNativeUnreadableDescription =>
-      'The native allowlist could not be read.';
+      'La liste d\'autorisation native n\'a pas pu être lue.';
 
   @override
   String get allowlistNativeSyncedDescription =>
-      'The allowlist is synced to the native layer.';
+      'La liste d\'autorisation est synchronisée avec la couche native.';
 
   @override
   String get allowlistNativeOutOfSyncDescription =>
-      'Flutter and native allowlists are out of sync. Re-opening the allowlist page can trigger another sync.';
+      'Les listes d\'autorisation Flutter et natives ne sont pas synchronisées. Réouvrir la page de la liste d\'autorisation peut déclencher une nouvelle synchronisation.';
 
   @override
-  String get runtimeEnvironmentTitle => 'Runtime environment';
+  String get runtimeEnvironmentTitle => 'Environnement d\'exécution';
 
   @override
   String get environmentAndroid => 'Android';
@@ -1283,98 +1310,99 @@ class AppLocalizationsFr extends AppLocalizations {
   String get environmentWeb => 'Web';
 
   @override
-  String get environmentDesktop => 'Desktop';
+  String get environmentDesktop => 'Bureau';
 
   @override
   String get runtimeEnvironmentAndroidDescription =>
-      'This environment meets the baseline conditions for attempting on-device SLM inference.';
+      'Cet environnement remplit les conditions de base pour tenter une inférence SLM sur l\'appareil.';
 
   @override
   String get runtimeEnvironmentNonAndroidDescription =>
-      'This is not an Android device environment. The self-check can still run, but it will usually follow the rule-based fallback path.';
+      'Cet environnement n\'est pas Android. L\'auto-vérification peut toujours s\'exécuter, mais elle suivra généralement le chemin de repli basé sur des règles.';
 
   @override
   String get experimentalNativeInferenceFlagTitle =>
-      'Experimental native inference flag';
+      'Indicateur expérimental d\'inférence native';
 
   @override
   String get experimentalNativeInferenceEnabledDescription =>
-      'This build allows attempts to enter the native SLM inference path. On Android, it is currently enabled whenever the SLM inference switch is on.';
+      'La version actuelle de l\'application utilise par défaut un mode purement basé sur des règles ; cet état est conservé uniquement pour de futures extensions.';
 
   @override
   String get experimentalNativeInferenceDisabledDescription =>
-      'This build or runtime setting currently disables the native SLM inference path, so SLM remains in rule-fallback mode.';
+      'La version actuelle de l\'application est passée à un moteur de règles pur, le chemin d\'inférence native n\'est donc plus utilisé.';
 
   @override
-  String get nativeInferenceSupportTitle => 'Native inference support';
+  String get nativeInferenceSupportTitle =>
+      'Prise en charge de l\'inférence native';
 
   @override
   String get nativeInferenceSupportAvailableDescription =>
-      'The required native symbols and runtime conditions for the current SLM inference path appear to be satisfied.';
+      'Les symboles natifs requis et les conditions d\'exécution nécessaires au chemin actuel d\'inférence SLM semblent être satisfaits.';
 
   @override
   String get nativeInferenceSupportUnavailableDescription =>
-      'This environment does not currently support native inference, so runtime will degrade automatically.';
+      'Cette version de l\'application ne fournit plus d\'inférence native. Les titres, les étiquettes et les sujets sont générés avec des règles locales.';
 
   @override
-  String get nativeSymbolDetectionTitle => 'Native symbol detection';
+  String get nativeSymbolDetectionTitle => 'Détection des symboles natifs';
 
   @override
   String get nativeSymbolDetectedDescription =>
-      'The required LlmInferenceEngine symbols are visible.';
+      'Les symboles requis de LlmInferenceEngine sont visibles.';
 
   @override
   String get nativeSymbolMissingDescription =>
-      'When critical native symbols are missing, model inference falls back to rule mode immediately.';
+      'Lorsque des symboles natifs critiques manquent, l\'inférence du modèle retombe immédiatement en mode règles.';
 
   @override
-  String get bundledModelFormatTitle => 'Bundled model format';
+  String get bundledModelFormatTitle => 'Format du modèle intégré';
 
   @override
-  String get slmInitializationStateTitle => 'SLM initialization state';
+  String get slmInitializationStateTitle => 'État d\'initialisation de SLM';
 
   @override
   String get slmInitializedDescription =>
-      'The service has already been initialized, so later self-checks reuse the current state.';
+      'Le service a déjà été initialisé, les auto-vérifications suivantes réutilisent donc l\'état actuel.';
 
   @override
   String get slmNotInitializedDescription =>
-      'Initialization has not been triggered yet. Running the self-check will attempt it automatically.';
+      'L\'initialisation n\'a pas encore été déclenchée. Lancer l\'auto-vérification essaiera de le faire automatiquement.';
 
   @override
-  String get modelAvailabilityTitle => 'Model availability';
+  String get modelAvailabilityTitle => 'Disponibilité du modèle';
 
   @override
-  String get modelAvailableNow => 'Available now';
+  String get modelAvailableNow => 'Disponible maintenant';
 
   @override
-  String get usingRuleFallback => 'Using rule fallback';
+  String get usingRuleFallback => 'Utilisation du repli par règles';
 
   @override
   String get modelAvailabilityAvailableDescription =>
-      'Model inference can already be used directly on this device.';
+      'L\'inférence du modèle peut déjà être utilisée directement sur cet appareil.';
 
   @override
   String get modelAvailabilityIncompatibleDescription =>
-      'The current model file format is incompatible with the current Android native SLM runtime, so runtime will stay on the rule fallback path until the bundled model is replaced.';
+      'Le format actuel du fichier modèle est incompatible avec le runtime SLM natif Android actuel ; l\'exécution restera donc sur le chemin de repli par règles jusqu\'au remplacement du modèle intégré.';
 
   @override
   String get modelAvailabilityFallbackDescription =>
-      'This does not block the main flow, but title, tag, and topic generation will prefer the rule fallback path.';
+      'La version actuelle de l\'application utilise des règles locales pour générer les titres, les étiquettes et les sujets et ne dépend pas d\'une inférence de modèle sur l\'appareil.';
 
   @override
   String modelFileMissingDescription(Object path) {
-    return 'Current file path: $path. If the file is missing, the runtime automatically falls back to rule mode.';
+    return 'Chemin actuel du fichier : $path. Si le fichier est absent, l\'exécution retombe automatiquement en mode règles.';
   }
 
   @override
   String get modelCacheRuntimeParametersTitle =>
-      'Model cache and runtime parameters';
+      'Cache du modèle et paramètres d\'exécution';
 
   @override
   String modelCacheRuntimeParametersDescription(Object assetPath,
       Object maxTokens, Object queueWait, Object requestTimeout) {
-    return 'requestTimeout ${requestTimeout}s · queueWait ${queueWait}s · maxTokens $maxTokens\nassetPath: $assetPath';
+    return 'requestTimeout ${requestTimeout}s · queueWait ${queueWait}s · maxTokens $maxTokens\nassetPath : $assetPath';
   }
 
   @override
@@ -1384,211 +1412,254 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String cacheSummaryLabel(Object count, Object size) {
-    return '$size · max cache entries $count';
+    return '$size · nombre maximal d\'entrées de cache $count';
   }
 
   @override
   String slmSelfCheckFailed(Object error) {
-    return 'SLM self-check failed: $error';
+    return 'L\'auto-vérification SLM a échoué : $error';
   }
 
   @override
-  String get slmSelfCheckTitle => 'SLM self-check';
+  String get slmSelfCheckTitle => 'Auto-vérification SLM';
 
   @override
   String get slmSelfCheckAndroidHint =>
-      'It is best to run this once on a real Android device to confirm whether the model is actually being used.';
+      'Il est préférable d\'exécuter ceci une fois sur un véritable appareil Android pour confirmer si le modèle est réellement utilisé.';
 
   @override
   String get slmSelfCheckNonAndroidHint =>
-      'This is not an Android device environment, so the self-check is mainly useful for validating fallback behavior and configuration state.';
+      'Cet environnement n\'est pas Android, l\'auto-vérification sert donc surtout à valider le comportement de repli et l\'état de la configuration.';
 
   @override
-  String get runSelfCheck => 'Run self-check';
+  String get runSelfCheck => 'Lancer l\'auto-vérification';
 
   @override
   String get noSelfCheckYet =>
-      'No self-check has been run yet. Running one on the target device is recommended to verify whether topic extraction and title/tag generation use the model or rule fallback.';
+      'Aucune auto-vérification n\'a encore été exécutée. Il est recommandé d\'en lancer une sur l\'appareil cible pour vérifier si l\'extraction de sujet et la génération de titre/étiquettes utilisent le modèle ou le repli par règles.';
 
   @override
   String completedChipLabel(Object time) {
-    return 'Completed $time';
+    return 'Terminé $time';
   }
 
   @override
-  String get topicExtraction => 'Topic extraction';
+  String get topicExtraction => 'Extraction du sujet';
 
   @override
-  String get titleAndTagGeneration => 'Title and tag generation';
+  String get titleAndTagGeneration => 'Génération du titre et des étiquettes';
 
   @override
   String fallbackDetailLabel(Object latency, Object mode) {
-    return 'fallback: $mode · ${latency}ms';
+    return 'repli : $mode · ${latency}ms';
   }
 
   @override
   String tagsDetailLabel(Object tags) {
-    return 'tags: $tags';
+    return 'étiquettes : $tags';
   }
 
   @override
-  String get fallbackModel => 'Model';
+  String get fallbackModel => 'Modèle';
 
   @override
   String get fallbackCache => 'Cache';
 
   @override
-  String get fallbackRules => 'Rules';
+  String get fallbackRules => 'Règles';
 
   @override
-  String get fallbackDisabledUnavailable => 'Disabled/Unavailable';
+  String get fallbackDisabledUnavailable => 'Désactivé/Indisponible';
 
   @override
   String get summaryBannerErrorTitle =>
-      'Issues were found that can directly break gesture behavior';
+      'Des problèmes ont été détectés et peuvent directement casser le comportement des gestes';
 
   @override
   String get summaryBannerErrorDescription =>
-      'Permission-related issues should usually be fixed first.';
+      'Les problèmes liés aux permissions doivent généralement être corrigés en premier.';
 
   @override
   String get summaryBannerWarningTitle =>
-      'Some gesture configuration issues need attention';
+      'Certains problèmes de configuration des gestes nécessitent une attention particulière';
 
   @override
   String get summaryBannerWarningDescription =>
-      'When sync state or service state drifts, gestures may not trigger as expected.';
+      'Lorsque l\'état de synchronisation ou du service dérive, les gestes peuvent ne pas se déclencher comme prévu.';
 
   @override
   String get summaryBannerHealthyTitle =>
-      'No obvious gesture issues were found';
+      'Aucun problème évident lié aux gestes n\'a été détecté';
 
   @override
   String get summaryBannerHealthyDescription =>
-      'Permissions, service state, and native synchronization all look healthy.';
+      'Les permissions, l\'état du service et la synchronisation native semblent corrects.';
 
   @override
-  String get ocrRecognitionTitlePrefix => 'OCR Recognition';
+  String get ocrRecognitionTitlePrefix => 'Reconnaissance OCR';
 
   @override
   String ocrRecognizedCharacters(Object count) {
-    return 'Recognized $count characters';
+    return '$count caractères reconnus';
   }
 
   @override
   String ocrFailedMessage(Object error) {
-    return 'OCR failed: $error';
+    return 'Échec de l\'OCR : $error';
   }
 
   @override
   String ocrProcessingFailedMessage(Object error) {
-    return 'OCR processing failed: $error';
+    return 'Le traitement OCR a échoué : $error';
   }
+
+  @override
+  String get unableToReadImageFile => 'Impossible de lire le fichier image';
 
   @override
   String get previewEnterContent =>
-      'Enter content to preview suggested titles and tags';
+      'Saisissez du contenu pour prévisualiser les titres et étiquettes suggérés';
 
   @override
   String previewGenerationFailed(Object error) {
-    return 'Preview generation failed: $error';
+    return 'La génération de l\'aperçu a échoué : $error';
   }
 
   @override
-  String get previewApplied => 'Applied preview title and tags to the form';
+  String get previewApplied =>
+      'Le titre et les étiquettes suggérés ont été appliqués au formulaire';
 
   @override
-  String get contentRequiredMessage => 'Content is required';
+  String get contentRequiredMessage => 'Le contenu est requis';
 
   @override
-  String get summaryUpdated => 'Summary updated';
+  String get summaryUpdated => 'Résumé mis à jour';
 
   @override
   String get duplicateFactMemoryUpdated =>
-      'Detected a duplicate fact memory and updated the existing record';
+      'Une mémoire factuelle en double a été détectée et l\'enregistrement existant a été mis à jour';
 
   @override
-  String get savedAndMergedFactMemories => 'Saved and merged the fact memories';
+  String get savedAndMergedFactMemories =>
+      'Les mémoires factuelles ont été enregistrées et fusionnées';
 
   @override
   String saveFailedMessage(Object error) {
-    return 'Save failed: $error';
+    return 'Échec de l\'enregistrement : $error';
   }
 
   @override
-  String get mergeCandidatesFound => 'Merge candidates found';
+  String get mergeCandidatesFound =>
+      'Des candidats à la fusion ont été trouvés';
 
   @override
   String mergeCandidatesFoundDescription(Object title) {
-    return '\"$title\" was saved. Review these merge candidates:';
+    return '\"$title\" a été enregistré. Vérifiez ces candidats à la fusion :';
   }
 
   @override
-  String get laterLabel => 'Later';
+  String get laterLabel => 'Plus tard';
 
   @override
-  String get existingFactMemory => 'Existing fact memory';
+  String get grantAccessLabel => 'Autoriser l\'accès';
 
   @override
-  String get newFactMemory => 'New fact memory';
+  String get existingFactMemory => 'Mémoire factuelle existante';
 
   @override
-  String get editSummary => 'Edit summary';
+  String get newFactMemory => 'Nouvelle mémoire factuelle';
 
   @override
-  String get saveContent => 'Save content';
+  String get editSummary => 'Modifier le résumé';
 
   @override
-  String get sharedBadge => 'Shared';
+  String get saveContent => 'Enregistrer le contenu';
 
   @override
-  String get remarkLabel => 'Remark';
+  String get sharedBadge => 'Partagé';
 
   @override
-  String get enterTitleHint => 'Enter a title';
+  String get remarkLabel => 'Remarque';
+
+  @override
+  String get enterTitleHint => 'Saisissez un titre';
 
   @override
   String get contentShareHint =>
-      'Content shared from other apps will appear here automatically';
+      'Le contenu partagé depuis d\'autres applications apparaîtra ici automatiquement';
 
   @override
-  String get remarkHint => 'Add optional context or notes';
+  String get remarkHint => 'Ajoutez un contexte ou des notes facultatives';
 
   @override
-  String get tagsHint => 'Separate multiple tags with commas';
+  String get tagsHint => 'Séparez plusieurs étiquettes par des virgules';
 
   @override
-  String get previewSuggestedTitleTags => 'Preview suggested title and tags';
+  String get previewSuggestedTitleTags =>
+      'Prévisualiser le titre et les étiquettes suggérés';
 
   @override
   String get previewSuggestedTitleTagsDescription =>
-      'When enabled, suggestions are generated from the current content without overwriting your form automatically';
+      'Lorsque cette option est activée, les suggestions sont générées à partir du contenu actuel sans écraser automatiquement votre formulaire';
 
   @override
-  String get updateSummary => 'Update summary';
+  String get updateSummary => 'Mettre à jour le résumé';
 
   @override
-  String get requiredFieldHint => '* indicates a required field';
+  String get requiredFieldHint => '* indique un champ obligatoire';
 
   @override
-  String get saveResultPreview => 'Save result preview';
+  String get saveResultPreview => 'Aperçu du résultat enregistré';
 
   @override
   String get previewPrimaryDescription =>
-      'The preview recommends titles and tags based primarily on the main content.';
+      'L\'aperçu recommande des titres et des étiquettes principalement à partir du contenu principal.';
 
   @override
-  String get suggestedTitle => 'Suggested title';
+  String get suggestedTitle => 'Titre suggéré';
 
   @override
-  String get suggestedTags => 'Suggested tags';
+  String get suggestedTags => 'Étiquettes suggérées';
 
   @override
-  String get applyToForm => 'Apply to form';
+  String get applyToForm => 'Appliquer au formulaire';
 
   @override
-  String get generatedByBuiltInModel => 'Generated by the built-in model';
+  String get generatedByBuiltInModel => 'Généré par le runtime SLM natif';
 
   @override
-  String get generatedByLocalRules => 'Generated by local rules';
+  String get generatedByLocalRules => 'Généré par des règles locales';
+
+  @override
+  String get pendingSummary => 'Résumé en attente';
+
+  @override
+  String get temporaryTopic => 'Sujet temporaire';
+
+  @override
+  String get generalTopic => 'Sujet général';
+
+  @override
+  String get uncategorized => 'Non classé';
+
+  @override
+  String get unknownModelFormat => 'Format de modèle inconnu';
+
+  @override
+  String modelFormatBundledSupported(Object extension) {
+    return 'Une ressource intégrée .$extension a été détectée. Le mode de règles local peut continuer sans runtime natif.';
+  }
+
+  @override
+  String modelFormatUnsupportedForLocalRules(Object extension) {
+    return 'Le mode de règles local actuel ne prend pas en charge les ressources .$extension.';
+  }
+
+  @override
+  String get slmSelfCheckTopicSampleContent =>
+      'Cet échantillon de diagnostic vérifie que l\'extraction de sujet basée sur des règles locales fonctionne sur cet appareil.';
+
+  @override
+  String get slmSelfCheckMetadataSampleContent =>
+      'Cet échantillon de diagnostic vérifie la génération de titres et d\'étiquettes dans l\'environnement Local Vault actuel. Produisez un titre facile à retrouver et 2 à 4 étiquettes.';
 }

@@ -31,5 +31,23 @@ void main() {
 
       expect(score, 1.0);
     });
+
+    test('boosts asymmetric English matches with BM25-style overlap', () {
+      final related = SimilarityUtils.calculateMemorySimilarity(
+        'release rollback plan',
+        'Need to confirm the release rollback plan, owner, and checklist.',
+        'rollback checklist',
+        'Finalize the release rollback plan and checklist before launch.',
+      );
+      final unrelated = SimilarityUtils.calculateMemorySimilarity(
+        'release rollback plan',
+        'Need to confirm the release rollback plan, owner, and checklist.',
+        'cafeteria lunch menu',
+        'Compare soup, salad, and dessert options for Friday.',
+      );
+
+      expect(related, greaterThan(unrelated));
+      expect(related, greaterThan(0.3));
+    });
   });
 }

@@ -124,6 +124,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveToVault => '保存到本地记忆库';
 
   @override
+  String get showFullContent => '显示完整内容';
+
+  @override
   String get copiedToClipboard => '已复制到剪贴板';
 
   @override
@@ -243,17 +246,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get slmInferenceSettingDescription =>
-      '控制应用是否允许进入未来的 SLM 推理路径。在接入兼容的 SLM 提供者之前，当前摘要保存流程仍会使用本地规则结果。';
+      '该开关保留用于未来兼容扩展。当前版本的标题、标签和主题生成统一使用本地规则。';
 
   @override
-  String get slmInferenceEnabledMessage =>
-      'SLM 推理已启用。在接入兼容的 SLM 提供者之前，当前摘要保存流程仍会继续使用本地规则。';
+  String get slmInferenceEnabledMessage => 'SLM 偏好已启用。当前版本仍统一使用本地规则生成标题、标签和主题。';
 
   @override
-  String get slmInferenceDisabledMessage => 'SLM 推理已关闭。摘要保存会保持在本地规则路径。';
+  String get slmInferenceDisabledMessage =>
+      'SLM 偏好已关闭。当前版本仍统一使用本地规则生成标题、标签和主题。';
 
   @override
-  String get titleTagsUseBuiltInModel => '标题和标签已切换为内置模型生成';
+  String get titleTagsUseBuiltInModel => '标题和标签已切换为原生 SLM 生成';
 
   @override
   String get titleTagsUseLocalRuleGenerator => '标题和标签已切换为本地规则生成';
@@ -301,6 +304,20 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notAllPermissionsGranted => '并非所有权限都已授予，手势功能可能无法正常工作。';
+
+  @override
+  String get permissionsRequiredTitle => '需要权限';
+
+  @override
+  String get permissionsRequiredMessage =>
+      '为了让手势唤醒功能正常工作，需要以下权限：\n\n1. 悬浮窗权限：用于在其他应用上层显示手势检测区域\n2. 使用情况访问权限：用于检测当前正在使用的前台应用，以便在白名单应用中显示手势区域\n\n请在接下来的界面中授予这些权限。';
+
+  @override
+  String get usageAccessPermissionRequiredTitle => '需要使用情况访问权限';
+
+  @override
+  String get usageAccessPermissionRequiredMessage =>
+      '当前缺少“使用情况访问权限”。\n\n没有它：\n• 应用无法识别当前正在使用的前台应用\n• 手势唤醒无法在其他应用中正常工作\n\n点击“去授权”打开系统设置，并为本应用启用该权限。';
 
   @override
   String get floatingWindowServiceStarted => '悬浮窗服务已启动';
@@ -1238,11 +1255,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get experimentalNativeInferenceEnabledDescription =>
-      '此构建允许尝试进入原生 SLM 推理路径。在 Android 上，只要 SLM 推理总开关开启，它当前就会允许尝试。';
+      '当前版本默认使用纯规则引擎；该状态位仅为未来扩展保留。';
 
   @override
   String get experimentalNativeInferenceDisabledDescription =>
-      '当前构建或运行时设置禁用了原生 SLM 推理路径，因此 SLM 会保持在规则回退模式。';
+      '当前版本已切换为纯规则引擎，原生推理链路已移除，因此 SLM 会保持在本地规则模式。';
 
   @override
   String get nativeInferenceSupportTitle => '原生推理支持';
@@ -1253,7 +1270,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get nativeInferenceSupportUnavailableDescription =>
-      '当前环境暂不支持原生推理，因此运行时会自动降级。';
+      '当前版本不再提供原生推理能力，标题、标签和主题生成统一使用本地规则。';
 
   @override
   String get nativeSymbolDetectionTitle => '原生符号检测';
@@ -1295,7 +1312,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get modelAvailabilityFallbackDescription =>
-      '这不会阻塞主流程，但标题、标签和主题生成会优先走规则回退路径。';
+      '当前版本的标题、标签和主题生成统一使用本地规则，不依赖设备侧模型推理。';
 
   @override
   String modelFileMissingDescription(Object path) {
@@ -1414,6 +1431,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get unableToReadImageFile => '无法读取图片文件';
+
+  @override
   String get previewEnterContent => '请输入内容以预览建议标题和标签';
 
   @override
@@ -1451,6 +1471,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get laterLabel => '稍后处理';
+
+  @override
+  String get grantAccessLabel => '去授权';
 
   @override
   String get existingFactMemory => '已有事实记忆';
@@ -1511,8 +1534,41 @@ class AppLocalizationsZh extends AppLocalizations {
   String get applyToForm => '应用到表单';
 
   @override
-  String get generatedByBuiltInModel => '由内置模型生成';
+  String get generatedByBuiltInModel => '由原生 SLM 生成';
 
   @override
   String get generatedByLocalRules => '由本地规则生成';
+
+  @override
+  String get pendingSummary => '待整理摘要';
+
+  @override
+  String get temporaryTopic => '临时主题';
+
+  @override
+  String get generalTopic => '通用主题';
+
+  @override
+  String get uncategorized => '未分类';
+
+  @override
+  String get unknownModelFormat => '未知模型格式';
+
+  @override
+  String modelFormatBundledSupported(Object extension) {
+    return '检测到内置的 .$extension 资源文件。当前规则模式无需原生运行时也可继续运行。';
+  }
+
+  @override
+  String modelFormatUnsupportedForLocalRules(Object extension) {
+    return '当前本地规则模式不支持 .$extension 资源文件。';
+  }
+
+  @override
+  String get slmSelfCheckTopicSampleContent =>
+      '这是一个诊断样本，用于验证当前设备上的本地规则主题提取是否正常工作。';
+
+  @override
+  String get slmSelfCheckMetadataSampleContent =>
+      '这是一个诊断样本，用于验证当前 Local Vault 环境下的标题与标签生成是否正常工作。请生成一个便于检索的标题和 2 到 4 个标签。';
 }

@@ -1,6 +1,6 @@
 # LocalVault 应用开发进度
 
-> 更新时间：2026-03-18  
+> 更新时间：2026-03-19  
 > 本文档依据当前本地工作区的 git changes 整理。
 >
 > **技术路线调整**：经实践验证，MediaPipe + GGUF 方案存在兼容性问题（GGUF 格式不被 MediaPipe 支持），已切换至纯规则引擎方案。
@@ -99,15 +99,15 @@ Local Vault 已经从早期“本地 AI 聊天壳”的方向，收敛为一个�
 
 - [x] `MemorySLMService` 基础框架（保留降级回退逻辑）
 - [x] `extractTopic`（规则引擎实现）
-- [x] `isSameTopic`（Jaccard 相似度算法）
-- [x] `mergeSessions`（规则合并）
+- [x] `isSameTopic`（Jaccard + BM25-lite 复合相似度）
+- [x] `mergeSessions`（规则合并：去重 + 结构化）
 - [x] `generateUpgradeReason`（规则生成）
 - [x] `generateSummaryMetadata`（规则提取）
 - [x] 串行队列、缓存、超时与错误码封装
 - [x] JSON 外置配置：`slm_config / memory_policy_config / memory_theme_config`
 - [x] 规则回退兜底，保证模型不可用时主流程不中断
 - [x] SLM 诊断信息与设备内自检入口
-- [ ] ❌ MediaPipe + GGUF 方案已废弃（技术路线调整）
+- [ ] ❌ MediaPipe + GGUF 方案已废弃（技术路线调整） -> 目标方案llama.cpp
 
 ### 9. 测试与工程化
 
@@ -134,6 +134,21 @@ Local Vault 已经从早期“本地 AI 聊天壳”的方向，收敛为一个�
 - 记忆管理页新增"升级为核心"交互，并把列表改成按需构建。
 - SLM 相关配置被拆到 `assets/config/*.json`，不再全部写死在代码里。
 - **技术路线调整**：放弃 MediaPipe + GGUF 方案，改用纯规则引擎 + 可选云端增强架构。
+- Android 构建已移除 MediaPipe 原生库下载步骤，缓存目录命名已收敛为通用 `slm_cache`。
+- `MemorySLMService` 已简化为纯规则引擎实现，不再尝试模型拷贝、符号探测或原生推理。
+- 多语言兼容继续推进：权限弹窗、OCR 失败提示、悬浮保存按钮等用户可见文案已接入 `AppLocalizations`。
+- 手势默认名称已改为稳定内部标识（`tap_2 / tap_3`），避免把中文展示文案写入持久化配置。
+- 未使用的中文时间格式工具 `app_formatter.dart` 已清理，避免后续误接入旧中文相对时间格式。
+- 二次复核已补齐摘要详情页“显示完整内容”按钮的本地化，并清理未使用的 `AppErrorHandler` 与中文异常消息。
+- 占位主题兼容已集中到 `TopicPlaceholderUtils`，补齐 `通用主题` 以及西/法/德占位别名与前缀清理规则。
+- `SummaryTextUtils` 与 `MemorySLMService` 已补充拉丁语系重音字符支持，并扩展西/法/德的规则词典、前导填充词与领域关键词识别。
+- SLM 诊断样本文本与模型格式描述已接入多语言资源，诊断链路不再依赖写死的中英文提示。
+- `de / es / fr / ja / ko` 的缺失翻译已补齐；当前对照 `app_en.arb` 的 key 缺口已归零，不再依赖英文回退兜底。
+- `extractTopic()` 已补齐模板主题候选评分，优先从标题、标签与正文中抽取稳定主题而不是退回占位词。
+- `SimilarityUtils` 已升级为 Jaccard + BM25-lite 复合相似度，并增加大写术语共现信号，兼顾英文近重复与中英混合技术主题。
+- `mergeSessions()` 已支持按句去重、代表标题选择与标签并集，输出更稳定的结构化合并结果。
+- 规则引擎已引入共享 `RuleSemanticProfile` 语义画像，开始把领域键、子主题、展示 topic/title 与标签从同一条规则链中解耦。
+- Session batching 已改为基于 cluster 语义画像进行匹配，而不是只用首条记录做锚点，后续扩展规则时不再需要回改业务流程。
 
 ## 当前待推进项
 
@@ -143,22 +158,27 @@ Local Vault 已经从早期“本地 AI 聊天壳”的方向，收敛为一个�
 - [x] 增加设备内 SLM 自检入口，支持在目标真机上验证原生推理可用性
 - [x] 为 SLM 推理增加更完整的可观测性指标
 - [x] 优化记忆管理列表性能与大数据量下的交互体验
-- [ ] 清理 MediaPipe 相关依赖和代码（技术债清理）
-  - [ ] 移除 `pubspec.yaml` 中的 `mediapipe_core` 和 `mediapipe_genai`
-  - [ ] 移除 `android/app/build.gradle.kts` 中的原生库下载逻辑
-  - [ ] 简化 `memory_slm_service.dart` 为纯规则引擎
-- [ ] 实现完整的规则引擎核心功能
-  - [ ] Topic 提取器（关键词 + 模板匹配）
-  - [ ] 相似度计算优化（Jaccard + BM25）
-  - [ ] 会话合并规则（去重 + 结构化）
-- [ ] 多语言兼容优化（i18n）
-  - [ ] 将硬编码的中文关键词改为国际化占位符
-    - `RegExp(r'^(待整理 | 未命名 | 临时)')` → 使用 `AppLocalizations`
-    - `'临时主题'` → `loc.temporaryTopic` 或 `loc.generalTopic`
-    - `'General topic'` → `loc.generalTopic`
-    - `'未分类'` → `loc.uncategorized`
-  - [ ] 检查所有正则表达式中的中文硬编码
-  - [ ] 为规则引擎添加多语言支持（中英文检测与处理）
+- [x] 清理 MediaPipe 相关依赖和代码（技术债清理）
+  - [x] `pubspec.yaml` 中已无 `mediapipe_core` 和 `mediapipe_genai`
+  - [x] 已移除 `android/app/build.gradle.kts` 中的 MediaPipe 原生库下载逻辑
+  - [x] `memory_slm_service.dart` 已简化为纯规则引擎
+- [x] 多语言兼容优化（i18n）
+  - [x] 规则引擎中的占位标题/主题硬编码已完成收敛
+    - [x] `MemorySLMService.generateSummaryMetadata()` 的默认标题改为 `AppLocalizations.pendingSummary`
+    - [x] `extractTopic()` 回退主题改为基于 `temporaryTopic / generalTopic`
+    - [x] 扩展占位词识别，兼容中英文日文韩文 `pending / untitled / temporary / uncategorized`
+    - [x] 规则引擎标题/标签提取已补充中英日韩关键字、分词与脚本识别
+    - [x] 权限说明、Usage Access 提示、OCR 文件读取失败提示、悬浮保存按钮已接入多语言资源
+    - [x] 手势默认名称改为语言中立内部标识，避免本地化文案进入持久化层
+    - [x] 已复核运行时用户可见硬编码文案，当前未发现新的 UI 漏网项
+    - [x] 已继续检查其余规则文本中的语言耦合，收敛历史兼容别名、领域关键词词典与诊断自检样本文本
+    - [x] 已补齐 `de / es / fr / ja / ko` 的剩余翻译覆盖，减少英文回退
+- [x] 实现完整的规则引擎核心功能
+  - [x] Topic 提取器（关键词 + 模板匹配）
+  - [x] 相似度计算优化（Jaccard + BM25-lite 复合评分）
+  - [x] 会话合并规则（去重 + 结构化）
+  - [x] 检查所有正则表达式中的语言硬编码
+  - [x] 为规则引擎添加多语言支持（中英文日文韩文检测与处理）
 - [ ] 用户体验优化
   - [ ] 设置页面说明当前使用"规则模式"
   - [ ] 添加降级提示（告知用户优势：快速、离线、隐私）

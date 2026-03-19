@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:local_vault/core/providers/locale_provider.dart';
 import 'package:local_vault/core/services/memory_slm_config.dart';
 import 'package:local_vault/core/services/memory_slm_diagnostics_service.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
@@ -41,7 +42,7 @@ void main() {
         '${modelDirectory.path}/qwen2.5-0.5b-instruct-q4_k_m.gguf',
       ).writeAsBytes(List<int>.filled(32, 1));
 
-      final cacheDirectory = Directory('${tempDirectory.path}/mediapipe_cache');
+      final cacheDirectory = Directory('${tempDirectory.path}/slm_cache');
       await cacheDirectory.create(recursive: true);
       await File('${cacheDirectory.path}/cache.bin')
           .writeAsBytes(List<int>.filled(12, 1));
@@ -59,6 +60,21 @@ void main() {
       expect(snapshot.bundledFileName, 'qwen2.5-0.5b-instruct-q4_k_m.gguf');
       expect(snapshot.requestTimeoutSeconds, 10);
       expect(snapshot.maxTokens, 128);
+    });
+
+    test('collectSnapshot localizes model format description', () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{});
+      await LocaleManager.saveLocale(AppLocale.zh);
+
+      final localizedService = MemorySlmDiagnosticsService(
+        slmService: _FakeMemorySlmService(),
+        appSupportDirectoryResolver: () async => tempDirectory,
+        nowProvider: () => DateTime.parse('2026-03-18T12:00:00.000Z'),
+      );
+
+      final snapshot = await localizedService.collectSnapshot();
+
+      expect(snapshot.modelFormatDescription, contains('检测到内置的 .gguf 资源文件'));
     });
 
     test('runSelfCheck returns topic and metadata inference results', () async {

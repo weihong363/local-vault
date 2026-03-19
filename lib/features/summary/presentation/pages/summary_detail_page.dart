@@ -114,6 +114,7 @@ class _SummaryDetailPageState extends ConsumerState<SummaryDetailPage> {
   }
 
   Widget _buildContent(BuildContext context, bool isDark) {
+    final loc = AppLocalizations.of(context)!;
     final content = widget.summary.content;
     final shouldShowExpandButton = content.length > _maxPreviewLength;
 
@@ -142,7 +143,7 @@ class _SummaryDetailPageState extends ConsumerState<SummaryDetailPage> {
               _isExpanded = true;
             });
           },
-          child: const Text('Show full content'),
+          child: Text(loc.showFullContent),
         ),
       ],
     );

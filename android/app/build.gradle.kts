@@ -1,5 +1,3 @@
-import java.net.URL
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,14 +6,7 @@ plugins {
 }
 
 val bundledSlmModelFileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
-val bundledSlmNativeLibFileName = "libllm_inference_engine.so"
-val bundledSlmNativeLibDownloadUrl =
-    "https://storage.googleapis.com/mediapipe-nightly-public/prod/mediapipe/gcp_ubuntu_flutter/release/40/20240419-150307/android_arm64/libllm_inference_engine.so"
 val generatedModelAssetsDir = layout.buildDirectory.dir("generated/modelAssets")
-val generatedSlmNativeLibsDir = layout.buildDirectory.dir("generated/slmJniLibs")
-val generatedArm64SlmNativeLibFile = generatedSlmNativeLibsDir.map {
-    it.file("arm64-v8a/$bundledSlmNativeLibFileName")
-}
 
 android {
     namespace = "com.ironion.localvault"
@@ -68,7 +59,6 @@ android {
     sourceSets {
         getByName("main") {
             assets.setSrcDirs(listOf(generatedModelAssetsDir))
-            jniLibs.setSrcDirs(listOf(generatedSlmNativeLibsDir))
         }
     }
 }
@@ -89,28 +79,6 @@ val syncModelAssets by tasks.registering(Sync::class) {
     include(bundledSlmModelFileName)
 }
 
-val syncSlmNativeLibs by tasks.registering {
-    outputs.file(generatedArm64SlmNativeLibFile)
-
-    doLast {
-        val outputFile = generatedArm64SlmNativeLibFile.get().asFile
-        if (outputFile.exists() && outputFile.length() > 0L) {
-            println("SLM native library already cached: ${outputFile.absolutePath}")
-            return@doLast
-        }
-
-        outputFile.parentFile.mkdirs()
-        println("Downloading SLM native library to ${outputFile.absolutePath}")
-        URL(bundledSlmNativeLibDownloadUrl).openStream().use { input ->
-            outputFile.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-        println("Downloaded SLM native library (${outputFile.length()} bytes)")
-    }
-}
-
 tasks.named("preBuild") {
     dependsOn(syncModelAssets)
-    dependsOn(syncSlmNativeLibs)
 }

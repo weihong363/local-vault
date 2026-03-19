@@ -373,7 +373,7 @@ class StorageManagementService {
     if (raw is num) {
       return raw.toInt();
     }
-    throw const FormatException('备份文件格式无效');
+    throw const FormatException('Invalid backup file format');
   }
 
   DateTime? _parseExportedAt(Object? raw) {
@@ -381,26 +381,26 @@ class StorageManagementService {
       return null;
     }
     if (raw is! String) {
-      throw const FormatException('备份文件格式无效');
+      throw const FormatException('Invalid backup file format');
     }
 
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) {
-      throw const FormatException('备份文件格式无效');
+      throw const FormatException('Invalid backup file format');
     }
     return parsed;
   }
 
   List<SummaryEntity> _parseSummaries(Object? raw) {
     if (raw is! List) {
-      throw const FormatException('备份文件格式无效');
+      throw const FormatException('Invalid backup file format');
     }
     return raw.map((item) => SummaryEntity.fromJson(_asMap(item))).toList();
   }
 
   List<TemplateEntity> _parseTemplates(Object? raw) {
     if (raw is! List) {
-      throw const FormatException('备份文件格式无效');
+      throw const FormatException('Invalid backup file format');
     }
     return raw.map((item) => TemplateEntity.fromJson(_asMap(item))).toList();
   }
@@ -424,7 +424,7 @@ class StorageManagementService {
         return MapEntry(key.toString(), value);
       });
     }
-    throw const FormatException('备份文件格式无效');
+    throw const FormatException('Invalid backup file format');
   }
 
   static String? _defaultHiveBoxPathResolver(String boxName) {

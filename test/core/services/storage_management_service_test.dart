@@ -194,7 +194,7 @@ void main() {
       await File(
         '${modelDirectory.path}/qwen2.5-0.5b-instruct-q4_k_m.gguf',
       ).writeAsBytes(List<int>.filled(200, 1));
-      final cacheDirectory = Directory('${tempDirectory.path}/mediapipe_cache');
+      final cacheDirectory = Directory('${tempDirectory.path}/slm_cache');
       await cacheDirectory.create(recursive: true);
       await File('${cacheDirectory.path}/cache.bin')
           .writeAsBytes(List<int>.filled(50, 1));

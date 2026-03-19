@@ -336,6 +336,12 @@ abstract class AppLocalizations {
   /// **'Save to Vault'**
   String get saveToVault;
 
+  /// No description provided for @showFullContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Show full content'**
+  String get showFullContent;
+
   /// No description provided for @copiedToClipboard.
   ///
   /// In en, this message translates to:
@@ -573,25 +579,25 @@ abstract class AppLocalizations {
   /// No description provided for @slmInferenceSettingDescription.
   ///
   /// In en, this message translates to:
-  /// **'Controls whether the app may enter the future SLM inference path. The current summary save flow still uses the local rule-based result until a compatible SLM provider is integrated.'**
+  /// **'This preference is reserved for future compatibility. The current app version always uses local rules for titles, tags, and topics.'**
   String get slmInferenceSettingDescription;
 
   /// No description provided for @slmInferenceEnabledMessage.
   ///
   /// In en, this message translates to:
-  /// **'SLM inference enabled. The current summary save flow still uses local rules until a compatible SLM provider is integrated.'**
+  /// **'SLM preference enabled. The current app version still uses local rules for titles, tags, and topics.'**
   String get slmInferenceEnabledMessage;
 
   /// No description provided for @slmInferenceDisabledMessage.
   ///
   /// In en, this message translates to:
-  /// **'SLM inference disabled. Summary save stays on the local rule path.'**
+  /// **'SLM preference disabled. The current app version still uses local rules for titles, tags, and topics.'**
   String get slmInferenceDisabledMessage;
 
   /// No description provided for @titleTagsUseBuiltInModel.
   ///
   /// In en, this message translates to:
-  /// **'Title and tags now use the built-in model'**
+  /// **'Title and tags now use the native SLM runtime'**
   String get titleTagsUseBuiltInModel;
 
   /// No description provided for @titleTagsUseLocalRuleGenerator.
@@ -678,6 +684,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not all permissions were granted. Gesture features may not work correctly.'**
   String get notAllPermissionsGranted;
+
+  /// No description provided for @permissionsRequiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions required'**
+  String get permissionsRequiredTitle;
+
+  /// No description provided for @permissionsRequiredMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'To make gesture wake-up work correctly, grant the following permissions:\n\n1. Overlay permission: used to display the gesture detection area over other apps\n2. Usage Access permission: used to detect the current foreground app so gesture areas can appear in allowlisted apps\n\nPlease grant these permissions on the next screens.'**
+  String get permissionsRequiredMessage;
+
+  /// No description provided for @usageAccessPermissionRequiredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage Access permission required'**
+  String get usageAccessPermissionRequiredTitle;
+
+  /// No description provided for @usageAccessPermissionRequiredMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage Access permission is missing.\n\nWithout it:\n• The app cannot detect which app is currently active\n• Gesture wake-up will not work correctly in other apps\n\nTap \"Grant access\" to open system settings and enable the permission for this app.'**
+  String get usageAccessPermissionRequiredMessage;
 
   /// No description provided for @floatingWindowServiceStarted.
   ///
@@ -2294,13 +2324,13 @@ abstract class AppLocalizations {
   /// No description provided for @experimentalNativeInferenceEnabledDescription.
   ///
   /// In en, this message translates to:
-  /// **'This build allows attempts to enter the native SLM inference path. On Android, it is currently enabled whenever the SLM inference switch is on.'**
+  /// **'The current app version defaults to pure rule mode; this state is kept only for future extensibility.'**
   String get experimentalNativeInferenceEnabledDescription;
 
   /// No description provided for @experimentalNativeInferenceDisabledDescription.
   ///
   /// In en, this message translates to:
-  /// **'This build or runtime setting currently disables the native SLM inference path, so SLM remains in rule-fallback mode.'**
+  /// **'The current app version has switched to a pure rule engine, so the native inference path is no longer used.'**
   String get experimentalNativeInferenceDisabledDescription;
 
   /// No description provided for @nativeInferenceSupportTitle.
@@ -2318,7 +2348,7 @@ abstract class AppLocalizations {
   /// No description provided for @nativeInferenceSupportUnavailableDescription.
   ///
   /// In en, this message translates to:
-  /// **'This environment does not currently support native inference, so runtime will degrade automatically.'**
+  /// **'This app version no longer provides native inference. Titles, tags, and topics are generated with local rules.'**
   String get nativeInferenceSupportUnavailableDescription;
 
   /// No description provided for @nativeSymbolDetectionTitle.
@@ -2396,7 +2426,7 @@ abstract class AppLocalizations {
   /// No description provided for @modelAvailabilityFallbackDescription.
   ///
   /// In en, this message translates to:
-  /// **'This does not block the main flow, but title, tag, and topic generation will prefer the rule fallback path.'**
+  /// **'The current app version uses local rules for title, tag, and topic generation and does not depend on on-device model inference.'**
   String get modelAvailabilityFallbackDescription;
 
   /// No description provided for @modelFileMissingDescription.
@@ -2580,6 +2610,12 @@ abstract class AppLocalizations {
   /// **'OCR processing failed: {error}'**
   String ocrProcessingFailedMessage(Object error);
 
+  /// No description provided for @unableToReadImageFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to read image file'**
+  String get unableToReadImageFile;
+
   /// No description provided for @previewEnterContent.
   ///
   /// In en, this message translates to:
@@ -2645,6 +2681,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Later'**
   String get laterLabel;
+
+  /// No description provided for @grantAccessLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant access'**
+  String get grantAccessLabel;
 
   /// No description provided for @existingFactMemory.
   ///
@@ -2763,7 +2805,7 @@ abstract class AppLocalizations {
   /// No description provided for @generatedByBuiltInModel.
   ///
   /// In en, this message translates to:
-  /// **'Generated by the built-in model'**
+  /// **'Generated by the native SLM runtime'**
   String get generatedByBuiltInModel;
 
   /// No description provided for @generatedByLocalRules.
@@ -2771,6 +2813,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Generated by local rules'**
   String get generatedByLocalRules;
+
+  /// No description provided for @pendingSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending summary'**
+  String get pendingSummary;
+
+  /// No description provided for @temporaryTopic.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporary topic'**
+  String get temporaryTopic;
+
+  /// No description provided for @generalTopic.
+  ///
+  /// In en, this message translates to:
+  /// **'General topic'**
+  String get generalTopic;
+
+  /// No description provided for @uncategorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Uncategorized'**
+  String get uncategorized;
+
+  /// No description provided for @unknownModelFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown model format'**
+  String get unknownModelFormat;
+
+  /// No description provided for @modelFormatBundledSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Bundled .{extension} asset detected. Local rule mode can continue without a native runtime.'**
+  String modelFormatBundledSupported(Object extension);
+
+  /// No description provided for @modelFormatUnsupportedForLocalRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsupported .{extension} asset for the current local rule mode.'**
+  String modelFormatUnsupportedForLocalRules(Object extension);
+
+  /// No description provided for @slmSelfCheckTopicSampleContent.
+  ///
+  /// In en, this message translates to:
+  /// **'This diagnostic sample verifies that local rule-based topic extraction works on this device.'**
+  String get slmSelfCheckTopicSampleContent;
+
+  /// No description provided for @slmSelfCheckMetadataSampleContent.
+  ///
+  /// In en, this message translates to:
+  /// **'This diagnostic sample verifies title and tag generation in the current Local Vault environment. Produce a searchable title and 2 to 4 tags.'**
+  String get slmSelfCheckMetadataSampleContent;
 }
 
 class _AppLocalizationsDelegate

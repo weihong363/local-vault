@@ -70,5 +70,23 @@ void main() {
       expect(draft.title, contains('项目'));
       expect(draft.tags, isNot(contains('记录')));
     });
+
+    test('remark marker uses language-neutral separator', () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{
+        'slm_inference_enabled': false,
+      });
+
+      final service = SummaryMetadataService(
+        settingsService: AppSettingsService(),
+      );
+
+      final draft = await service.prepareForSave(
+        content: 'Discuss release readiness.',
+        remark: 'Need rollback steps.',
+      );
+
+      expect(draft.content, contains('---Remark---'));
+      expect(draft.content, isNot(contains('---备注---')));
+    });
   });
 }

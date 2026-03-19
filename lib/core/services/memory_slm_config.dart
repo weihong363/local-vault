@@ -178,8 +178,7 @@ class MemorySlmModelPaths {
       bundledAssetPath: json['bundledAssetPath'] as String? ??
           'models/qwen2.5-0.5b-instruct-q4_k_m.gguf',
       modelDirectoryName: json['modelDirectoryName'] as String? ?? 'models',
-      cacheDirectoryName:
-          json['cacheDirectoryName'] as String? ?? 'mediapipe_cache',
+      cacheDirectoryName: json['cacheDirectoryName'] as String? ?? 'slm_cache',
     );
   }
 }
@@ -243,7 +242,7 @@ class MemorySlmConfig {
       bundledFileName: 'qwen2.5-0.5b-instruct-q4_k_m.gguf',
       bundledAssetPath: 'models/qwen2.5-0.5b-instruct-q4_k_m.gguf',
       modelDirectoryName: 'models',
-      cacheDirectoryName: 'mediapipe_cache',
+      cacheDirectoryName: 'slm_cache',
     ),
     runtime: MemorySlmRuntimeValues(
       requestTimeoutSeconds: 10,

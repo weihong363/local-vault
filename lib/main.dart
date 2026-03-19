@@ -248,33 +248,28 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
   void _showUsageStatsPermissionDialog() {
     final dialogContext = _rootNavigatorKey.currentContext;
     if (dialogContext == null) return;
+    final loc = AppLocalizations.of(dialogContext)!;
 
     showDialog(
       context: dialogContext,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Important permission required'),
-        content: const Text(
-          'Usage Access permission is missing.\n\n'
-          'Without it:\n'
-          '• The app cannot detect which app is currently active\n'
-          '• Gesture wake-up will not work correctly in other apps\n\n'
-          'Tap "Grant access" to open system settings and enable the permission for this app.',
-        ),
+        title: Text(loc.usageAccessPermissionRequiredTitle),
+        content: Text(loc.usageAccessPermissionRequiredMessage),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               // The user chose to be reminded later.
             },
-            child: const Text('Later'),
+            child: Text(loc.laterLabel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               AppPermissionManager.requestUsageStatsPermission();
             },
-            child: const Text('Grant access'),
+            child: Text(loc.grantAccessLabel),
           ),
         ],
       ),

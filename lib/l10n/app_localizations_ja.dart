@@ -124,6 +124,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get saveToVault => 'ローカル記憶庫に保存';
 
   @override
+  String get showFullContent => '全文を表示';
+
+  @override
   String get copiedToClipboard => 'クリップボードにコピーしました';
 
   @override
@@ -239,19 +242,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get diagnosticsDescription => 'ジェスチャー権限、サービス、同期状態を確認します';
 
   @override
-  String get slmInferenceSettingTitle => 'Enable SLM inference';
+  String get slmInferenceSettingTitle => 'SLM 推論を有効化';
 
   @override
   String get slmInferenceSettingDescription =>
-      'Controls whether the app may enter the future SLM inference path. The current summary save flow still uses the local rule-based result until a compatible SLM provider is integrated.';
+      'この設定は将来の互換性のために残されています。現在のアプリ版では、タイトル・タグ・トピックの生成に常にローカルルールを使用します。';
 
   @override
   String get slmInferenceEnabledMessage =>
-      'SLM inference enabled. The current summary save flow still uses local rules until a compatible SLM provider is integrated.';
+      'SLM 設定を有効にしました。現在のアプリ版では、引き続きタイトル・タグ・トピックの生成にローカルルールを使用します。';
 
   @override
   String get slmInferenceDisabledMessage =>
-      'SLM inference disabled. Summary save stays on the local rule path.';
+      'SLM 設定を無効にしました。現在のアプリ版では、引き続きタイトル・タグ・トピックの生成にローカルルールを使用します。';
 
   @override
   String get titleTagsUseBuiltInModel => 'タイトルとタグは内蔵モデルを使用します';
@@ -305,6 +308,20 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get notAllPermissionsGranted =>
       'すべての権限が付与されていません。ジェスチャー機能が正しく動作しない可能性があります。';
+
+  @override
+  String get permissionsRequiredTitle => '権限が必要です';
+
+  @override
+  String get permissionsRequiredMessage =>
+      'ジェスチャー起動を正しく動作させるには、次の権限が必要です：\n\n1. オーバーレイ権限：他のアプリの上にジェスチャー検出エリアを表示するために使用します\n2. 使用状況アクセス権限：現在前面にあるアプリを検出し、許可リストのアプリでジェスチャーエリアを表示するために使用します\n\nこの後の画面で、これらの権限を許可してください。';
+
+  @override
+  String get usageAccessPermissionRequiredTitle => '使用状況アクセス権限が必要です';
+
+  @override
+  String get usageAccessPermissionRequiredMessage =>
+      '使用状況アクセス権限がありません。\n\nこの権限がないと：\n• 現在アクティブなアプリを判別できません\n• 他のアプリでジェスチャー起動が正しく動作しません\n\n「アクセスを許可」をタップしてシステム設定を開き、このアプリの権限を有効にしてください。';
 
   @override
   String get floatingWindowServiceStarted => 'フローティングウィンドウサービスを開始しました';
@@ -808,446 +825,437 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareBackupSubject => 'ローカル記憶庫バックアップ';
 
   @override
-  String get confirmLabel => 'Confirm';
+  String get confirmLabel => '確認';
 
   @override
-  String get clearLabel => 'Clear';
+  String get clearLabel => 'クリア';
 
   @override
-  String get runningLabel => 'Running...';
+  String get runningLabel => '実行中...';
 
   @override
-  String get unknownError => 'Unknown error';
+  String get unknownError => '不明なエラー';
 
   @override
-  String get statusEnabled => 'Enabled';
+  String get statusEnabled => '有効';
 
   @override
-  String get statusDisabled => 'Disabled';
+  String get statusDisabled => '無効';
 
   @override
-  String get statusGranted => 'Granted';
+  String get statusGranted => '許可済み';
 
   @override
-  String get statusNotGranted => 'Not granted';
+  String get statusNotGranted => '未許可';
 
   @override
-  String get statusRunning => 'Running';
+  String get statusRunning => '実行中';
 
   @override
-  String get statusStopped => 'Stopped';
+  String get statusStopped => '停止中';
 
   @override
-  String get statusUnavailable => 'Unavailable';
+  String get statusUnavailable => '利用不可';
 
   @override
-  String get statusAvailable => 'Available';
+  String get statusAvailable => '利用可能';
 
   @override
-  String get statusMissing => 'Missing';
+  String get statusMissing => '不足';
 
   @override
-  String get statusReady => 'Ready';
+  String get statusReady => '準備完了';
 
   @override
-  String get statusCompatible => 'Compatible';
+  String get statusCompatible => '互換あり';
 
   @override
-  String get statusIncompatible => 'Incompatible';
+  String get statusIncompatible => '互換なし';
 
   @override
-  String get statusInitialized => 'Initialized';
+  String get statusInitialized => '初期化済み';
 
   @override
-  String get statusNotInitialized => 'Not initialized';
+  String get statusNotInitialized => '未初期化';
 
   @override
-  String get statusDetected => 'Detected';
+  String get statusDetected => '検出済み';
 
   @override
-  String get statusNotDetected => 'Not detected';
+  String get statusNotDetected => '未検出';
 
   @override
-  String get statusModelUsed => 'Model used';
+  String get statusModelUsed => 'モデル使用';
 
   @override
-  String get statusModelNotUsed => 'Model not used';
+  String get statusModelNotUsed => 'モデル未使用';
 
   @override
-  String get statusInitializationComplete => 'Initialization complete';
+  String get statusInitializationComplete => '初期化完了';
 
   @override
-  String get statusInitializationIncomplete => 'Initialization incomplete';
+  String get statusInitializationIncomplete => '初期化未完了';
 
   @override
-  String get gestureConfigurationSaved => 'Configuration saved';
+  String get gestureConfigurationSaved => '設定を保存しました';
 
   @override
   String gestureConfigurationLoadFailed(Object error) {
-    return 'Failed to load gesture configuration: $error';
+    return 'ジェスチャー設定の読み込みに失敗しました: $error';
   }
 
   @override
-  String get resetToDefaults => 'Reset to defaults';
+  String get resetToDefaults => 'デフォルトに戻す';
 
   @override
-  String get resetGesturesToDefaultsMessage =>
-      'Reset all gestures back to the default configuration?';
+  String get resetGesturesToDefaultsMessage => 'すべてのジェスチャーをデフォルト設定に戻しますか？';
 
   @override
-  String get restoredDefaultSettings => 'Restored default settings';
+  String get restoredDefaultSettings => 'デフォルト設定を復元しました';
 
   @override
-  String get gestureShareOnly => 'Share only';
+  String get gestureShareOnly => '共有のみ';
 
   @override
-  String get gestureActionOpenTemplates => 'Open prompt templates';
+  String get gestureActionOpenTemplates => 'プロンプトテンプレートを開く';
 
   @override
-  String get gestureActionSaveSummary => 'Save a summary from shared content';
+  String get gestureActionSaveSummary => '共有コンテンツから要約を保存';
 
   @override
-  String get gestureActionOpenSavedContext => 'Open saved context';
+  String get gestureActionOpenSavedContext => '保存済みコンテキストを開く';
 
   @override
-  String get gestureDoubleTap => 'Double tap';
+  String get gestureDoubleTap => 'ダブルタップ';
 
   @override
-  String get gestureTripleTap => 'Triple tap';
+  String get gestureTripleTap => 'トリプルタップ';
 
   @override
-  String get triggerAction => 'Trigger action';
+  String get triggerAction => '実行アクション';
 
   @override
-  String get alreadyUsedByAnotherGesture => 'Already used by another gesture';
+  String get alreadyUsedByAnotherGesture => 'すでに別のジェスチャーで使用されています';
 
   @override
-  String get searchAppsHint => 'Search apps...';
+  String get searchAppsHint => 'アプリを検索...';
 
   @override
   String appWhitelistLoadFailed(Object error) {
-    return 'Load failed: $error';
+    return '読み込みに失敗しました: $error';
   }
 
   @override
   String selectedAppsCount(Object count) {
-    return '$count app(s) selected';
+    return '選択中のアプリ $count 件';
   }
 
   @override
-  String get clearAllowlistTooltip => 'Clear allowlist';
+  String get clearAllowlistTooltip => '許可リストをクリア';
 
   @override
-  String get gesturesActiveInAllApps => 'Gestures are active in all apps';
+  String get gesturesActiveInAllApps => 'ジェスチャーはすべてのアプリで有効です';
 
   @override
-  String get filterAll => 'All';
+  String get filterAll => 'すべて';
 
   @override
-  String get filterSelected => 'Selected';
+  String get filterSelected => '選択済み';
 
   @override
-  String get filterUnselected => 'Unselected';
+  String get filterUnselected => '未選択';
 
   @override
-  String get noAppsFound => 'No apps found';
+  String get noAppsFound => 'アプリが見つかりません';
 
   @override
-  String get noMatchingAppsFound => 'No matching apps found';
+  String get noMatchingAppsFound => '一致するアプリが見つかりません';
 
   @override
-  String get noSelectedAppsYet => 'No selected apps yet';
+  String get noSelectedAppsYet => 'まだアプリが選択されていません';
 
   @override
-  String get noUnselectedApps => 'No unselected apps';
+  String get noUnselectedApps => '未選択のアプリはありません';
 
   @override
-  String get clearAllowlistTitle => 'Clear allowlist';
+  String get clearAllowlistTitle => '許可リストをクリア';
 
   @override
   String get clearAllowlistMessage =>
-      'Clear the app allowlist? Gestures will become active in all apps.';
+      'アプリの許可リストをクリアしますか？ ジェスチャーはすべてのアプリで有効になります。';
 
   @override
-  String get allowlistCleared => 'Allowlist cleared';
+  String get allowlistCleared => '許可リストをクリアしました';
 
   @override
-  String get databaseInspector => 'Database Inspector';
+  String get databaseInspector => 'データベースインスペクター';
 
   @override
   String failedToOpenDatabase(Object error) {
-    return 'Failed to open database: $error';
+    return 'データベースを開けませんでした: $error';
   }
 
   @override
-  String get summariesTab => 'Summaries';
+  String get summariesTab => '要約';
 
   @override
-  String get templatesTab => 'Templates';
+  String get templatesTab => 'テンプレート';
 
   @override
-  String get noSummaryRecordsInBox => 'No summary records in this box';
+  String get noSummaryRecordsInBox => 'このボックスに要約レコードはありません';
 
   @override
-  String get noTemplateRecordsInBox => 'No template records in this box';
+  String get noTemplateRecordsInBox => 'このボックスにテンプレートレコードはありません';
 
   @override
   String recordsWithIssues(Object count) {
-    return 'Records with issues: $count';
+    return '問題のあるレコード: $count';
   }
 
   @override
   String legacyTemplateTypes(Object count) {
-    return 'Legacy template types: $count';
+    return '旧テンプレート型: $count';
   }
 
   @override
   String defaultTemplatesCount(Object count) {
-    return 'Default templates: $count';
+    return 'デフォルトテンプレート: $count';
   }
 
   @override
   String boxMetricLabel(Object boxName) {
-    return 'Box: $boxName';
+    return 'ボックス: $boxName';
   }
 
   @override
   String recordsMetricLabel(Object count) {
-    return 'Records: $count';
+    return 'レコード: $count';
   }
 
   @override
   String keyMetricLabel(Object key) {
-    return 'Key: $key';
+    return 'キー: $key';
   }
 
   @override
-  String get noObviousIssuesDetected => 'No obvious issues detected';
+  String get noObviousIssuesDetected => '明らかな問題は検出されませんでした';
 
   @override
   String issuesMetricLabel(Object count) {
-    return 'Issues: $count';
+    return '問題数: $count';
   }
 
   @override
-  String get copyJson => 'Copy JSON';
+  String get copyJson => 'JSON をコピー';
 
   @override
-  String get recordNotMapCorrupted =>
-      'Record is not a Map and may be corrupted';
+  String get recordNotMapCorrupted => 'レコードは Map ではなく、破損している可能性があります';
 
   @override
-  String get unparseableSummaryRecord => 'Unparseable summary record';
+  String get unparseableSummaryRecord => '解析できない要約レコード';
 
   @override
-  String get unparseableTemplateRecord => 'Unparseable template record';
+  String get unparseableTemplateRecord => '解析できないテンプレートレコード';
 
   @override
   String rawTypeLabel(Object type) {
-    return 'Raw type: $type';
+    return '生の型: $type';
   }
 
   @override
   String get legacyTemplateRecordDetected =>
-      'Legacy template-type record detected and will be read as a fact';
+      '旧テンプレート型レコードを検出しました。fact として読み込みます';
 
   @override
-  String get missingId => 'Missing id';
+  String get missingId => 'ID がありません';
 
   @override
-  String get titleIsEmpty => 'Title is empty';
+  String get titleIsEmpty => 'タイトルが空です';
 
   @override
-  String get contentIsEmpty => 'Content is empty';
+  String get contentIsEmpty => '内容が空です';
 
   @override
-  String get accessCountInvalid => 'accessCount is not a valid number';
+  String get accessCountInvalid => 'accessCount が有効な数値ではありません';
 
   @override
-  String get accessCountBelowZero => 'accessCount is below 0';
+  String get accessCountBelowZero => 'accessCount が 0 未満です';
 
   @override
-  String get createdAtCouldNotBeParsed => 'createdAt could not be parsed';
+  String get createdAtCouldNotBeParsed => 'createdAt を解析できませんでした';
 
   @override
   String summaryDeserializationFailed(Object error) {
-    return 'SummaryEntity deserialization failed: $error';
+    return 'SummaryEntity のデシリアライズに失敗しました: $error';
   }
 
   @override
   String templateDeserializationFailed(Object error) {
-    return 'TemplateEntity deserialization failed: $error';
+    return 'TemplateEntity のデシリアライズに失敗しました: $error';
   }
 
   @override
-  String get unknownTime => 'Unknown time';
+  String get unknownTime => '不明な時刻';
 
   @override
-  String get untitledSummary => '(Untitled summary)';
+  String get untitledSummary => '(無題の要約)';
 
   @override
-  String get untitledTemplate => '(Untitled template)';
+  String get untitledTemplate => '(無題のテンプレート)';
 
   @override
   String summaryRecordSubtitle(
       Object accessCount, Object createdAt, Object type) {
-    return 'Type: $type  Access: $accessCount  Created: $createdAt';
+    return '種類: $type  アクセス: $accessCount  作成: $createdAt';
   }
 
   @override
   String templateRecordSubtitle(Object createdAt, Object templateKind) {
-    return '$templateKind  Created: $createdAt';
+    return '$templateKind  作成: $createdAt';
   }
 
   @override
-  String get defaultTemplateLabel => 'Default template';
+  String get defaultTemplateLabel => 'デフォルトテンプレート';
 
   @override
-  String get customTemplateLabel => 'Custom template';
+  String get customTemplateLabel => 'カスタムテンプレート';
 
   @override
-  String get refreshDiagnostics => 'Refresh diagnostics';
+  String get refreshDiagnostics => '診断を更新';
 
   @override
-  String get failedToLoadDiagnostics => 'Failed to load diagnostics';
+  String get failedToLoadDiagnostics => '診断の読み込みに失敗しました';
 
   @override
-  String get gestureDiagnosticsTitle => 'Gesture diagnostics';
+  String get gestureDiagnosticsTitle => 'ジェスチャー診断';
 
   @override
-  String get gestureDiagnosticsDescription =>
-      'Pull down to refresh permission, service, and native sync state.';
+  String get gestureDiagnosticsDescription => '下に引いて、権限・サービス・ネイティブ同期状態を更新します。';
 
   @override
-  String get slmDiagnosticsTitle => 'SLM diagnostics';
+  String get slmDiagnosticsTitle => 'SLM 診断';
 
   @override
   String get slmDiagnosticsDescription =>
-      'Inspect the current model, cache, and initialization state, then run a sample self-check inference.';
+      '現在のモデル、キャッシュ、初期化状態を確認し、サンプルのセルフチェック推論を実行します。';
 
   @override
-  String get allowlistedAppsLabel => 'Allowlisted apps';
+  String get allowlistedAppsLabel => '許可リスト対象アプリ';
 
   @override
-  String get floatingGestureLauncherTitle => 'Floating gesture launcher';
+  String get floatingGestureLauncherTitle => 'フローティングジェスチャーランチャー';
 
   @override
   String get floatingGestureLauncherEnabledDescription =>
-      'The master gesture toggle in settings is enabled.';
+      '設定のジェスチャーマスター切り替えは有効です。';
 
   @override
   String get floatingGestureLauncherDisabledDescription =>
-      'When the master toggle is off, double-tap and triple-tap gestures will not fire.';
+      'マスター切り替えが無効のとき、ダブルタップとトリプルタップのジェスチャーは発火しません。';
 
   @override
-  String get overlayPermissionTitle => 'Overlay permission';
+  String get overlayPermissionTitle => 'オーバーレイ権限';
 
   @override
   String get overlayPermissionGrantedDescription =>
-      'The system allows the app to draw over other apps.';
+      'システムにより、このアプリは他のアプリ上に表示できます。';
 
   @override
   String get overlayPermissionDeniedDescription =>
-      'Without this permission, the floating overlay service cannot start normally.';
+      'この権限がないと、フローティングオーバーレイサービスは正常に開始できません。';
 
   @override
-  String get usageAccessPermissionTitle => 'Usage Access permission';
+  String get usageAccessPermissionTitle => '使用状況アクセス権限';
 
   @override
-  String get usageAccessGrantedDescription =>
-      'The app can identify the current foreground app for allowlist checks.';
+  String get usageAccessGrantedDescription => '許可リスト確認のために現在の前面アプリを判別できます。';
 
   @override
   String get usageAccessDeniedDescription =>
-      'Without this permission, allowlist matching and cross-app gesture triggers will fail.';
+      'この権限がないと、許可リスト照合やアプリ横断ジェスチャー起動が失敗します。';
 
   @override
-  String get floatingServiceStatusTitle => 'Floating service status';
+  String get floatingServiceStatusTitle => 'フローティングサービス状態';
 
   @override
   String get floatingServiceRunningDescription =>
-      'The native floating service is currently listening for gestures.';
+      'ネイティブのフローティングサービスは現在ジェスチャーを待機しています。';
 
   @override
   String get floatingServiceEnabledButStoppedDescription =>
-      'The master toggle is enabled, but the native floating service is not running right now.';
+      'マスター切り替えは有効ですが、ネイティブのフローティングサービスは現在動作していません。';
 
   @override
   String get floatingServiceStoppedDescription =>
-      'When the master toggle is off, the service usually remains stopped.';
+      'マスター切り替えが無効な場合、サービスは通常停止したままです。';
 
   @override
   String get floatingServiceUnavailableDescription =>
-      'The native service state could not be read.';
+      'ネイティブサービスの状態を読み取れませんでした。';
 
   @override
-  String get doubleTapActionSyncTitle => 'Double-tap action sync';
+  String get doubleTapActionSyncTitle => 'ダブルタップ動作の同期';
 
   @override
-  String get doubleTapActionSyncedDescription =>
-      'The double-tap action is synced to the native layer.';
+  String get doubleTapActionSyncedDescription => 'ダブルタップ動作はネイティブ層と同期されています。';
 
   @override
   String get doubleTapActionOutOfSyncDescription =>
-      'The current double-tap action does not match the native layer. Re-saving gesture settings is recommended.';
+      '現在のダブルタップ動作はネイティブ層と一致していません。ジェスチャー設定を再保存することをおすすめします。';
 
   @override
-  String get tripleTapActionSyncTitle => 'Triple-tap action sync';
+  String get tripleTapActionSyncTitle => 'トリプルタップ動作の同期';
 
   @override
-  String get tripleTapActionSyncedDescription =>
-      'The triple-tap action is synced to the native layer.';
+  String get tripleTapActionSyncedDescription => 'トリプルタップ動作はネイティブ層と同期されています。';
 
   @override
   String get tripleTapActionOutOfSyncDescription =>
-      'The current triple-tap action does not match the native layer. Re-saving gesture settings is recommended.';
+      '現在のトリプルタップ動作はネイティブ層と一致していません。ジェスチャー設定を再保存することをおすすめします。';
 
   @override
-  String get allowlistScopeTitle => 'Allowlist scope';
+  String get allowlistScopeTitle => '許可リスト範囲';
 
   @override
-  String get allAppsValue => 'All apps';
+  String get allAppsValue => 'すべてのアプリ';
 
   @override
   String restrictedAppsValue(Object count) {
-    return 'Restricted to $count app(s)';
+    return '$count 件のアプリに制限';
   }
 
   @override
-  String get allowlistScopeAllAppsDescription =>
-      'Gestures currently attempt to work in every foreground app.';
+  String get allowlistScopeAllAppsDescription => '現在、ジェスチャーはすべての前面アプリで動作を試みます。';
 
   @override
   String get allowlistScopeRestrictedDescription =>
-      'Only allowlisted foreground apps currently respond to gestures.';
+      '現在、許可リストにある前面アプリのみがジェスチャーに反応します。';
 
   @override
-  String get allowlistNativeSyncTitle => 'Allowlist native sync';
+  String get allowlistNativeSyncTitle => '許可リストのネイティブ同期';
 
   @override
   String flutterNativeCountLabel(Object flutterCount, Object nativeCount) {
-    return 'Flutter: $flutterCount / Native: $nativeCount';
+    return 'Flutter: $flutterCount / ネイティブ: $nativeCount';
   }
 
   @override
   String actionSyncValue(Object flutterAction, Object nativeAction) {
-    return 'Flutter: $flutterAction / Native: $nativeAction';
+    return 'Flutter: $flutterAction / ネイティブ: $nativeAction';
   }
 
   @override
-  String get allowlistNativeUnreadableDescription =>
-      'The native allowlist could not be read.';
+  String get allowlistNativeUnreadableDescription => 'ネイティブの許可リストを読み取れませんでした。';
 
   @override
-  String get allowlistNativeSyncedDescription =>
-      'The allowlist is synced to the native layer.';
+  String get allowlistNativeSyncedDescription => '許可リストはネイティブ層と同期されています。';
 
   @override
   String get allowlistNativeOutOfSyncDescription =>
-      'Flutter and native allowlists are out of sync. Re-opening the allowlist page can trigger another sync.';
+      'Flutter とネイティブの許可リストが同期していません。許可リストページを開き直すと再同期が走る場合があります。';
 
   @override
-  String get runtimeEnvironmentTitle => 'Runtime environment';
+  String get runtimeEnvironmentTitle => '実行環境';
 
   @override
   String get environmentAndroid => 'Android';
@@ -1256,93 +1264,91 @@ class AppLocalizationsJa extends AppLocalizations {
   String get environmentWeb => 'Web';
 
   @override
-  String get environmentDesktop => 'Desktop';
+  String get environmentDesktop => 'デスクトップ';
 
   @override
   String get runtimeEnvironmentAndroidDescription =>
-      'This environment meets the baseline conditions for attempting on-device SLM inference.';
+      'この環境は、端末内 SLM 推論を試行するための基本条件を満たしています。';
 
   @override
   String get runtimeEnvironmentNonAndroidDescription =>
-      'This is not an Android device environment. The self-check can still run, but it will usually follow the rule-based fallback path.';
+      'これは Android 環境ではありません。セルフチェックは実行できますが、通常はルールベースのフォールバック経路になります。';
 
   @override
-  String get experimentalNativeInferenceFlagTitle =>
-      'Experimental native inference flag';
+  String get experimentalNativeInferenceFlagTitle => '実験的ネイティブ推論フラグ';
 
   @override
   String get experimentalNativeInferenceEnabledDescription =>
-      'This build allows attempts to enter the native SLM inference path. On Android, it is currently enabled whenever the SLM inference switch is on.';
+      '現在のアプリ版はデフォルトで純粋なルールモードを使用しており、この状態は将来の拡張のためだけに保持されています。';
 
   @override
   String get experimentalNativeInferenceDisabledDescription =>
-      'This build or runtime setting currently disables the native SLM inference path, so SLM remains in rule-fallback mode.';
+      '現在のアプリ版は純粋なルールエンジンに切り替わっているため、ネイティブ推論経路はもう使用されません。';
 
   @override
-  String get nativeInferenceSupportTitle => 'Native inference support';
+  String get nativeInferenceSupportTitle => 'ネイティブ推論サポート';
 
   @override
   String get nativeInferenceSupportAvailableDescription =>
-      'The required native symbols and runtime conditions for the current SLM inference path appear to be satisfied.';
+      '現在の SLM 推論経路に必要なネイティブシンボルと実行条件は満たされているようです。';
 
   @override
   String get nativeInferenceSupportUnavailableDescription =>
-      'This environment does not currently support native inference, so runtime will degrade automatically.';
+      'このアプリ版ではネイティブ推論を提供しません。タイトル、タグ、トピックはローカルルールで生成されます。';
 
   @override
-  String get nativeSymbolDetectionTitle => 'Native symbol detection';
+  String get nativeSymbolDetectionTitle => 'ネイティブシンボル検出';
 
   @override
   String get nativeSymbolDetectedDescription =>
-      'The required LlmInferenceEngine symbols are visible.';
+      '必要な LlmInferenceEngine シンボルが確認できました。';
 
   @override
   String get nativeSymbolMissingDescription =>
-      'When critical native symbols are missing, model inference falls back to rule mode immediately.';
+      '重要なネイティブシンボルが不足している場合、モデル推論は即座にルールモードへフォールバックします。';
 
   @override
-  String get bundledModelFormatTitle => 'Bundled model format';
+  String get bundledModelFormatTitle => '同梱モデル形式';
 
   @override
-  String get slmInitializationStateTitle => 'SLM initialization state';
+  String get slmInitializationStateTitle => 'SLM 初期化状態';
 
   @override
   String get slmInitializedDescription =>
-      'The service has already been initialized, so later self-checks reuse the current state.';
+      'サービスはすでに初期化されているため、以後のセルフチェックでも現在の状態を再利用します。';
 
   @override
   String get slmNotInitializedDescription =>
-      'Initialization has not been triggered yet. Running the self-check will attempt it automatically.';
+      '初期化はまだ開始されていません。セルフチェックを実行すると自動的に試行します。';
 
   @override
-  String get modelAvailabilityTitle => 'Model availability';
+  String get modelAvailabilityTitle => 'モデル利用可能性';
 
   @override
-  String get modelAvailableNow => 'Available now';
+  String get modelAvailableNow => '現在利用可能';
 
   @override
-  String get usingRuleFallback => 'Using rule fallback';
+  String get usingRuleFallback => 'ルールフォールバックを使用中';
 
   @override
   String get modelAvailabilityAvailableDescription =>
-      'Model inference can already be used directly on this device.';
+      'この端末では、モデル推論をすでに直接利用できます。';
 
   @override
   String get modelAvailabilityIncompatibleDescription =>
-      'The current model file format is incompatible with the current Android native SLM runtime, so runtime will stay on the rule fallback path until the bundled model is replaced.';
+      '現在のモデルファイル形式は現在の Android ネイティブ SLM ランタイムと互換性がないため、同梱モデルを差し替えるまでランタイムはルールフォールバック経路のままになります。';
 
   @override
   String get modelAvailabilityFallbackDescription =>
-      'This does not block the main flow, but title, tag, and topic generation will prefer the rule fallback path.';
+      '現在のアプリ版では、タイトル・タグ・トピックの生成にローカルルールを使用し、端末内モデル推論には依存しません。';
 
   @override
   String modelFileMissingDescription(Object path) {
-    return 'Current file path: $path. If the file is missing, the runtime automatically falls back to rule mode.';
+    return '現在のファイルパス: $path。ファイルが存在しない場合、ランタイムは自動的にルールモードへフォールバックします。';
   }
 
   @override
-  String get modelCacheRuntimeParametersTitle =>
-      'Model cache and runtime parameters';
+  String get modelCacheRuntimeParametersTitle => 'モデルキャッシュと実行パラメータ';
 
   @override
   String modelCacheRuntimeParametersDescription(Object assetPath,
@@ -1357,211 +1363,241 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String cacheSummaryLabel(Object count, Object size) {
-    return '$size · max cache entries $count';
+    return '$size · 最大キャッシュ件数 $count';
   }
 
   @override
   String slmSelfCheckFailed(Object error) {
-    return 'SLM self-check failed: $error';
+    return 'SLM セルフチェックに失敗しました: $error';
   }
 
   @override
-  String get slmSelfCheckTitle => 'SLM self-check';
+  String get slmSelfCheckTitle => 'SLM セルフチェック';
 
   @override
   String get slmSelfCheckAndroidHint =>
-      'It is best to run this once on a real Android device to confirm whether the model is actually being used.';
+      'モデルが実際に使われているかを確認するため、実機の Android 端末で一度実行することをおすすめします。';
 
   @override
   String get slmSelfCheckNonAndroidHint =>
-      'This is not an Android device environment, so the self-check is mainly useful for validating fallback behavior and configuration state.';
+      'これは Android 環境ではないため、セルフチェックは主にフォールバック挙動と設定状態の確認に役立ちます。';
 
   @override
-  String get runSelfCheck => 'Run self-check';
+  String get runSelfCheck => 'セルフチェックを実行';
 
   @override
   String get noSelfCheckYet =>
-      'No self-check has been run yet. Running one on the target device is recommended to verify whether topic extraction and title/tag generation use the model or rule fallback.';
+      'まだセルフチェックは実行されていません。対象端末で一度実行し、トピック抽出やタイトル/タグ生成がモデルとルールフォールバックのどちらを使っているか確認することをおすすめします。';
 
   @override
   String completedChipLabel(Object time) {
-    return 'Completed $time';
+    return '$time に完了';
   }
 
   @override
-  String get topicExtraction => 'Topic extraction';
+  String get topicExtraction => 'トピック抽出';
 
   @override
-  String get titleAndTagGeneration => 'Title and tag generation';
+  String get titleAndTagGeneration => 'タイトルとタグの生成';
 
   @override
   String fallbackDetailLabel(Object latency, Object mode) {
-    return 'fallback: $mode · ${latency}ms';
+    return 'フォールバック: $mode · ${latency}ms';
   }
 
   @override
   String tagsDetailLabel(Object tags) {
-    return 'tags: $tags';
+    return 'タグ: $tags';
   }
 
   @override
-  String get fallbackModel => 'Model';
+  String get fallbackModel => 'モデル';
 
   @override
-  String get fallbackCache => 'Cache';
+  String get fallbackCache => 'キャッシュ';
 
   @override
-  String get fallbackRules => 'Rules';
+  String get fallbackRules => 'ルール';
 
   @override
-  String get fallbackDisabledUnavailable => 'Disabled/Unavailable';
+  String get fallbackDisabledUnavailable => '無効/利用不可';
 
   @override
-  String get summaryBannerErrorTitle =>
-      'Issues were found that can directly break gesture behavior';
+  String get summaryBannerErrorTitle => 'ジェスチャー動作を直接壊す可能性のある問題が見つかりました';
 
   @override
-  String get summaryBannerErrorDescription =>
-      'Permission-related issues should usually be fixed first.';
+  String get summaryBannerErrorDescription => '通常は、権限関連の問題を最初に修正するべきです。';
 
   @override
-  String get summaryBannerWarningTitle =>
-      'Some gesture configuration issues need attention';
+  String get summaryBannerWarningTitle => '注意が必要なジェスチャー設定の問題があります';
 
   @override
   String get summaryBannerWarningDescription =>
-      'When sync state or service state drifts, gestures may not trigger as expected.';
+      '同期状態やサービス状態がずれていると、ジェスチャーが期待どおりに発火しない場合があります。';
 
   @override
-  String get summaryBannerHealthyTitle =>
-      'No obvious gesture issues were found';
+  String get summaryBannerHealthyTitle => '明らかなジェスチャーの問題は見つかりませんでした';
 
   @override
-  String get summaryBannerHealthyDescription =>
-      'Permissions, service state, and native synchronization all look healthy.';
+  String get summaryBannerHealthyDescription => '権限、サービス状態、ネイティブ同期はいずれも良好です。';
 
   @override
-  String get ocrRecognitionTitlePrefix => 'OCR Recognition';
+  String get ocrRecognitionTitlePrefix => 'OCR 認識';
 
   @override
   String ocrRecognizedCharacters(Object count) {
-    return 'Recognized $count characters';
+    return '認識文字数 $count';
   }
 
   @override
   String ocrFailedMessage(Object error) {
-    return 'OCR failed: $error';
+    return 'OCR に失敗しました: $error';
   }
 
   @override
   String ocrProcessingFailedMessage(Object error) {
-    return 'OCR processing failed: $error';
+    return 'OCR 処理に失敗しました: $error';
   }
 
   @override
-  String get previewEnterContent =>
-      'Enter content to preview suggested titles and tags';
+  String get unableToReadImageFile => '画像ファイルを読み取れません';
+
+  @override
+  String get previewEnterContent => '候補タイトルとタグをプレビューするには内容を入力してください';
 
   @override
   String previewGenerationFailed(Object error) {
-    return 'Preview generation failed: $error';
+    return 'プレビュー生成に失敗しました: $error';
   }
 
   @override
-  String get previewApplied => 'Applied preview title and tags to the form';
+  String get previewApplied => 'プレビューのタイトルとタグをフォームに適用しました';
 
   @override
-  String get contentRequiredMessage => 'Content is required';
+  String get contentRequiredMessage => '内容は必須です';
 
   @override
-  String get summaryUpdated => 'Summary updated';
+  String get summaryUpdated => '要約を更新しました';
 
   @override
-  String get duplicateFactMemoryUpdated =>
-      'Detected a duplicate fact memory and updated the existing record';
+  String get duplicateFactMemoryUpdated => '重複する事実記憶を検出し、既存レコードを更新しました';
 
   @override
-  String get savedAndMergedFactMemories => 'Saved and merged the fact memories';
+  String get savedAndMergedFactMemories => '事実記憶を保存して統合しました';
 
   @override
   String saveFailedMessage(Object error) {
-    return 'Save failed: $error';
+    return '保存に失敗しました: $error';
   }
 
   @override
-  String get mergeCandidatesFound => 'Merge candidates found';
+  String get mergeCandidatesFound => '統合候補が見つかりました';
 
   @override
   String mergeCandidatesFoundDescription(Object title) {
-    return '\"$title\" was saved. Review these merge candidates:';
+    return '\"$title\" を保存しました。次の統合候補を確認してください:';
   }
 
   @override
-  String get laterLabel => 'Later';
+  String get laterLabel => '後で';
 
   @override
-  String get existingFactMemory => 'Existing fact memory';
+  String get grantAccessLabel => 'アクセスを許可';
 
   @override
-  String get newFactMemory => 'New fact memory';
+  String get existingFactMemory => '既存の事実記憶';
 
   @override
-  String get editSummary => 'Edit summary';
+  String get newFactMemory => '新しい事実記憶';
 
   @override
-  String get saveContent => 'Save content';
+  String get editSummary => '要約を編集';
 
   @override
-  String get sharedBadge => 'Shared';
+  String get saveContent => '内容を保存';
 
   @override
-  String get remarkLabel => 'Remark';
+  String get sharedBadge => '共有';
 
   @override
-  String get enterTitleHint => 'Enter a title';
+  String get remarkLabel => '備考';
 
   @override
-  String get contentShareHint =>
-      'Content shared from other apps will appear here automatically';
+  String get enterTitleHint => 'タイトルを入力';
 
   @override
-  String get remarkHint => 'Add optional context or notes';
+  String get contentShareHint => '他アプリから共有された内容はここに自動表示されます';
 
   @override
-  String get tagsHint => 'Separate multiple tags with commas';
+  String get remarkHint => '任意の文脈やメモを追加';
 
   @override
-  String get previewSuggestedTitleTags => 'Preview suggested title and tags';
+  String get tagsHint => '複数のタグはカンマで区切ってください';
+
+  @override
+  String get previewSuggestedTitleTags => '候補タイトルとタグをプレビュー';
 
   @override
   String get previewSuggestedTitleTagsDescription =>
-      'When enabled, suggestions are generated from the current content without overwriting your form automatically';
+      '有効にすると、現在の内容から候補を生成しますが、フォームを自動で上書きしません';
 
   @override
-  String get updateSummary => 'Update summary';
+  String get updateSummary => '要約を更新';
 
   @override
-  String get requiredFieldHint => '* indicates a required field';
+  String get requiredFieldHint => '* は必須項目です';
 
   @override
-  String get saveResultPreview => 'Save result preview';
+  String get saveResultPreview => '保存結果プレビュー';
 
   @override
-  String get previewPrimaryDescription =>
-      'The preview recommends titles and tags based primarily on the main content.';
+  String get previewPrimaryDescription => 'このプレビューは、主に本文内容をもとにタイトルとタグを提案します。';
 
   @override
-  String get suggestedTitle => 'Suggested title';
+  String get suggestedTitle => '提案タイトル';
 
   @override
-  String get suggestedTags => 'Suggested tags';
+  String get suggestedTags => '提案タグ';
 
   @override
-  String get applyToForm => 'Apply to form';
+  String get applyToForm => 'フォームに適用';
 
   @override
-  String get generatedByBuiltInModel => 'Generated by the built-in model';
+  String get generatedByBuiltInModel => 'ネイティブ SLM ランタイムにより生成';
 
   @override
-  String get generatedByLocalRules => 'Generated by local rules';
+  String get generatedByLocalRules => 'ローカルルールにより生成';
+
+  @override
+  String get pendingSummary => '保留中の要約';
+
+  @override
+  String get temporaryTopic => '仮テーマ';
+
+  @override
+  String get generalTopic => '一般トピック';
+
+  @override
+  String get uncategorized => '未分類';
+
+  @override
+  String get unknownModelFormat => '不明なモデル形式';
+
+  @override
+  String modelFormatBundledSupported(Object extension) {
+    return '同梱の .$extension アセットを検出しました。現在のローカルルールモードはネイティブランタイムなしで継続できます。';
+  }
+
+  @override
+  String modelFormatUnsupportedForLocalRules(Object extension) {
+    return '現在のローカルルールモードでは .$extension アセットはサポートされていません。';
+  }
+
+  @override
+  String get slmSelfCheckTopicSampleContent =>
+      'この診断サンプルは、現在の端末でローカルルールのトピック抽出が正しく動作するかを確認するためのものです。';
+
+  @override
+  String get slmSelfCheckMetadataSampleContent =>
+      'この診断サンプルは、現在の Local Vault 環境でタイトルとタグの生成が正しく動作するかを確認するためのものです。検索しやすいタイトルと 2 から 4 個のタグを生成してください。';
 }
