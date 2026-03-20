@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:local_vault/core/domain/entities/rule_semantic_profile.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
+import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
 import 'package:local_vault/core/utils/topic_placeholder_utils.dart';
@@ -16,11 +18,13 @@ class SummaryUseCases {
     this.repository,
     this.slmService, {
     this.policyConfig = MemoryPolicyConfig.defaults,
+    this.memoryCapability,
   });
 
   final SummaryRepositoryInterface repository;
   final MemorySLMService slmService;
   final MemoryPolicyConfig policyConfig;
+  final MemoryCapability? memoryCapability;
 
   /// 添加摘要
   Future<void> addSummary(SummaryEntity summary) async {
@@ -28,6 +32,7 @@ class SummaryUseCases {
     if (summary.type == MemoryType.fact) {
       await _upgradeFactToCoreIfNeeded(summary.id);
     }
+    _scheduleMemoryCompaction();
   }
 
   /// 更新摘要
@@ -36,11 +41,13 @@ class SummaryUseCases {
     if (summary.type == MemoryType.fact) {
       await _upgradeFactToCoreIfNeeded(summary.id);
     }
+    _scheduleMemoryCompaction();
   }
 
   /// 删除摘要
   Future<void> deleteSummary(String id) async {
     await repository.deleteSummary(id);
+    _scheduleMemoryCompaction();
   }
 
   /// 获取单个摘要
@@ -77,12 +84,14 @@ class SummaryUseCases {
   Future<void> recordAccess(String id) async {
     await repository.recordAccess(id);
     await _upgradeFactToCoreIfNeeded(id);
+    _scheduleMemoryCompaction();
   }
 
   /// 更新重要性评分
   Future<void> updateImportance(String id, double importance) async {
     await repository.updateImportance(id, importance);
     await _upgradeFactToCoreIfNeeded(id);
+    _scheduleMemoryCompaction();
   }
 
   /// 获取事实记忆升级为核心记忆的说明
@@ -113,6 +122,7 @@ class SummaryUseCases {
       updatedAt: DateTime.now(),
     );
     await repository.updateSummary(updated);
+    _scheduleMemoryCompaction();
     return updated;
   }
 
@@ -212,28 +222,47 @@ class SummaryUseCases {
     );
   }
 
-  /// 添加会话记忆（仅在会话内合并）
+  /// Adds a session memory and schedules background processing.
+  /// If a MemoryCapability is available, it delegates ingestion to the runtime.
+  /// Otherwise, falls back to legacy batch merging logic.
   Future<void> addSessionMemory(SummaryEntity summary) async {
     final sessionSummaries = getSummariesByType(MemoryType.session);
+    SummaryEntity? savedSession;
 
     final duplicate = _findExactDuplicate(sessionSummaries, summary);
     if (duplicate != null) {
-      await updateSummary(
-        duplicate.copyWith(
-          lastAccessedAt: DateTime.now(),
-          accessCount: duplicate.accessCount + 1,
-          updatedAt: DateTime.now(),
-        ),
+      savedSession = duplicate.copyWith(
+        lastAccessedAt: DateTime.now(),
+        accessCount: duplicate.accessCount + 1,
+        updatedAt: DateTime.now(),
       );
+      await updateSummary(savedSession);
     } else {
-      await addSummary(summary.copyWith(type: MemoryType.session));
+      savedSession = summary.copyWith(type: MemoryType.session);
+      await addSummary(savedSession);
     }
 
-    await checkAndMergeSessionBatches();
+    final capability = memoryCapability;
+    if (capability != null) {
+      unawaited(capability.ingestSession(savedSession));
+      return;
+    }
+
+    // Legacy fallback path - should be phased out after full migration
+    debugPrint('⚠️ [SummaryUseCases] Falling back to legacy session merge');
   }
 
-  /// 检查并合并 Session 批次
+  /// Processes session batches for merging.
+  /// If a MemoryCapability is available, it delegates compaction to the runtime.
+  /// Otherwise, executes local batch merging using SLM.
   Future<int> checkAndMergeSessionBatches() async {
+    final capability = memoryCapability;
+    if (capability != null) {
+      return capability.compact();
+    }
+
+    // Legacy path - should be removed after migration
+    debugPrint('⚠️ [SummaryUseCases] Executing legacy session batch merge');
     final sessions = getSummariesByType(MemoryType.session);
     if (sessions.isEmpty) {
       return 0;
@@ -404,6 +433,14 @@ class SummaryUseCases {
         await deleteSummary(session.id);
       }
     }
+  }
+
+  void _scheduleMemoryCompaction() {
+    final capability = memoryCapability;
+    if (capability == null) {
+      return;
+    }
+    unawaited(capability.compact());
   }
 
   /// 查找相似记忆
