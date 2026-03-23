@@ -527,10 +527,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noSimilarMemoriesFound => 'Keine ähnlichen Speicher gefunden';
 
   @override
-  String get currentFactMemory => 'Aktueller Faktenspeicher';
+  String get currentFactMemory => 'Originalversion';
 
   @override
-  String get candidateFactMemory => 'Faktenspeicher-Kandidat';
+  String get candidateFactMemory => 'Neue Version';
 
   @override
   String get mergeCompleted => 'Zusammenführung abgeschlossen';

@@ -1,3 +1,8 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
+import 'package:flutter/services.dart' show rootBundle;
+
 /// 结构化标题数据模型
 class StructuredTitleData {
   final String? subject;
@@ -47,55 +52,127 @@ class StructuredTitleResult {
 /// raw memory → 抽 subject / action / topic → canonical normalize
 /// → 生成 2~3 个标题候选 → 打分选择 → 输出 title
 class StructuredMemoryTitleGenerator {
-  /// Topic Taxonomy 白名单 - 标准主题列表
-  static const Set<String> _topicTaxonomy = {
-    // 技术领域
+  /// Topic Taxonomy 白名单 - 标准主题列表（运行时从外部文件加载）
+  static Set<String> _topicTaxonomy = {};
+
+  /// 同义词映射表（运行时从外部文件加载）
+  static Map<String, String> _synonymMappings = {};
+
+  /// 是否已加载配置
+  static bool _isInitialized = false;
+
+  /// 是否正在加载中
+  static bool _isLoading = false;
+
+  /// 获取当前可用的 Topic Taxonomy（优先返回已加载的，否则返回默认值）
+  static Set<String> get _currentTopicTaxonomy {
+    if (_isInitialized && _topicTaxonomy.isNotEmpty) {
+      return _topicTaxonomy;
+    }
+    // 未初始化或为空时，立即返回默认配置
+    return _defaultTopicTaxonomy;
+  }
+
+  /// 获取当前可用的同义词映射（优先返回已加载的，否则返回默认值）
+  static Map<String, String> get _currentSynonymMappings {
+    if (_isInitialized && _synonymMappings.isNotEmpty) {
+      return _synonymMappings;
+    }
+    // 未初始化或为空时，立即返回默认配置
+    return _defaultSynonymMappings;
+  }
+
+  /// 初始化并加载 Topic Taxonomy 配置
+  static Future<void> initialize() async {
+    if (_isInitialized || _isLoading) return;
+
+    _isLoading = true;
+    try {
+      debugPrint('📦 [TopicTaxonomy] 开始加载配置文件...');
+      // 从 assets 加载配置文件
+      final jsonString =
+          await rootBundle.loadString('assets/config/topic_taxonomy.json');
+      final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      // 解析主题分类
+      final topicsJson = jsonData['topics'] as Map<String, dynamic>;
+      final allTopics = <String>{};
+      for (final category in topicsJson.values) {
+        if (category is List) {
+          allTopics.addAll(category.cast<String>());
+        }
+      }
+      _topicTaxonomy = allTopics;
+
+      // 解析同义词映射
+      final synonymsJson = jsonData['synonyms'] as Map<String, dynamic>;
+      final synonymMap = <String, String>{};
+      synonymsJson.forEach((standardTopic, variants) {
+        if (variants is List) {
+          for (final variant in variants) {
+            if (variant is String) {
+              synonymMap[variant.toLowerCase()] = standardTopic;
+            }
+          }
+        }
+      });
+      _synonymMappings = synonymMap;
+
+      _isInitialized = true;
+      debugPrint(
+          '✅ [TopicTaxonomy] 加载成功：${_topicTaxonomy.length} 个主题，${_synonymMappings.length} 个同义词映射');
+    } catch (e, stackTrace) {
+      debugPrint('⚠️ [TopicTaxonomy] 加载失败：$e，使用默认配置');
+      debugPrintStack(stackTrace: stackTrace);
+      // 使用默认兜底配置
+      _topicTaxonomy = _defaultTopicTaxonomy;
+      _synonymMappings = _defaultSynonymMappings;
+      _isInitialized = true;
+    } finally {
+      _isLoading = false;
+    }
+  }
+
+  /// 默认 Topic Taxonomy（兜底配置）
+  static const Set<String> _defaultTopicTaxonomy = {
     '软件开发',
     '移动开发',
     '前端开发',
     '后端开发',
-    '全栈开发',
     '架构设计',
-    '系统设计',
     '数据库',
-    '云计算',
-    'DevOps',
-    '测试',
-    '性能优化',
-    '安全',
-    'UI/UX',
-    '产品管理',
-    '项目管理',
-    '技术管理',
-    '代码审查',
-    '技术文档',
-    '技术研究',
-
-    // 编程语言
     'Flutter',
     'Dart',
     'Android',
     'iOS',
-    'Web',
     'Python',
     'Java',
-    'JavaScript',
-    'TypeScript',
-    'Go',
-    'Rust',
-    'C++',
-
-    // 通用主题
     'Bug 修复',
     '功能需求',
-    '技术咨询',
     '学习总结',
-    '工作经验',
-    '生活记录',
-    '健康医疗',
-    '金融理财',
-    '教育培训',
-    '娱乐休闲',
+    '技术咨询',
+    'RAG',
+    'GraphRAG',
+    'LLM',
+    'SLM',
+    'AI',
+    'OCR',
+  };
+
+  /// 默认同义词映射（兜底配置）
+  static const Map<String, String> _defaultSynonymMappings = {
+    '编程': '软件开发',
+    'coding': '软件开发',
+    'app': '移动开发',
+    'mobile': '移动开发',
+    'rag': 'RAG',
+    '检索增强生成': 'RAG',
+    'graphrag': 'GraphRAG',
+    '知识图谱': 'GraphRAG',
+    'llm': 'LLM',
+    '大语言模型': 'LLM',
+    'ocr': 'OCR',
+    '文字识别': 'OCR',
   };
 
   /// 格式基础分映射表
@@ -107,7 +184,7 @@ class StructuredMemoryTitleGenerator {
 
   /// 预编译的正则表达式模式
   static final List<RegExp> _subjectPatterns = [
-    RegExp(r'(\w+(?:\s+\w+)*?)\s+的?\s*(?:设计 | 优化 | 实现 | 分析)',
+    RegExp(r'(\w+(?:\s+\w+)*?)\s+的？\s*(?:设计 | 优化 | 实现 | 分析)',
         caseSensitive: false),
     RegExp(r'(\w+(?:\s+\w+)*?)\s+(?:for|about|on)', caseSensitive: false),
     RegExp(r'(\w+(?:-\w+)*)', caseSensitive: false),
@@ -123,148 +200,6 @@ class StructuredMemoryTitleGenerator {
     RegExp(r'(\w+(?:-\w+)*)', caseSensitive: false),
   ];
 
-  /// 同义词映射表 - 将变体映射到标准主题
-  static const Map<String, String> _synonymMappings = {
-    // 软件开发相关
-    '编程': '软件开发',
-    '写代码': '软件开发',
-    '敲代码': '软件开发',
-    'coding': '软件开发',
-    'code': '软件开发',
-    'development': '软件开发',
-    'dev': '软件开发',
-
-    // 移动开发相关
-    'app': '移动开发',
-    'APP': '移动开发',
-    '应用': '移动开发',
-    'apps': '移动开发',
-    'mobile': '移动开发',
-
-    // 前端相关
-    '界面': '前端开发',
-    '页面': '前端开发',
-    '网页': '前端开发',
-    'web': '前端开发',
-    'h5': '前端开发',
-    'css': '前端开发',
-    'html': '前端开发',
-
-    // 后端相关
-    '服务器': '后端开发',
-    'api': '后端开发',
-    'API': '后端开发',
-    'backend': '后端开发',
-    'server': '后端开发',
-
-    // 架构相关
-    '架构': '架构设计',
-    'architecture': '架构设计',
-    'system design': '系统设计',
-    'design pattern': '架构设计',
-    '设计模式': '架构设计',
-
-    // 数据库相关
-    '数据库': '数据库',
-    'db': '数据库',
-    'sql': '数据库',
-    'mysql': '数据库',
-    'postgresql': '数据库',
-    'mongodb': '数据库',
-    'redis': '数据库',
-
-    // 测试相关
-    'testing': '测试',
-    'test': '测试',
-    '单元测试': '测试',
-    '集成测试': '测试',
-    'e2e': '测试',
-    'qa': '测试',
-
-    // 运维相关
-    '部署': 'DevOps',
-    'deploy': 'DevOps',
-    'ci/cd': 'DevOps',
-    'docker': 'DevOps',
-    'k8s': 'DevOps',
-    'kubernetes': 'DevOps',
-    '运维': 'DevOps',
-
-    // UI/UX 相关
-    'ui': 'UI/UX',
-    'ux': 'UI/UX',
-    '设计': 'UI/UX',
-    'design': 'UI/UX',
-    '用户体验': 'UI/UX',
-    '交互': 'UI/UX',
-    '视觉': 'UI/UX',
-
-    // 产品/项目相关
-    '产品': '产品管理',
-    'product': '产品管理',
-    'pm': '产品管理',
-    '项目': '项目管理',
-    'project': '项目管理',
-    'manager': '项目管理',
-    '管理': '技术管理',
-    'team': '技术管理',
-    '领导': '技术管理',
-
-    // Bug 相关
-    'bug': 'Bug 修复',
-    'Bug': 'Bug 修复',
-    '缺陷': 'Bug 修复',
-    '问题': 'Bug 修复',
-    'issue': 'Bug 修复',
-    'fix': 'Bug 修复',
-    '修复': 'Bug 修复',
-    '调试': 'Bug 修复',
-    'debug': 'Bug 修复',
-
-    // 功能相关
-    'feature': '功能需求',
-    'Feature': '功能需求',
-    '需求': '功能需求',
-    '功能': '功能需求',
-    '新特性': '功能需求',
-
-    // 学习相关
-    '学习': '学习总结',
-    'learn': '学习总结',
-    'study': '学习总结',
-    '教程': '学习总结',
-    'tutorial': '学习总结',
-    '课程': '学习总结',
-    '培训': '学习总结',
-    '知识': '学习总结',
-
-    // 文档相关
-    '文档': '技术文档',
-    'document': '技术文档',
-    'doc': '技术文档',
-    'readme': '技术文档',
-    'wiki': '技术文档',
-    '说明': '技术文档',
-    '注释': '技术文档',
-
-    // 性能相关
-    '性能': '性能优化',
-    'performance': '性能优化',
-    'optimization': '性能优化',
-    '优化': '性能优化',
-    'optimize': '性能优化',
-    '加速': '性能优化',
-    '效率': '性能优化',
-
-    // 安全相关
-    '安全': '安全',
-    'security': '安全',
-    '加密': '安全',
-    'auth': '安全',
-    'authentication': '安全',
-    '权限': '安全',
-    'permission': '安全',
-  };
   static const Set<String> _stopWords = {
     '关于',
     '一些',
@@ -434,14 +369,16 @@ class StructuredMemoryTitleGenerator {
     }
 
     final normalizedTopic = topic.trim().toLowerCase();
+    final synonymMappings = _currentSynonymMappings;
+    final topicTaxonomy = _currentTopicTaxonomy;
 
     // 1. 直接匹配同义词映射
-    if (_synonymMappings.containsKey(normalizedTopic)) {
-      return _synonymMappings[normalizedTopic];
+    if (synonymMappings.containsKey(normalizedTopic)) {
+      return synonymMappings[normalizedTopic];
     }
 
     // 2. 部分匹配 - 检查是否包含同义词
-    for (final entry in _synonymMappings.entries) {
+    for (final entry in synonymMappings.entries) {
       if (normalizedTopic.contains(entry.key) ||
           entry.key.contains(normalizedTopic)) {
         return entry.value;
@@ -449,7 +386,7 @@ class StructuredMemoryTitleGenerator {
     }
 
     // 3. 检查是否在 Topic Taxonomy 白名单中（优化：缓存 lowercase 比较）
-    for (final standardTopic in _topicTaxonomy) {
+    for (final standardTopic in topicTaxonomy) {
       final lowerStandard = standardTopic.toLowerCase();
       if (lowerStandard == normalizedTopic ||
           lowerStandard.contains(normalizedTopic) ||
@@ -571,7 +508,8 @@ class StructuredMemoryTitleGenerator {
   /// 检查是否是标准主题
   static bool _isCanonicalTopic(String topic) {
     final normalized = topic.trim().toLowerCase();
-    return _topicTaxonomy.any((standard) =>
+    final topicTaxonomy = _currentTopicTaxonomy;
+    return topicTaxonomy.any((standard) =>
         standard.toLowerCase() == normalized ||
         standard.toLowerCase().contains(normalized) ||
         normalized.contains(standard.toLowerCase()));

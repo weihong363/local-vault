@@ -14,5 +14,7 @@ class StorageInitializer {
     if (!Hive.isAdapterRegistered(0)) {
       Hive.registerAdapter(SummaryAdapter());
     }
+
+    debugPrint('✅ [StorageInitializer] Storage initialized');
   }
 }

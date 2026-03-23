@@ -98,8 +98,12 @@ class _MemoryMergeDiffPageState extends ConsumerState<MemoryMergeDiffPage> {
           const SizedBox(height: 16),
           _buildFieldSection(
             title: loc.content,
-            existingValue: widget.primarySummary.content,
-            incomingValue: widget.secondarySummary.content,
+            existingValue: widget.primarySummary.content.isEmpty
+                ? widget.primarySummary.title // 降级使用 title
+                : widget.primarySummary.content,
+            incomingValue: widget.secondarySummary.content.isEmpty
+                ? widget.secondarySummary.title // 降级使用 title
+                : widget.secondarySummary.content,
             existingLabel: widget.primaryLabel,
             incomingLabel: widget.secondaryLabel,
             choice: _contentChoice,

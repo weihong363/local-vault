@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -513,10 +512,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get noSimilarMemoriesFound => '類似する記憶が見つかりません';
 
   @override
-  String get currentFactMemory => '現在の事実記憶';
+  String get currentFactMemory => '原版記憶';
 
   @override
-  String get candidateFactMemory => '候補の事実記憶';
+  String get candidateFactMemory => '新版記憶';
 
   @override
   String get mergeCompleted => '統合が完了しました';

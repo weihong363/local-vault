@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -505,10 +504,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noSimilarMemoriesFound => '未找到相似记忆';
 
   @override
-  String get currentFactMemory => '当前事实记忆';
+  String get currentFactMemory => '原版记忆';
 
   @override
-  String get candidateFactMemory => '候选事实记忆';
+  String get candidateFactMemory => '新版记忆';
 
   @override
   String get mergeCompleted => '合并完成';

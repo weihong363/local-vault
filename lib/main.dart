@@ -16,6 +16,7 @@ import 'package:local_vault/core/services/save_coordinator.dart';
 import 'package:local_vault/core/services/share_service.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
 import 'package:local_vault/core/utils/storage_initializer.dart';
+import 'package:local_vault/core/utils/memory_title_generator.dart';
 import 'package:local_vault/core/widgets/bottom_navigation.dart';
 import 'package:local_vault/core/widgets/quick_action_activity_page.dart';
 import 'package:local_vault/features/app_whitelist/presentation/pages/app_whitelist_page.dart';
@@ -35,6 +36,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await StorageInitializer.initialize();
   await initializeDependencies();
+  // 初始化 Topic Taxonomy
+  await StructuredMemoryTitleGenerator.initialize();
   runApp(const ProviderScope(child: LocalVaultApp()));
 }
 

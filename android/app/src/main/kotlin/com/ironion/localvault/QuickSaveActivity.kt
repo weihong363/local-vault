@@ -146,7 +146,7 @@ class QuickSaveActivity : Activity() {
     
     /**
      * 保存到数据库
-     * 方案：通过 MethodChannel 调用 Flutter 端，如果 Flutter 未启动则显示通知
+     * 方案：通过 local_vault/share channel 发送请求，让 MainActivity 统一处理
      */
  private fun saveToDatabase(content: String) {
         Log.d(TAG, "💾 Saving to the database...")
@@ -154,29 +154,34 @@ class QuickSaveActivity : Activity() {
  try {
     // 使用 MainActivity 中保存的静态 FlutterEngine 引用
    MainActivity.flutterEngine?.let { engine ->
-       Log.d(TAG, "✅ Flutter engine is ready, saving via MethodChannel")
-     
-    val channel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
-    
-    // 调用 Flutter 端的保存方法
-   channel.invokeMethod("saveFromClipboard", content, object : MethodChannel.Result {
+       Log.d(TAG, "✅ Flutter engine is ready, saving via share channel")
+
+       // ✅ 关键修复：使用 local_vault/share channel 而不是 quick_save channel
+       // 这样可以让 ShareService 统一处理，避免 Flutter 未就绪的问题
+       val channel = MethodChannel(engine.dartExecutor.binaryMessenger, "local_vault/share")
+
+       // 调用 onQuickSaveRequested 方法，让 ShareService 处理
+       channel.invokeMethod("onQuickSaveRequested", content, object : MethodChannel.Result {
   override fun success(result: Any?) {
-      Log.d(TAG, "✅ Flutter-side save succeeded")
+      Log.d(TAG, "✅ ShareService received the request")
   }
   
   override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-      Log.e(TAG, "❌ Flutter-side save failed: $errorCode - $errorMessage")
+      Log.e(TAG, "❌ ShareService failed: $errorCode - $errorMessage")
+      // 降级方案：显示通知
+      showFallbackNotification(content)
   }
   
   override fun notImplemented() {
-      Log.w(TAG, "⚠️ Flutter-side saveFromClipboard is not implemented; the app may not be fully started yet")
+      Log.w(TAG, "⚠️ ShareService not implemented; app may not be fully started yet")
   // 显示降级通知，引导用户手动打开应用
   showFallbackNotification(content)
   }
 })
  } ?: run {
        Log.w(TAG, "⚠️ Flutter engine is not running, cannot save directly")
-  // Flutter 未启动时，可以显示通知引导用户
+       // Flutter 未启动时，显示降级通知
+       showFallbackNotification(content)
  }
  
  } catch (e: Exception) {

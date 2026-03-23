@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:local_vault/core/config/memory_policy_config.dart';
+import 'package:local_vault/core/domain/repositories/memory_promotion_repository_interface.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 import 'package:local_vault/core/domain/repositories/template_repository_interface.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
@@ -17,6 +18,7 @@ import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/services/storage_management_service.dart';
 import 'package:local_vault/core/services/summary_metadata_service.dart';
 import 'package:local_vault/core/theme/memory_theme_config.dart';
+import 'package:local_vault/infrastructure/repositories/hive_memory_promotion_repository.dart';
 import 'package:local_vault/infrastructure/repositories/hive_memory_sidecar_repository.dart';
 import 'package:local_vault/infrastructure/repositories/hive_summary_repository.dart';
 import 'package:local_vault/infrastructure/repositories/hive_template_repository.dart';
@@ -39,6 +41,9 @@ Future<void> initializeDependencies() async {
   );
   sl.registerLazySingleton<MemorySidecarRepository>(
     () => HiveMemorySidecarRepository(),
+  );
+  sl.registerLazySingleton<MemoryPromotionRepositoryInterface>(
+    () => HiveMemoryPromotionRepository(),
   );
   sl.registerLazySingleton<AppSettingsService>(
     () => AppSettingsService(),
@@ -120,7 +125,6 @@ Future<void> initializeDependencies() async {
       contextAssembler: sl<ContextAssembler>(),
       worker: sl<MemoryWorker>(),
       policy: sl<MemoryPolicy>(),
-      legacyPolicyConfig: sl<MemoryPolicyConfig>(),
       slmService: sl<MemorySLMService>(),
       modelRuntimeProvider: sl<ModelRuntimeProvider>(),
     ),
@@ -133,6 +137,8 @@ Future<void> initializeDependencies() async {
       sl<MemorySLMService>(),
       policyConfig: sl<MemoryPolicyConfig>(),
       memoryCapability: sl<MemoryCapability>(),
+      promotionRepository: sl<MemoryPromotionRepositoryInterface>(),
+      merger: sl<MemoryMerger>(),
     ),
   );
   sl.registerLazySingleton<TemplateUseCases>(
@@ -143,6 +149,7 @@ Future<void> initializeDependencies() async {
   await sl<SummaryRepositoryInterface>().init();
   await sl<TemplateRepositoryInterface>().init();
   await sl<MemorySidecarRepository>().init();
+  await sl<MemoryPromotionRepositoryInterface>().init();
 
   debugPrint('✅ [DI] Dependency injection initialized');
 }

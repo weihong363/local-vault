@@ -19,8 +19,8 @@ class DatabaseInspectorPage extends StatefulWidget {
 class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
   static final String _summaryBoxName = AppStorage.summaryBoxName;
   static final String _templateBoxName = AppStorage.templateBoxName;
+  static final String _promotionBoxName = AppStorage.memoryPromotionBoxName;
   static const JsonEncoder _jsonEncoder = JsonEncoder.withIndent('  ');
-
   late final Future<void> _initFuture = _ensureBoxesOpen();
 
   Future<void> _ensureBoxesOpen() async {
@@ -30,11 +30,16 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
     if (!Hive.isBoxOpen(_templateBoxName)) {
       await Hive.openBox(_templateBoxName);
     }
+    if (!Hive.isBoxOpen(_promotionBoxName)) {
+      await Hive.openBox(_promotionBoxName);
+    }
   }
 
   Box get _summaryBox => Hive.box(_summaryBoxName);
 
   Box get _templateBox => Hive.box(_templateBoxName);
+
+  Box get _promotionBox => Hive.box(_promotionBoxName);
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +66,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
         }
 
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: Scaffold(
             appBar: AppBar(
               title: Text(loc.databaseInspector),
@@ -78,6 +83,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
                 tabs: [
                   Tab(text: loc.summariesTab),
                   Tab(text: loc.templatesTab),
+                  const Tab(text: 'Promotion'), // ✅ 新增：晋升元数据 tab
                 ],
               ),
             ),
@@ -85,6 +91,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
               children: [
                 _buildSummaryTab(),
                 _buildTemplateTab(),
+                _buildPromotionTab(), // ✅ 新增：晋升元数据 tab
               ],
             ),
           ),
@@ -111,9 +118,6 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
           extraSummary: [
             loc.recordsWithIssues(
               '${records.where((record) => record.issues.isNotEmpty).length}',
-            ),
-            loc.legacyTemplateTypes(
-              '${records.where((record) => record.hasLegacyTemplateType).length}',
             ),
           ],
         );
@@ -142,6 +146,32 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
             ),
             loc.defaultTemplatesCount(
               '${records.where((record) => record.isDefaultTemplate).length}',
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// ✅ 新增：构建晋升元数据 Tab
+  Widget _buildPromotionTab() {
+    final loc = AppLocalizations.of(context)!;
+    return ValueListenableBuilder(
+      valueListenable: _promotionBox.listenable(),
+      builder: (context, Box box, _) {
+        final records = box.keys
+            .map((key) => _inspectPromotionRecord(key, box.get(key)))
+            .toList()
+            .reversed
+            .toList(growable: false);
+
+        return _buildRecordList(
+          boxName: _promotionBoxName,
+          records: records,
+          emptyText: '暂无晋升元数据记录',
+          extraSummary: [
+            loc.recordsWithIssues(
+              '${records.where((record) => record.issues.isNotEmpty).length}',
             ),
           ],
         );
@@ -311,10 +341,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
     }
 
     final rawType = map['type'];
-    final hasLegacyTemplateType = rawType == 2 || rawType == 'template';
-    if (hasLegacyTemplateType) {
-      issues.add(loc.legacyTemplateRecordDetected);
-    }
+
     if ((map['id'] as String?)?.isEmpty ?? true) {
       issues.add(loc.missingId);
     }
@@ -362,7 +389,6 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
       ),
       issues: issues,
       prettyJson: _encodeRaw(map),
-      hasLegacyTemplateType: hasLegacyTemplateType,
     );
   }
 
@@ -495,6 +521,63 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
     throw ArgumentError('invalid date: $value');
   }
 
+  /// ✅ 新增：检查晋升元数据记录
+  _RecordInspection _inspectPromotionRecord(dynamic key, dynamic value) {
+    final loc = AppLocalizations.of(context)!;
+    final issues = <String>[];
+    final map = _safeMap(value);
+
+    if (map == null) {
+      issues.add(loc.recordNotMapCorrupted);
+      return _RecordInspection(
+        keyLabel: '$key',
+        title: '无法解析的晋升元数据',
+        subtitle: '原始类型：${value.runtimeType}',
+        issues: issues,
+        prettyJson: _encodeRaw(value),
+      );
+    }
+
+    // 验证必要字段
+    if ((map['summaryId'] as String?)?.isEmpty ?? true) {
+      issues.add('缺少 summaryId');
+    }
+
+    final sessionSpan = _parseInt(map['sessionSpan']);
+    if (sessionSpan == null) {
+      issues.add('sessionSpan 无效');
+    } else if (sessionSpan < 0) {
+      issues.add('sessionSpan 不能为负数');
+    }
+
+    final stabilityScore = map['stabilityScore'];
+    if (stabilityScore != null &&
+        (stabilityScore is! num || stabilityScore < 0 || stabilityScore > 1)) {
+      issues.add('stabilityScore 必须在 0-1 之间');
+    }
+
+    // 构建副标题
+    final summaryId = map['summaryId'] as String? ?? '未知';
+    final summaryTitle = map['summaryTitle'] as String? ?? '';
+    final sessionSpanValue = sessionSpan ?? 0;
+    final userExplicitSave = map['userExplicitSave'] == true;
+
+    final subtitle = summaryTitle.isNotEmpty
+        ? '$summaryTitle | Session: $sessionSpanValue | '
+            '${userExplicitSave ? '用户要求保存' : '自动保存'}'
+        : 'ID: $summaryId | Session: $sessionSpanValue';
+
+    return _RecordInspection(
+      keyLabel: '$key',
+      title: summaryTitle.isNotEmpty
+          ? '晋升元数据 - $summaryTitle'
+          : '晋升元数据 - $summaryId',
+      subtitle: subtitle,
+      issues: issues,
+      prettyJson: _encodeRaw(map),
+    );
+  }
+
   List<String> _parseTags(dynamic raw) {
     if (raw == null) {
       return const [];
@@ -520,7 +603,6 @@ class _RecordInspection {
     required this.subtitle,
     required this.issues,
     required this.prettyJson,
-    this.hasLegacyTemplateType = false,
     this.isDefaultTemplate = false,
   });
 
@@ -529,6 +611,5 @@ class _RecordInspection {
   final String subtitle;
   final List<String> issues;
   final String prettyJson;
-  final bool hasLegacyTemplateType;
   final bool isDefaultTemplate;
 }

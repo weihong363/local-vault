@@ -12,6 +12,7 @@ import 'package:local_vault/core/services/memory_slm_config.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
 import 'package:local_vault/core/utils/summary_text_utils.dart';
 import 'package:local_vault/core/utils/topic_placeholder_utils.dart';
+import 'package:local_vault/core/utils/memory_title_generator.dart';
 import 'package:local_vault/l10n/app_localizations.dart';
 
 typedef ModelDownloadProgressCallback = void Function(double progress);
@@ -433,52 +434,43 @@ class MemorySLMService {
       return injectedProfile;
     }
 
-    final localizations = _fallbackLocalizationsForText('$title $content');
-    final canonicalTopic = _extractCanonicalTopicAlias(title, content) ?? '';
+    // 使用 StructuredMemoryTitleGenerator 生成 topic 和 title
+    debugPrint(
+        '🔍 [MemorySLM] describeTextSemantics called, title length: ${title.length}, content length: ${content.length}');
+    final structuredResult = StructuredMemoryTitleGenerator.generateTitle(
+      content.isNotEmpty ? '$title\n$content' : title,
+    );
+
+    debugPrint(
+        '📊 [MemorySLM] Generated topic: "${structuredResult.structuredData.topic}", title: "${structuredResult.title}"');
+
+    final canonicalTopic = structuredResult.structuredData.topic ?? '';
     final canonicalKey = _normalizeText(canonicalTopic);
-    final candidates = _collectSemanticCandidates(
-      title: title,
-      content: content,
-      tags: tags,
-      canonicalTopic: canonicalTopic,
-      localizations: localizations,
-    );
-    final bestFacet = _pickBestSemanticFacet(
-      candidates,
-      canonicalKey: canonicalKey,
-    );
-    final displayTopic = _renderSemanticTopic(
-      title: title,
-      content: content,
-      canonicalTopic: canonicalTopic,
-      facet: bestFacet?.label ?? '',
-      localizations: localizations,
-    );
-    final displayTitle = _renderSemanticTitle(
-      title: title,
-      content: content,
-      canonicalTopic: canonicalTopic,
-      facet: bestFacet?.label ?? '',
-      displayTopic: displayTopic,
-    );
+
+    // 使用结构化结果作为 displayTopic 和 displayTitle
+    final displayTopic = canonicalTopic;
+    final displayTitle = structuredResult.title;
     final resolvedTags = _buildSemanticTags(
       title: displayTitle,
       content: content,
       canonicalTopic: canonicalTopic,
-      facet: bestFacet?.label ?? '',
+      facet: '',
+      // 不再使用 facet
       explicitTags: tags,
     );
     final keywords = _collectSemanticKeywords(
       displayTopic: displayTopic,
       displayTitle: displayTitle,
       canonicalTopic: canonicalTopic,
-      facet: bestFacet?.label ?? '',
+      facet: '',
+      // 不再使用 facet
       tags: resolvedTags,
       content: content,
     );
     final confidence = _estimateSemanticConfidence(
       canonicalTopic: canonicalTopic,
-      bestFacet: bestFacet,
+      bestFacet: null,
+      // 不再使用 bestFacet
       displayTopic: displayTopic,
       tags: resolvedTags,
       title: title,
@@ -491,8 +483,10 @@ class MemorySLMService {
           : RuleSemanticLanguage.latin,
       domainKey: canonicalKey,
       domainLabel: canonicalTopic,
-      facetKey: _normalizeText(bestFacet?.label ?? ''),
-      facetLabel: bestFacet?.label ?? '',
+      facetKey: '',
+      // 不再使用 facet
+      facetLabel: '',
+      // 不再使用 facet
       displayTopic: displayTopic,
       displayTitle: displayTitle,
       tags: resolvedTags,

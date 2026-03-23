@@ -1019,13 +1019,13 @@ abstract class AppLocalizations {
   /// No description provided for @currentFactMemory.
   ///
   /// In en, this message translates to:
-  /// **'Current fact memory'**
+  /// **'Original memory'**
   String get currentFactMemory;
 
   /// No description provided for @candidateFactMemory.
   ///
   /// In en, this message translates to:
-  /// **'Candidate fact memory'**
+  /// **'New memory'**
   String get candidateFactMemory;
 
   /// No description provided for @mergeCompleted.

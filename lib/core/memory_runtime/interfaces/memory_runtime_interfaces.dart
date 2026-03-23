@@ -1,6 +1,18 @@
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
 
+/// 记忆合并策略
+enum MemoryMergeStrategy {
+  /// 保留旧版本（左边的内容）
+  keepOld,
+
+  /// 保留新版本（右边的内容）
+  keepNew,
+
+  /// 智能合并（压缩两边内容）
+  smartMerge,
+}
+
 abstract class MemoryCapability {
   Future<void> ingestSession(SummaryEntity summary);
 
@@ -25,7 +37,14 @@ abstract class MemoryCompressor {
 abstract class MemoryMerger {
   bool shouldMerge(MemoryUnit left, MemoryUnit right);
 
-  Future<MemoryUnit> mergeUnits(MemoryUnit left, MemoryUnit right);
+  Future<MemoryUnit> mergeUnits(
+    MemoryUnit left,
+    MemoryUnit right, {
+    MemoryMergeStrategy strategy = MemoryMergeStrategy.smartMerge,
+  });
+
+  /// 压缩两条记忆的内容（用于预览）
+  String compressSummaryForMerge(String content1, String content2);
 }
 
 abstract class MemoryRetriever {

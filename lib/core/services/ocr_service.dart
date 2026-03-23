@@ -162,9 +162,6 @@ class OcrService {
                 '❌ [OcrService] Native layer returned null or an empty path');
           }
         }
-
-        // 备用方案：尝试直接复制（已废弃）
-        debugPrint('⚠️ [OcrService] The fallback path has been deprecated');
       } else if (uriString.startsWith('file://')) {
         return File(uriString.replaceFirst('file://', ''));
       }

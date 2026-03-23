@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:local_vault/core/config/memory_policy_config.dart';
+import 'package:local_vault/core/memory_promotion/memory_promotion.dart';
 
 /// 记忆类型
 enum MemoryType {
@@ -75,6 +75,8 @@ class SummaryEntity {
   final int accessCount;
   final bool isAutoExtracted;
   final int sortOrder;
+  final MemoryContentType contentType;
+  final MemoryState state;
 
   SummaryEntity({
     required this.id,
@@ -93,6 +95,8 @@ class SummaryEntity {
     this.accessCount = 0,
     this.isAutoExtracted = false,
     this.sortOrder = 0,
+    this.contentType = MemoryContentType.projectContext,
+    this.state = MemoryState.session,
   });
 
   factory SummaryEntity.create({
@@ -106,6 +110,9 @@ class SummaryEntity {
     double importance = 0.5,
     int sortOrder = 0,
   }) {
+    // 自动推断内容类型
+    final inferredContentType = MemoryContentType.inferFromText(title, content);
+
     return SummaryEntity(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
@@ -118,7 +125,20 @@ class SummaryEntity {
       embedding: embedding,
       importance: importance,
       sortOrder: sortOrder,
+      contentType: inferredContentType,
+      state: _typeToState(type),
     );
+  }
+
+  static MemoryState _typeToState(MemoryType type) {
+    switch (type) {
+      case MemoryType.session:
+        return MemoryState.session;
+      case MemoryType.fact:
+        return MemoryState.fact;
+      case MemoryType.core:
+        return MemoryState.core;
+    }
   }
 
   /// 计算时效性分数（遗忘曲线）
@@ -137,16 +157,6 @@ class SummaryEntity {
     final frequencyScore =
         accessCount > 0 ? 1.0 - (1.0 / (accessCount + 1)) : 0.0;
     return importance * 0.5 + recencyScore * 0.3 + frequencyScore * 0.2;
-  }
-
-  bool get shouldUpgradeToCore {
-    return shouldUpgradeToCoreWithPolicy(MemoryPolicyConfig.defaults);
-  }
-
-  bool shouldUpgradeToCoreWithPolicy(MemoryPolicyConfig policyConfig) {
-    if (type != MemoryType.fact) return false;
-    return accessCount >= policyConfig.coreUpgrade.accessCountThreshold ||
-        importance >= policyConfig.coreUpgrade.importanceThreshold;
   }
 
   bool get isSessionProtected {
@@ -173,6 +183,8 @@ class SummaryEntity {
     int? accessCount,
     bool? isAutoExtracted,
     int? sortOrder,
+    MemoryContentType? contentType,
+    MemoryState? state,
   }) {
     return SummaryEntity(
       id: id ?? this.id,
@@ -192,6 +204,8 @@ class SummaryEntity {
       accessCount: accessCount ?? this.accessCount,
       isAutoExtracted: isAutoExtracted ?? this.isAutoExtracted,
       sortOrder: sortOrder ?? this.sortOrder,
+      contentType: contentType ?? this.contentType,
+      state: state ?? this.state,
     );
   }
 
@@ -213,6 +227,8 @@ class SummaryEntity {
       'accessCount': accessCount,
       'isAutoExtracted': isAutoExtracted,
       'sortOrder': sortOrder,
+      'contentType': contentType.name,
+      'state': state.name,
     };
   }
 
@@ -248,6 +264,14 @@ class SummaryEntity {
       },
       isAutoExtracted: json['isAutoExtracted'] as bool? ?? false,
       sortOrder: json['sortOrder'] as int? ?? 0,
+      contentType: MemoryContentType.values.firstWhere(
+        (e) => e.name == json['contentType'],
+        orElse: () => MemoryContentType.projectContext,
+      ),
+      state: MemoryState.values.firstWhere(
+        (e) => e.name == json['state'],
+        orElse: () => MemoryState.session,
+      ),
     );
   }
 }

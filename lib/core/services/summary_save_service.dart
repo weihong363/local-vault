@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
-import 'package:local_vault/core/services/summary_metadata_service.dart';
+import 'package:local_vault/core/utils/summary_text_utils.dart';
 
 /// Save trigger categories for summary persistence.
 enum SaveTriggerType {
@@ -254,7 +254,7 @@ class SummarySaveService {
         _rememberSaveFingerprint(summary);
 
         debugPrint(
-            '✅ [SummarySaveService] Silent save succeeded: ${summary.id}');
+            '✅ [SummarySaveService] Silent save succeeded: ${summary.id}, topic: "${summary.topic}"');
         saveSuccess = true;
       }
 
@@ -289,13 +289,6 @@ class SummarySaveService {
     SavePayload payload,
     SaveContext context,
   ) async {
-    final prepared = await sl<SummaryMetadataService>().prepareForSave(
-      title: payload.title,
-      content: payload.content,
-      tags: payload.tags,
-      remark: payload.remark,
-    );
-
     final memoryType = switch (context.triggerType) {
       SaveTriggerType.quickAction => MemoryType.session,
       SaveTriggerType.gesture => MemoryType.session,
@@ -303,10 +296,19 @@ class SummarySaveService {
       _ => MemoryType.fact,
     };
 
+    // ✅ 关键优化：当 title 为空时，从内容生成临时标题，避免使用 "Untitled" 占位符
+    final String effectiveTitle;
+    if (payload.title.isNotEmpty) {
+      effectiveTitle = payload.title;
+    } else {
+      // 从内容生成临时标题（后续会被 _enhanceWithStructuredTitle 优化）
+      effectiveTitle = SummaryTextUtils.generateTitle(payload.content);
+    }
+
     return SummaryEntity.create(
-      title: prepared.title,
-      content: prepared.content,
-      tags: prepared.tags,
+      title: effectiveTitle,
+      content: payload.content,
+      tags: payload.tags,
       source: '${payload.sourceType}_${context.triggerType.name}',
       type: memoryType,
     );

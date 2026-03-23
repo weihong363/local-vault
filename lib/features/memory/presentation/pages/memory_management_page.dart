@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:local_vault/core/config/memory_policy_config.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
@@ -498,7 +497,6 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
     final loc = AppLocalizations.of(context)!;
     final canManualMerge = summary.type == MemoryType.fact;
     final canUpgradeToCore = summary.type == MemoryType.fact;
-    final upgradeRecommended = summary.shouldUpgradeToCore;
 
     return Wrap(
       spacing: 8,
@@ -513,9 +511,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
           OutlinedButton.icon(
             onPressed: () => _upgradeToCore(summary),
             icon: const Icon(Icons.stars_rounded),
-            label: Text(
-              upgradeRecommended ? loc.promoteToCore : loc.setAsCore,
-            ),
+            label: Text(loc.setAsCore),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.orange.shade700,
             ),
@@ -613,128 +609,50 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
 
   Future<void> _upgradeToCore(SummaryEntity summary) async {
     final loc = AppLocalizations.of(context)!;
-    final policy = sl<MemoryPolicyConfig>();
-    final upgradeRecommended = summary.shouldUpgradeToCore;
-    final reasonFuture = ref
-        .read(summaryEntityNotifierProvider.notifier)
-        .getFactUpgradeReason(summary.id);
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => FutureBuilder<String?>(
-        future: reasonFuture,
-        builder: (context, snapshot) {
-          final isLoading = snapshot.connectionState != ConnectionState.done;
-          final reason = snapshot.data?.trim();
-
-          return AlertDialog(
-            title: Text(
-              upgradeRecommended
-                  ? loc.promoteToCoreMemory
-                  : loc.setAsCoreMemory,
-            ),
-            content: SizedBox(
-              width: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    loc.promotionDialogBody(summary.title),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    loc.promotionStatsLine(
-                      '${summary.accessCount}',
-                      '${(summary.importance * 100).toInt()}%',
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    summary.shouldUpgradeToCore
-                        ? loc.promotionThresholdMet
-                        : loc.promotionThresholdNotMet,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    loc.promotionThresholdLine(
-                      '${policy.coreUpgrade.accessCountThreshold}',
-                      '${(policy.coreUpgrade.importanceThreshold * 100).toInt()}%',
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (isLoading)
-                    Row(
-                      children: [
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            loc.generatingPromotionReason,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    )
-                  else ...[
-                    Text(
-                      loc.promotionReason,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest
-                            .withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        reason?.isNotEmpty == true
-                            ? reason!
-                            : loc.defaultPromotionReason,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                  ],
-                ],
+      builder: (context) => AlertDialog(
+        title: Text(loc.setAsCoreMemory),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                loc.promotionDialogBody(summary.title),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(loc.cancelLabel),
-              ),
-              FilledButton(
-                onPressed:
-                    isLoading ? null : () => Navigator.pop(context, true),
-                child: Text(
-                  upgradeRecommended
-                      ? loc.confirmPromotion
-                      : loc.confirmSetAsCore,
+              const SizedBox(height: 12),
+              Text(
+                loc.promotionStatsLine(
+                  '${summary.accessCount}',
+                  '${(summary.importance * 100).toInt()}%',
                 ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '手动升级为 Core 记忆后，该记忆将免受遗忘曲线影响。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
             ],
-          );
-        },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.cancelLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(loc.confirmSetAsCore),
+          ),
+        ],
       ),
     );
 
@@ -756,9 +674,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          upgradeRecommended ? loc.promotedToCoreMemory : loc.setAsCoreSuccess,
-        ),
+        content: Text(loc.setAsCoreSuccess),
         backgroundColor: Colors.orange.shade700,
         action: SnackBarAction(
           label: loc.viewCore,
