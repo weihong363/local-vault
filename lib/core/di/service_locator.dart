@@ -89,6 +89,7 @@ Future<void> initializeDependencies() async {
     () => RuleBasedMemoryCompressor(
       slmService: sl<MemorySLMService>(),
       policyConfig: sl<MemoryPolicyConfig>(),
+      policy: sl<MemoryPolicy>(),
     ),
   );
   sl.registerLazySingleton<MemoryMerger>(

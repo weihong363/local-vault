@@ -49,7 +49,7 @@ class AppWhitelistNotifier extends StateNotifier<AsyncValue<List<AppInfo>>> {
       } else {
         final whitelist = whitelistJson.map((json) {
           return AppInfo.fromJson(jsonDecode(json) as Map<String, dynamic>);
-        }).toList();
+        }).toList(growable: false);
         state = AsyncData(whitelist);
         await _syncToNative(whitelist);
       }
@@ -73,8 +73,9 @@ class AppWhitelistNotifier extends StateNotifier<AsyncValue<List<AppInfo>>> {
 
   Future<void> _saveWhitelist(List<AppInfo> whitelist) async {
     final prefs = await SharedPreferences.getInstance();
-    final whitelistJson =
-        whitelist.map((app) => jsonEncode(app.toJson())).toList();
+    final whitelistJson = whitelist
+        .map((app) => jsonEncode(app.toJson()))
+        .toList(growable: false);
     await prefs.setStringList(_prefsKey, whitelistJson);
     await _syncToNative(whitelist);
   }
@@ -82,7 +83,8 @@ class AppWhitelistNotifier extends StateNotifier<AsyncValue<List<AppInfo>>> {
   Future<void> _syncToNative(List<AppInfo> whitelist) async {
     try {
       const channel = MethodChannel('local_vault/apps');
-      final packageNames = whitelist.map((app) => app.packageName).toList();
+      final packageNames =
+          whitelist.map((app) => app.packageName).toList(growable: false);
       await channel.invokeMethod('setWhitelist', {'packages': packageNames});
     } catch (e) {
       debugPrint('Failed to sync whitelist to the native layer: $e');

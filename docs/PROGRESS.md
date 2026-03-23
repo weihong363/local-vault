@@ -179,10 +179,36 @@ Local Vault 已经从早期“本地 AI 聊天壳”的方向，收敛为一个�
   - [x] 会话合并规则（去重 + 结构化）
   - [x] 检查所有正则表达式中的语言硬编码
   - [x] 为规则引擎添加多语言支持（中英文日文韩文检测与处理）
-- [ ] 用户体验优化
-  - [ ] 设置页面说明当前使用"规则模式"
-  - [ ] 添加降级提示（告知用户优势：快速、离线、隐私）
-  - [ ] 可选的"云端增强"开关设计
+
+### 近期执行计划（2026-03-23 ~ 2026-04-15）
+
+#### 第一阶段：状态压缩层增强 ✅ (已完成 - 2026-03-23)
+
+- [x] 扩展 StateRecord schema，支持 task_state / project_state / user_preference_state / topic_state
+- [x] 在 RuleBasedMemoryCompressor 中实现 compressToState 方法
+- [x] 实现状态覆盖式更新与版本控制
+- [x] 优化 _rebuildStateRecords 逻辑，支持多类型状态推导
+- 📄 详细实现文档：`docs/implementation/state_compression_enhancement.md`
+
+#### 第二阶段：标题生成结构化增强 ✅ (已完成 - 2026-03-23)
+
+- [x] 构建 Topic Taxonomy 白名单和同义词映射表
+- [x] 为 StructuredMemoryTitleGenerator 添加同义词归一化逻辑
+- [x] 实现主题映射到标准主题（canonical topic）
+- [x] 优化候选打分机制和标题长度动态压缩（8-20 字）
+
+#### 第三阶段：Hybrid Memory 三层架构落地
+
+- [ ] 创建 HybridMemoryVault 类，实现分层读取策略
+- [ ] 在 RuleBasedMemoryRetriever 中实现 Layer 1/2/3 智能检索
+- [ ] 将 buildContext 接入现有记忆运行时流程
+- [ ] 性能基准测试与集成测试
+
+#### 第四阶段：用户体验优化
+
+- [ ] 设置页说明当前使用"规则模式"及优势
+- [ ] 添加降级提示（快速、离线、隐私）
+- [ ] 设计可选的"云端增强"开关
 
 ### 中期目标
 

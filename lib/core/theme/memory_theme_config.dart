@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:local_vault/core/utils/json_utils.dart';
 import 'package:path_provider/path_provider.dart';
 
 class MemoryImportanceTheme {
@@ -80,11 +81,11 @@ class MemoryThemeConfig {
   factory MemoryThemeConfig.fromJson(Map<String, dynamic> json) {
     return MemoryThemeConfig(
       lightImportance: MemoryImportanceTheme.fromJson(
-        _asMap(json['lightImportance']),
+        JsonUtils.asMap(json['lightImportance']),
         fallback: defaults.lightImportance,
       ),
       darkImportance: MemoryImportanceTheme.fromJson(
-        _asMap(json['darkImportance']),
+        JsonUtils.asMap(json['darkImportance']),
         fallback: defaults.darkImportance,
       ),
     );
@@ -97,7 +98,7 @@ class MemoryThemeConfig {
 
     try {
       final bundledRaw = await rootBundle.loadString(bundledConfigAssetPath);
-      merged = _asMap(jsonDecode(bundledRaw));
+      merged = JsonUtils.asMap(jsonDecode(bundledRaw));
     } catch (error, stackTrace) {
       debugPrint(
           '⚠️ [MemoryThemeConfig] Failed to read bundled config, falling back to defaults: $error');
@@ -110,7 +111,7 @@ class MemoryThemeConfig {
       final overrideFile = await resolveFile();
       if (await overrideFile.exists()) {
         final overrideRaw = await overrideFile.readAsString();
-        final overrideJson = _asMap(jsonDecode(overrideRaw));
+        final overrideJson = JsonUtils.asMap(jsonDecode(overrideRaw));
         merged = _deepMerge(merged, overrideJson);
       }
     } catch (error, stackTrace) {
@@ -160,18 +161,6 @@ class MemoryThemeConfig {
     return value == null ? defaultValue : Color(value);
   }
 
-  static Map<String, dynamic> _asMap(Object? raw) {
-    if (raw is Map<String, dynamic>) {
-      return raw;
-    }
-    if (raw is Map) {
-      return raw.map((key, value) {
-        return MapEntry(key.toString(), value);
-      });
-    }
-    return <String, dynamic>{};
-  }
-
   static Map<String, dynamic> _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> override,
@@ -181,8 +170,8 @@ class MemoryThemeConfig {
       final current = merged[key];
       if (current is Map && value is Map) {
         merged[key] = _deepMerge(
-          _asMap(current),
-          _asMap(value),
+          JsonUtils.asMap(current),
+          JsonUtils.asMap(value),
         );
       } else {
         merged[key] = value;

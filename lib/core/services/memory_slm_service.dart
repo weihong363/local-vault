@@ -179,6 +179,13 @@ class MemorySLMService {
     'optische zeichenerkennung',
   };
   static final RegExp _latinScriptRegex = RegExp(r'[A-Za-zÀ-ÖØ-öø-ÿĀ-žẞß]');
+  static final RegExp _koreanRegex = RegExp(r'[\uAC00-\uD7AF]');
+  static final RegExp _japaneseRegex = RegExp(r'[\u3040-\u30FF]');
+  static final RegExp _chineseRegex = RegExp(r'[\u4E00-\u9FFF]');
+  static final RegExp _ragWordRegex = RegExp(r'\brag\b', caseSensitive: false);
+  static final RegExp _llmWordRegex = RegExp(r'\bllm\b', caseSensitive: false);
+  static final RegExp _slmWordRegex = RegExp(r'\bslm\b', caseSensitive: false);
+  static final RegExp _ocrWordRegex = RegExp(r'\bocr\b', caseSensitive: false);
   static const List<String> _cjkTopicTemplateSuffixes = <String>[
     '登录页改版',
     '发布计划',
@@ -1295,13 +1302,13 @@ class MemorySLMService {
   }
 
   ui.Locale _detectLocaleForText(String text) {
-    if (RegExp(r'[\uAC00-\uD7AF]').hasMatch(text)) {
+    if (_koreanRegex.hasMatch(text)) {
       return const ui.Locale('ko');
     }
-    if (RegExp(r'[\u3040-\u30FF]').hasMatch(text)) {
+    if (_japaneseRegex.hasMatch(text)) {
       return const ui.Locale('ja');
     }
-    if (RegExp(r'[\u4E00-\u9FFF]').hasMatch(text)) {
+    if (_chineseRegex.hasMatch(text)) {
       return const ui.Locale('zh');
     }
     if (_latinScriptRegex.hasMatch(text)) {
@@ -1313,7 +1320,7 @@ class MemorySLMService {
   String? _extractCanonicalTopicAlias(String title, String content) {
     final normalized = '$title $content'.toLowerCase();
 
-    if (RegExp(r'\brag\b').hasMatch(normalized) ||
+    if (_ragWordRegex.hasMatch(normalized) ||
         _containsAnyAlias(normalized, _ragDirectAliases)) {
       return 'RAG';
     }
@@ -1324,15 +1331,15 @@ class MemorySLMService {
       return 'RAG';
     }
 
-    if (RegExp(r'\bllm\b').hasMatch(normalized) ||
+    if (_llmWordRegex.hasMatch(normalized) ||
         _containsAnyAlias(normalized, _llmAliases)) {
       return 'LLM';
     }
-    if (RegExp(r'\bslm\b').hasMatch(normalized) ||
+    if (_slmWordRegex.hasMatch(normalized) ||
         _containsAnyAlias(normalized, _slmAliases)) {
       return 'SLM';
     }
-    if (RegExp(r'\bocr\b').hasMatch(normalized) ||
+    if (_ocrWordRegex.hasMatch(normalized) ||
         _containsAnyAlias(normalized, _ocrAliases)) {
       return 'OCR';
     }

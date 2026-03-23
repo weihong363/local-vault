@@ -251,12 +251,14 @@ class SessionCompactionResult {
     this.updatedSessions = const <SummaryEntity>[],
     this.consumedSessionIds = const <String>{},
     this.archiveRecords = const <ArchiveRecord>[],
+    this.stateUpdates = const <StateRecord>[],
   });
 
   final List<SummaryEntity> mergedFacts;
   final List<SummaryEntity> updatedSessions;
   final Set<String> consumedSessionIds;
   final List<ArchiveRecord> archiveRecords;
+  final List<StateRecord> stateUpdates;
 
   int get mergedCount => mergedFacts.length;
 }

@@ -107,14 +107,37 @@ class RuleBasedMemoryCapability implements MemoryCapability {
         );
       }
 
-      final rebuiltUnits = await _rebuildMemoryUnits();
-      final rebuiltStates = _rebuildStateRecords(
-        rebuiltUnits,
-        previousRecords: _sidecarRepository.getAllStateRecords(),
-      );
+      // 新增：处理直接生成的状态记录
+      if (compressionResult.stateUpdates.isNotEmpty) {
+        final previousRecords = _sidecarRepository.getAllStateRecords();
+        final allStates = <StateRecord>[
+          ...compressionResult.stateUpdates,
+          ..._rebuildStateRecords(
+            await _rebuildMemoryUnits(),
+            previousRecords: previousRecords,
+          ),
+        ];
 
-      await _sidecarRepository.replaceMemoryUnits(rebuiltUnits);
-      await _sidecarRepository.replaceStateRecords(rebuiltStates);
+        // 去重（按 storageKey）
+        final uniqueStates = <String, StateRecord>{};
+        for (final state in allStates) {
+          uniqueStates[state.storageKey] = state;
+        }
+
+        final finalStates = uniqueStates.values.toList()
+          ..sort((a, b) => b.importance.compareTo(a.importance));
+
+        await _sidecarRepository.replaceStateRecords(finalStates);
+      } else {
+        final rebuiltUnits = await _rebuildMemoryUnits();
+        final rebuiltStates = _rebuildStateRecords(
+          rebuiltUnits,
+          previousRecords: _sidecarRepository.getAllStateRecords(),
+        );
+
+        await _sidecarRepository.replaceMemoryUnits(rebuiltUnits);
+        await _sidecarRepository.replaceStateRecords(rebuiltStates);
+      }
 
       _worker.completeProcessing();
       return max(compressionResult.mergedCount, jobs.length);
@@ -148,6 +171,13 @@ class RuleBasedMemoryCapability implements MemoryCapability {
     return _retriever.retrieve(request);
   }
 
+  /// 重建状态记录，支持多类型状态推导
+  ///
+  /// 增强的状态推导逻辑：
+  /// - task_state: 任务、待办、跟进事项
+  /// - project_state: 项目、发布、里程碑
+  /// - user_preference_state: 用户偏好、习惯
+  /// - topic_state: 通用主题状态
   List<StateRecord> _rebuildStateRecords(
     List<MemoryUnit> units, {
     required List<StateRecord> previousRecords,
@@ -157,6 +187,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
     };
     final groupedPatches = <String, List<StatePatch>>{};
 
+    // 第一轮：收集所有状态补丁
     for (final unit in units) {
       final patch = _deriveStatePatch(unit);
       if (patch == null ||
@@ -168,16 +199,20 @@ class RuleBasedMemoryCapability implements MemoryCapability {
           );
     }
 
+    // 第二轮：合并同 key 的补丁并构建记录
     final records = <StateRecord>[];
     for (final entry in groupedPatches.entries) {
       final mergedPatch = _mergeStatePatches(entry.value);
       final previous = previousByKey[entry.key];
+
+      // 检查是否发生变化
       final changed = previous == null ||
           previous.summary != mergedPatch.summary ||
           previous.topic != mergedPatch.topic ||
           !_sameStrings(previous.keywords, mergedPatch.keywords) ||
           (previous.importance - mergedPatch.importance).abs() > 0.001;
 
+      // 版本号控制：首次创建为 v1，变化时递增，否则保持不变（优化：简化表达式）
       records.add(
         StateRecord(
           namespace: mergedPatch.namespace,
@@ -186,16 +221,15 @@ class RuleBasedMemoryCapability implements MemoryCapability {
           topic: mergedPatch.topic,
           keywords: mergedPatch.keywords,
           importance: mergedPatch.importance,
-          version: previous == null
-              ? 1
-              : changed
-                  ? previous.version + 1
-                  : previous.version,
+          version: previous?.version == null || changed
+              ? (previous?.version ?? 0) + 1
+              : previous.version,
           updatedAt: DateTime.now(),
         ),
       );
     }
 
+    // 按重要性降序排序
     records.sort((a, b) => b.importance.compareTo(a.importance));
     return records;
   }
@@ -232,27 +266,25 @@ class RuleBasedMemoryCapability implements MemoryCapability {
   MemoryUnit _buildCandidateUnit(SummaryEntity summary) {
     final profile = _slmService.describeSummarySemantics(summary);
     final topic = _stableTopic(summary, profile);
-    final keywords = SummaryTextUtils.sanitizeTags(
-      <String>[
+    final updatedAt =
+        summary.updatedAt ?? summary.lastAccessedAt ?? summary.createdAt;
+
+    return MemoryUnit(
+      id: _buildUnitId([summary.id]),
+      summary: summary.content.trim().isEmpty
+          ? summary.title
+          : summary.content.trim(),
+      topic: topic,
+      keywords: SummaryTextUtils.sanitizeTags([
         ...summary.tags,
         ...profile.tags,
         ...profile.keywords,
         if (topic.isNotEmpty) topic,
       ],
-      maxTags: _policy.maxKeywordsPerRecord,
-      fallbackTitle: topic.isEmpty ? summary.title : topic,
-    );
-    final updatedAt =
-        summary.updatedAt ?? summary.lastAccessedAt ?? summary.createdAt;
-    return MemoryUnit(
-      id: _buildUnitId(<String>[summary.id]),
-      summary: summary.content.trim().isEmpty
-          ? summary.title
-          : summary.content.trim(),
-      topic: topic,
-      keywords: keywords,
+          maxTags: _policy.maxKeywordsPerRecord,
+          fallbackTitle: topic.isEmpty ? summary.title : topic),
       importance: summary.importance,
-      sourceIds: <String>[summary.id],
+      sourceIds: [summary.id],
       createdAt: summary.createdAt,
       updatedAt: updatedAt,
       confidence: max(0.45, profile.confidence),
@@ -402,11 +434,51 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
   RuleBasedMemoryCompressor({
     required MemorySLMService slmService,
     required MemoryPolicyConfig policyConfig,
+    required MemoryPolicy policy,
   })  : _slmService = slmService,
-        _policyConfig = policyConfig;
+        _policyConfig = policyConfig,
+        _policy = policy;
 
   final MemorySLMService _slmService;
   final MemoryPolicyConfig _policyConfig;
+  final MemoryPolicy _policy;
+
+  static const Set<String> _taskSignals = <String>{
+    'task',
+    'todo',
+    'follow-up',
+    'follow up',
+    'next step',
+    '待办',
+    '任务',
+    '跟进',
+    '修复',
+    '处理',
+    'checklist',
+    'issue',
+  };
+  static const Set<String> _projectSignals = <String>{
+    'project',
+    'launch',
+    'release',
+    'rollout',
+    'milestone',
+    'roadmap',
+    '项目',
+    '发布',
+    '上线',
+    '计划',
+    '版本',
+  };
+  static const Set<String> _preferenceSignals = <String>{
+    'prefer',
+    'preference',
+    'like',
+    'dislike',
+    '偏好',
+    '喜欢',
+    '习惯',
+  };
 
   @override
   Future<SessionCompactionResult> compressSessions(
@@ -421,6 +493,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
     final mergedFacts = <SummaryEntity>[];
     final consumedSessionIds = <String>{};
     final archiveRecords = <ArchiveRecord>[];
+    final stateUpdates = <StateRecord>[];
 
     for (final batch in batches) {
       if (!_isEligibleForMerge(batch)) {
@@ -449,6 +522,12 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
           retentionTag: 'session_merge',
         ),
       );
+
+      // 新增：从合并后的 Fact 生成状态记录
+      final stateRecord = await compressToState(fact);
+      if (stateRecord != null) {
+        stateUpdates.add(stateRecord);
+      }
     }
 
     return SessionCompactionResult(
@@ -456,6 +535,111 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       updatedSessions: updatedSessions,
       consumedSessionIds: consumedSessionIds,
       archiveRecords: archiveRecords,
+      stateUpdates: stateUpdates,
+    );
+  }
+
+  /// 从 SummaryEntity 压缩生成 StateRecord
+  ///
+  /// 实现 session → summary → state 的三层压缩管道
+  Future<StateRecord?> compressToState(SummaryEntity summary) async {
+    final profile = _slmService.describeSummarySemantics(summary);
+    final topic = profile.displayTopic.isNotEmpty
+        ? profile.displayTopic
+        : summary.topic?.trim() ?? '';
+    final keywords = <String>{
+      ...summary.tags,
+      ...profile.tags,
+      ...profile.keywords,
+      if (topic.isNotEmpty) topic,
+    }.take(_policy.maxKeywordsPerRecord).toList();
+
+    final unit = MemoryUnit(
+      id: 'temp_${summary.id}',
+      summary: summary.content.trim().isEmpty
+          ? summary.title
+          : summary.content.trim(),
+      topic: topic,
+      keywords: keywords,
+      importance: summary.importance,
+      sourceIds: [summary.id],
+      createdAt: summary.createdAt,
+      updatedAt: summary.updatedAt ?? DateTime.now(),
+      confidence: max(0.45, profile.confidence),
+    );
+
+    final patch = _deriveStatePatchWithProfile(unit, profile);
+
+    if (patch == null || patch.confidence < _policy.stateConfidenceThreshold) {
+      return null;
+    }
+
+    // 构建新的状态记录，版本号为 1
+    return StateRecord(
+      namespace: patch.namespace,
+      key: patch.key,
+      summary: patch.summary,
+      topic: patch.topic,
+      keywords: patch.keywords,
+      importance: patch.importance,
+      version: 1,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  /// 使用已有的语义画像推导状态补丁
+  /// 避免重复调用 describeTextSemantics
+  StatePatch? _deriveStatePatchWithProfile(
+    MemoryUnit unit,
+    RuleSemanticProfile profile,
+  ) {
+    final normalized =
+        _normalize('${unit.topic} ${unit.summary} ${unit.keywords.join(' ')}');
+    String namespace = '';
+
+    if (_containsAny(normalized, _preferenceSignals)) {
+      namespace = 'user_preference_state';
+    } else if (_containsAny(normalized, _taskSignals)) {
+      namespace = 'task_state';
+    } else if (_containsAny(normalized, _projectSignals)) {
+      namespace = 'project_state';
+    } else if (profile.semanticKey.isNotEmpty) {
+      namespace = 'topic_state';
+    } else {
+      return null;
+    }
+
+    final key = switch (namespace) {
+      'user_preference_state' => _normalizeKey(profile.facetKey.isNotEmpty
+          ? profile.facetKey
+          : 'global_preferences'),
+      'task_state' => _normalizeKey(
+          profile.displayTitle.isNotEmpty ? profile.displayTitle : unit.topic,
+        ),
+      'project_state' => _normalizeKey(
+          profile.domainKey.isNotEmpty
+              ? profile.domainKey
+              : profile.displayTopic.isNotEmpty
+                  ? profile.displayTopic
+                  : unit.topic,
+        ),
+      _ => _normalizeKey(
+          profile.semanticKey.isNotEmpty ? profile.semanticKey : unit.topic,
+        ),
+    };
+
+    if (key.isEmpty) {
+      return null;
+    }
+
+    return StatePatch(
+      namespace: namespace,
+      key: key,
+      summary: unit.summary,
+      topic: unit.topic,
+      keywords: unit.keywords.take(_policy.maxKeywordsPerRecord).toList(),
+      importance: unit.importance,
+      confidence: profile.confidence,
     );
   }
 
@@ -782,6 +966,25 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
   String _sourceFamily(String source) {
     final parts = source.split('_');
     return parts.isEmpty ? source : parts.first;
+  }
+
+  /// 标准化文本用于模式匹配
+  String _normalize(String text) {
+    return text.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// 检查文本是否包含任意关键词
+  bool _containsAny(String normalized, Set<String> signals) {
+    return signals.any((signal) => normalized.contains(signal));
+  }
+
+  /// 标准化键名
+  String _normalizeKey(String key) {
+    return key
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\u4E00-\u9FFF]+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '')
+        .substring(0, min(key.length, 64));
   }
 }
 
