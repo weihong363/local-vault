@@ -180,21 +180,30 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
       body: ListView(
         children: [
-          _buildSectionHeader(loc.quickActions),
-          _buildFloatingWindowSwitch(loc),
-          _buildGestureConfig(loc),
-          _buildAppWhitelist(loc),
-          _buildDiagnostics(loc),
+          // 快捷操作模块 - 打包时隐藏
+          // _buildSectionHeader(loc.quickActions),
+          // _buildFloatingWindowSwitch(loc),
+          // _buildGestureConfig(loc),
+          // _buildAppWhitelist(loc),
+          // _buildDiagnostics(loc),
+
+          // 通用设置
           _buildSectionHeader(loc.generalSettings),
           _buildSlmInferenceSwitch(loc),
           _buildThemeSelector(loc, themeMode, ref),
           _buildLanguageSelector(loc, appLocale, ref),
+
+          // 存储设置
           _buildSectionHeader(loc.storageSettings),
           _buildStorageSpace(loc),
           _buildBackupData(loc),
-          _buildSectionHeader(loc.architectureChecksDebugOnly),
-          _buildArchitectureVerification(loc),
-          _buildDatabaseInspector(loc),
+
+          // 架构检查模块 - 打包时隐藏
+          // _buildSectionHeader(loc.architectureChecksDebugOnly),
+          // _buildArchitectureVerification(loc),
+          // _buildDatabaseInspector(loc),
+
+          // 关于
           _buildSectionHeader(loc.about),
           _buildVersionInfo(loc),
           _buildFeedback(loc, context),
@@ -290,8 +299,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       subtitle: Text(loc.slmInferenceSettingDescription),
       trailing: Switch(
         value: _slmInferenceEnabled,
-        onChanged: _toggleSlmInference,
+        onChanged: null, // 打包版本禁用交互
       ),
+      enabled: false, // 整体置灰
     );
   }
 
