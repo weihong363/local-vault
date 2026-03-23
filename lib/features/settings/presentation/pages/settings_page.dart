@@ -81,18 +81,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final settingsService = sl<AppSettingsService>();
 
     if (value) {
-      // Request all required permissions.
-      final allGranted = await AppPermissionManager.requestAllPermissions();
-
-      if (!allGranted && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(loc.notAllPermissionsGranted),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-
+      // 先启动服务并保存设置
       try {
         await FloatingWindowService.startFloatingService();
         await settingsService.setFloatingWindowEnabled(true);
@@ -106,9 +95,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               duration: const Duration(seconds: 2),
             ),
           );
-
-          // Show permission guidance.
-          _showPermissionTips();
         }
       } catch (e) {
         if (mounted) {
@@ -116,6 +102,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             SnackBar(content: Text(loc.failedToStartMessage('$e'))),
           );
         }
+        return;
+      }
+
+      // 服务启动后，检查使用情况访问权限
+      final hasUsageStatsPermission =
+          await AppPermissionManager.checkUsageStatsPermission();
+      if (!hasUsageStatsPermission && mounted) {
+        await _showUsageAccessPermissionDialog();
+      }
+
+      // 显示使用提示
+      if (mounted) {
+        _showPermissionTips();
       }
     } else {
       try {
@@ -501,5 +500,34 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _showUsageAccessPermissionDialog() async {
+    if (!mounted) return;
+    final loc = AppLocalizations.of(context)!;
+
+    final granted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.info_outline, color: Colors.orange),
+        title: Text(loc.usageAccessPermissionRequiredTitle),
+        content: Text(loc.usageAccessPermissionRequiredMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.cancelLabel),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(loc.grantAccessLabel),
+          ),
+        ],
+      ),
+    );
+
+    if (granted == true && mounted) {
+      // User agreed to grant permission, open settings
+      await AppPermissionManager.requestUsageStatsPermission();
+    }
   }
 }

@@ -69,7 +69,7 @@
   "quickSaveClipboardTip": "Consejo: el guardado rápido usará automáticamente el texto del portapapeles.\nSi está vacío, puedes introducir el contenido manualmente.",
   "invalidActionType": "Tipo de acción no válido",
   "quickActions": "Acciones rápidas",
-  "enableFloatingGestureLauncher": "Activar lanzador flotante por gestos",
+  "enableFloatingGestureLauncher": "Activar gestos",
   "floatingGestureLauncherDescription": "Abre la app rápidamente con gestos desde otras aplicaciones",
   "gestureConfiguration": "Configuración de gestos",
   "gestureConfigurationDescription": "Personaliza el comportamiento de los gestos",

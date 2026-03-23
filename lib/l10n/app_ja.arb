@@ -69,7 +69,7 @@
   "quickSaveClipboardTip": "ヒント: クイック保存ではクリップボードのテキストが自動的に使われます。\n空の場合は手動で内容を入力できます。",
   "invalidActionType": "無効な操作タイプです",
   "quickActions": "クイック操作",
-  "enableFloatingGestureLauncher": "フローティングジェスチャー起動を有効化",
+  "enableFloatingGestureLauncher": "ジェスチャーを有効化",
   "floatingGestureLauncherDescription": "他のアプリからジェスチャーで素早くアプリを開きます",
   "gestureConfiguration": "ジェスチャー設定",
   "gestureConfigurationDescription": "ジェスチャーの動作をカスタマイズします",

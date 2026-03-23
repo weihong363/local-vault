@@ -1,11 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
+import 'package:local_vault/core/utils/memory_title_generator.dart';
 import 'package:local_vault/core/utils/summary_text_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues(const <String, Object>{});
+
+  setUpAll(() async {
+    await StructuredMemoryTitleGenerator.initialize();
+  });
 
   group('SummaryTextUtils', () {
     test('keeps high-signal short English acronyms as tags', () {

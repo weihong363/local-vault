@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -217,7 +218,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get quickActions => '快捷操作';
 
   @override
-  String get enableFloatingGestureLauncher => '启用悬浮手势启动器';
+  String get enableFloatingGestureLauncher => '启用手势';
 
   @override
   String get floatingGestureLauncherDescription => '在其他应用中通过手势快速打开本应用';

@@ -557,6 +557,13 @@ class MainActivity : FlutterActivity() {
             return
         }
 
+        // 检查使用情况统计权限（用于应用白名单检测）
+        if (!hasUsageStatsPermission()) {
+            Log.w(TAG, "Missing usage stats permission, requesting access")
+            requestUsageStatsPermission()
+            // 不直接返回，让用户去设置页面授权后再次尝试
+        }
+
         // 避免重复启动
         if (FloatingWindowService.isServiceRunning) {
             Log.d(TAG, "Floating window service is already running")

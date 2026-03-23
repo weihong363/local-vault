@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -217,7 +218,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get quickActions => '빠른 작업';
 
   @override
-  String get enableFloatingGestureLauncher => '플로팅 제스처 실행기 활성화';
+  String get enableFloatingGestureLauncher => '제스처 활성화';
 
   @override
   String get floatingGestureLauncherDescription => '다른 앱에서도 제스처로 빠르게 앱을 엽니다';

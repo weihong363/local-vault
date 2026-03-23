@@ -525,7 +525,7 @@ abstract class AppLocalizations {
   /// No description provided for @enableFloatingGestureLauncher.
   ///
   /// In en, this message translates to:
-  /// **'Enable floating gesture launcher'**
+  /// **'Enable gestures'**
   String get enableFloatingGestureLauncher;
 
   /// No description provided for @floatingGestureLauncherDescription.

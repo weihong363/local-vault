@@ -218,8 +218,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get quickActions => 'Schnellaktionen';
 
   @override
-  String get enableFloatingGestureLauncher =>
-      'Schwebenden Gestenstarter aktivieren';
+  String get enableFloatingGestureLauncher => 'Gesten aktivieren';
 
   @override
   String get floatingGestureLauncherDescription =>

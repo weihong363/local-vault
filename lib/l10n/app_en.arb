@@ -69,7 +69,7 @@
   "quickSaveClipboardTip": "Tip: clipboard text will be used for quick save automatically.\nIf it is empty, you can enter content manually.",
   "invalidActionType": "Invalid action type",
   "quickActions": "Quick Actions",
-  "enableFloatingGestureLauncher": "Enable floating gesture launcher",
+  "enableFloatingGestureLauncher": "Enable gestures",
   "floatingGestureLauncherDescription": "Open the app quickly with gestures from other apps",
   "gestureConfiguration": "Gesture configuration",
   "gestureConfigurationDescription": "Customize gesture behavior",

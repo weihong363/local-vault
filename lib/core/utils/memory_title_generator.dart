@@ -341,6 +341,25 @@ class StructuredMemoryTitleGenerator {
   }
 
   static String? _extractTopic(String text) {
+    final normalizedText = text.toLowerCase();
+    final synonymMappings = _currentSynonymMappings;
+
+    // 1. 优先从同义词映射中提取（关键词匹配）- 按长度降序排列，优先匹配长短语
+    final sortedSynonyms = synonymMappings.entries.toList()
+      ..sort((a, b) => b.key.length.compareTo(a.key.length));
+
+    for (final entry in sortedSynonyms) {
+      // 使用单词边界匹配，避免误匹配（如 "ui" 被匹配到单词中的字母组合）
+      final wordBoundaryRegex = RegExp(
+        r'\b' + RegExp.escape(entry.key) + r'\b',
+        caseSensitive: false,
+      );
+      if (wordBoundaryRegex.hasMatch(normalizedText)) {
+        return entry.value;
+      }
+    }
+
+    // 2. 使用原有的正则表达式模式提取
     for (final pattern in _topicPatterns) {
       final match = pattern.firstMatch(text);
       if (match != null && match.group(1) != null) {
@@ -350,6 +369,16 @@ class StructuredMemoryTitleGenerator {
         }
       }
     }
+
+    // 3. 尝试从文本中提取名词短语作为 topic
+    final words = text.split(RegExp(r'\s+'));
+    for (final word in words) {
+      final cleanWord = word.replaceAll(RegExp(r'[^\w\u4e00-\u9fa5]'), '');
+      if (cleanWord.length >= 3 && cleanWord.length <= 20) {
+        return cleanWord;
+      }
+    }
+
     return null;
   }
 
@@ -372,15 +401,22 @@ class StructuredMemoryTitleGenerator {
     final synonymMappings = _currentSynonymMappings;
     final topicTaxonomy = _currentTopicTaxonomy;
 
-    // 1. 直接匹配同义词映射
+    // 1. 直接匹配同义词映射（精确匹配优先）
     if (synonymMappings.containsKey(normalizedTopic)) {
       return synonymMappings[normalizedTopic];
     }
 
-    // 2. 部分匹配 - 检查是否包含同义词
-    for (final entry in synonymMappings.entries) {
-      if (normalizedTopic.contains(entry.key) ||
-          entry.key.contains(normalizedTopic)) {
+    // 2. 完整单词匹配 - 检查是否包含同义词（按长度降序，优先匹配长短语）
+    final sortedSynonyms = synonymMappings.entries.toList()
+      ..sort((a, b) => b.key.length.compareTo(a.key.length));
+
+    for (final entry in sortedSynonyms) {
+      // 使用单词边界匹配，避免部分匹配（如 "rag" 被匹配到 "graphrag"）
+      final wordBoundaryRegex = RegExp(
+        r'\b' + RegExp.escape(entry.key) + r'\b',
+        caseSensitive: false,
+      );
+      if (wordBoundaryRegex.hasMatch(normalizedTopic)) {
         return entry.value;
       }
     }

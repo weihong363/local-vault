@@ -220,14 +220,28 @@
       "向量检索",
       "相似度检索",
       "embedding",
-      "向量数据库"
+      "向量数据库",
+      "vector retrieval",
+      "vector search",
+      "chunk",
+      "rerank",
+      "re-ranking",
+      "召回率",
+      "recall rate",
+      "sentence transformer",
+      "sentence transformers",
+      "recuperación vectorial",
+      "reordenación",
+      "rag"
     ],
     "GraphRAG": [
       "图检索",
       "知识图谱",
       "lazygraphrag",
       "nanographrag",
-      "图结构"
+      "图结构",
+      "graph retrieval",
+      "knowledge graph"
     ],
     "LLM": [
       "大语言模型",
@@ -256,7 +270,11 @@
       "光学字符识别",
       "文本检测",
       "字符识别",
-      "ocr"
+      "ocr",
+      "optical character recognition",
+      "reconnaissance optique de caractères",
+      "text detection",
+      "character recognition"
     ]
   }
 }

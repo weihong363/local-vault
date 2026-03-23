@@ -69,7 +69,7 @@
   "quickSaveClipboardTip": "Tipp: Beim Schnellspeichern wird der Text aus der Zwischenablage automatisch verwendet.\nWenn sie leer ist, können Sie den Inhalt manuell eingeben.",
   "invalidActionType": "Ungültiger Aktionstyp",
   "quickActions": "Schnellaktionen",
-  "enableFloatingGestureLauncher": "Schwebenden Gestenstarter aktivieren",
+  "enableFloatingGestureLauncher": "Gesten aktivieren",
   "floatingGestureLauncherDescription": "Die App aus anderen Apps per Geste schnell öffnen",
   "gestureConfiguration": "Gestenkonfiguration",
   "gestureConfigurationDescription": "Gestenverhalten anpassen",

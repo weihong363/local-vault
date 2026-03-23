@@ -15,8 +15,8 @@ import 'package:local_vault/core/services/memory_slm_diagnostics_service.dart';
 import 'package:local_vault/core/services/save_coordinator.dart';
 import 'package:local_vault/core/services/share_service.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
-import 'package:local_vault/core/utils/storage_initializer.dart';
 import 'package:local_vault/core/utils/memory_title_generator.dart';
+import 'package:local_vault/core/utils/storage_initializer.dart';
 import 'package:local_vault/core/widgets/bottom_navigation.dart';
 import 'package:local_vault/core/widgets/quick_action_activity_page.dart';
 import 'package:local_vault/features/app_whitelist/presentation/pages/app_whitelist_page.dart';
@@ -227,27 +227,6 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
     _router.push(AppRoutes.save, extra: {'type': 'image', 'uris': uris});
   }
 
-  Future<void> _checkPermissions() async {
-    if (!mounted) return;
-
-    // Delay the check until the initial UI is fully rendered.
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-
-    final hasUsageStats =
-        await AppPermissionManager.checkUsageStatsPermission();
-
-    if (!hasUsageStats && mounted) {
-      try {
-        _showUsageStatsPermissionDialog();
-      } catch (e) {
-        debugPrint(
-          '⚠️ [main] Failed to show the permission dialog: $e. Will retry on the next launch',
-        );
-      }
-    }
-  }
-
   void _showUsageStatsPermissionDialog() {
     final dialogContext = _rootNavigatorKey.currentContext;
     if (dialogContext == null) return;
@@ -412,7 +391,8 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
   }
 
   Future<void> _runPostInitialization() async {
-    await _checkPermissions();
+    // 注意：权限检测已移至设置页面，仅在用户打开手势开关后触发
+    // await _checkPermissions();
     _initializeShareService();
     await _runMemoryCleanup();
     await _runSlmSelfCheckIfEnabled();

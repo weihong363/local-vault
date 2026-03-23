@@ -69,7 +69,7 @@
   "quickSaveClipboardTip": "Astuce : l'enregistrement rapide utilisera automatiquement le texte du presse-papiers.\nS'il est vide, vous pouvez saisir le contenu manuellement.",
   "invalidActionType": "Type d'action invalide",
   "quickActions": "Actions rapides",
-  "enableFloatingGestureLauncher": "Activer le lanceur gestuel flottant",
+  "enableFloatingGestureLauncher": "Activer les gestes",
   "floatingGestureLauncherDescription": "Ouvrir rapidement l'application avec des gestes depuis d'autres applications",
   "gestureConfiguration": "Configuration des gestes",
   "gestureConfigurationDescription": "Personnaliser le comportement des gestes",

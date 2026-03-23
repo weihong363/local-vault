@@ -69,7 +69,7 @@
   "quickSaveClipboardTip": "提示：快捷保存会优先自动使用剪贴板文本。\n如果剪贴板为空，你也可以手动输入内容。",
   "invalidActionType": "无效的操作类型",
   "quickActions": "快捷操作",
-  "enableFloatingGestureLauncher": "启用悬浮手势启动器",
+  "enableFloatingGestureLauncher": "启用手势",
   "floatingGestureLauncherDescription": "在其他应用中通过手势快速打开本应用",
   "gestureConfiguration": "手势配置",
   "gestureConfigurationDescription": "自定义手势行为",

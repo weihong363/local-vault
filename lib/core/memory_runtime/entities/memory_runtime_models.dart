@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:local_vault/core/domain/entities/rule_semantic_profile.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 
@@ -61,6 +64,7 @@ class StatePatch {
   String get storageKey => '$namespace::$key';
 }
 
+@HiveType(typeId: 10)
 class StateRecord {
   const StateRecord({
     required this.namespace,
@@ -71,16 +75,39 @@ class StateRecord {
     required this.importance,
     required this.version,
     required this.updatedAt,
+    this.metadata,
+    this.confidence,
   });
 
+  @HiveField(0)
   final String namespace;
+
+  @HiveField(1)
   final String key;
+
+  @HiveField(2)
   final String summary;
+
+  @HiveField(3)
   final String topic;
+
+  @HiveField(4)
   final List<String> keywords;
+
+  @HiveField(5)
   final double importance;
+
+  @HiveField(6)
   final int version;
+
+  @HiveField(7)
   final DateTime updatedAt;
+
+  @HiveField(8, defaultValue: null)
+  final String? metadata;
+
+  @HiveField(9, defaultValue: null)
+  final double? confidence;
 
   String get storageKey => '$namespace::$key';
 
@@ -94,6 +121,8 @@ class StateRecord {
       'importance': importance,
       'version': version,
       'updatedAt': updatedAt.toIso8601String(),
+      if (metadata != null) 'metadata': metadata,
+      if (confidence != null) 'confidence': confidence,
     };
   }
 
@@ -116,10 +145,88 @@ class StateRecord {
       },
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      metadata: json['metadata'] as String?,
+      confidence: (json['confidence'] as num?)?.toDouble(),
+    );
+  }
+
+  /// 优化的紧凑 JSON 格式（用于网络传输或备份）
+  Map<String, dynamic> toCompactJson() {
+    return {
+      'n': namespace,
+      'k': key,
+      's': summary,
+      't': topic,
+      'kw': keywords,
+      'i': importance,
+      'v': version,
+      'u': updatedAt.millisecondsSinceEpoch,
+      if (metadata != null) 'm': metadata,
+      if (confidence != null) 'c': confidence,
+    };
+  }
+
+  factory StateRecord.fromCompactJson(Map<String, dynamic> json) {
+    return StateRecord(
+      namespace: json['n'] as String? ?? '',
+      key: json['k'] as String? ?? '',
+      summary: json['s'] as String? ?? '',
+      topic: json['t'] as String? ?? '',
+      keywords: List<String>.from(json['kw'] ?? const <String>[]),
+      importance: switch (json['i']) {
+        int value => value.toDouble(),
+        double value => value,
+        _ => 0.0,
+      },
+      version: switch (json['v']) {
+        int value => value,
+        double value => value.toInt(),
+        _ => 1,
+      },
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(json['u'] as int? ?? 0),
+      metadata: json['m'] as String?,
+      confidence: (json['c'] as num?)?.toDouble(),
+    );
+  }
+
+  /// 二进制序列化（用于 Hive 存储优化）
+  List<int> toBinary() {
+    final compact = toCompactJson();
+    return utf8.encode(jsonEncode(compact));
+  }
+
+  factory StateRecord.fromBinary(List<int> data) {
+    final jsonString = utf8.decode(data);
+    final compact = jsonDecode(jsonString) as Map<String, dynamic>;
+    return StateRecord.fromCompactJson(compact);
+  }
+
+  /// 增量更新（避免全量覆盖）
+  StateRecord copyWith({
+    String? summary,
+    String? topic,
+    List<String>? keywords,
+    double? importance,
+    String? metadata,
+    double? confidence,
+    bool incrementVersion = true,
+  }) {
+    return StateRecord(
+      namespace: this.namespace,
+      key: this.key,
+      summary: summary ?? this.summary,
+      topic: topic ?? this.topic,
+      keywords: keywords ?? this.keywords,
+      importance: importance ?? this.importance,
+      version: incrementVersion ? this.version + 1 : this.version,
+      updatedAt: DateTime.now(),
+      metadata: metadata ?? this.metadata,
+      confidence: confidence ?? this.confidence,
     );
   }
 }
 
+@HiveType(typeId: 11)
 class MemoryUnit {
   const MemoryUnit({
     required this.id,
@@ -133,14 +240,31 @@ class MemoryUnit {
     required this.confidence,
   });
 
+  @HiveField(0)
   final String id;
+
+  @HiveField(1)
   final String summary;
+
+  @HiveField(2)
   final String topic;
+
+  @HiveField(3)
   final List<String> keywords;
+
+  @HiveField(4)
   final double importance;
+
+  @HiveField(5)
   final List<String> sourceIds;
+
+  @HiveField(6)
   final DateTime createdAt;
+
+  @HiveField(7)
   final DateTime updatedAt;
+
+  @HiveField(8)
   final double confidence;
 
   MemoryUnit copyWith({
@@ -165,6 +289,55 @@ class MemoryUnit {
       updatedAt: updatedAt ?? this.updatedAt,
       confidence: confidence ?? this.confidence,
     );
+  }
+
+  /// 紧凑 JSON 格式
+  Map<String, dynamic> toCompactJson() {
+    return {
+      'i': id,
+      's': summary,
+      't': topic,
+      'kw': keywords,
+      'imp': importance,
+      'src': sourceIds,
+      'c': createdAt.millisecondsSinceEpoch,
+      'u': updatedAt.millisecondsSinceEpoch,
+      'conf': confidence,
+    };
+  }
+
+  factory MemoryUnit.fromCompactJson(Map<String, dynamic> json) {
+    return MemoryUnit(
+      id: json['i'] as String? ?? '',
+      summary: json['s'] as String? ?? '',
+      topic: json['t'] as String? ?? '',
+      keywords: List<String>.from(json['kw'] ?? const <String>[]),
+      importance: switch (json['imp']) {
+        int value => value.toDouble(),
+        double value => value,
+        _ => 0.0,
+      },
+      sourceIds: List<String>.from(json['src'] ?? const <String>[]),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(json['c'] as int? ?? 0),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(json['u'] as int? ?? 0),
+      confidence: switch (json['conf']) {
+        int value => value.toDouble(),
+        double value => value,
+        _ => 0.0,
+      },
+    );
+  }
+
+  /// 二进制序列化
+  List<int> toBinary() {
+    final compact = toCompactJson();
+    return utf8.encode(jsonEncode(compact));
+  }
+
+  factory MemoryUnit.fromBinary(List<int> data) {
+    final jsonString = utf8.decode(data);
+    final compact = jsonDecode(jsonString) as Map<String, dynamic>;
+    return MemoryUnit.fromCompactJson(compact);
   }
 
   Map<String, dynamic> toJson() {
@@ -206,6 +379,7 @@ class MemoryUnit {
   }
 }
 
+@HiveType(typeId: 12)
 class ArchiveRecord {
   const ArchiveRecord({
     required this.id,
@@ -215,10 +389,19 @@ class ArchiveRecord {
     required this.retentionTag,
   });
 
+  @HiveField(0)
   final String id;
+
+  @HiveField(1)
   final String sourceType;
+
+  @HiveField(2)
   final Map<String, dynamic> payload;
+
+  @HiveField(3)
   final DateTime createdAt;
+
+  @HiveField(4)
   final String retentionTag;
 
   Map<String, dynamic> toJson() {

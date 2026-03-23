@@ -11,7 +11,7 @@ void main() {
 
       expect(summary.title, 'Test Summary');
       expect(summary.content, 'Test Content');
-      expect(summary.type, MemoryType.session);
+      expect(summary.type, MemoryType.fact); // 默认类型已改为 fact
       expect(summary.accessCount, 0);
       expect(summary.importance, 0.5);
     });

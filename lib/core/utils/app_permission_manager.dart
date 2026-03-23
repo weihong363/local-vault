@@ -73,8 +73,17 @@ class AppPermissionManager {
     await requestOverlayPermission();
     await Future.delayed(const Duration(milliseconds: 500));
 
-    // 请求使用统计权限
-    final usageStatsGranted = await requestUsageStatsPermission();
+    // 检查使用情况统计权限，如果没有则请求
+    final usageStatsGranted = await checkUsageStatsPermission();
+    if (!usageStatsGranted) {
+      // 用户可能已经在设置页面授权了，等待一下再检查
+      await Future.delayed(const Duration(seconds: 1));
+      final grantedAfterDelay = await checkUsageStatsPermission();
+      if (!grantedAfterDelay) {
+        // 仍然没有权限，需要用户手动去设置页面
+        return false;
+      }
+    }
 
     final overlayGranted = await checkOverlayPermission();
 

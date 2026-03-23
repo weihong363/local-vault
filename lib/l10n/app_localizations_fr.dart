@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -218,8 +219,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get quickActions => 'Actions rapides';
 
   @override
-  String get enableFloatingGestureLauncher =>
-      'Activer le lanceur gestuel flottant';
+  String get enableFloatingGestureLauncher => 'Activer les gestes';
 
   @override
   String get floatingGestureLauncherDescription =>
