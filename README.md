@@ -66,8 +66,8 @@ lib/
 
 - [项目架构图](docs/PROJECT_ARCHITECTURE.md) - 完整架构图和目录结构
 - [开发进度](docs/PROGRESS.md) - 详细的功能完成情况和待办事项
-- [迁移指南](docs/build/MIGRATION_GUIDE.md) - 新旧架构迁移指南
-- [使用示例](lib/ARCHITECTURE_EXAMPLE.md) - 快速使用示例
+  ~~- [迁移指南](docs/build/MIGRATION_GUIDE.md) - 新旧架构迁移指南~~
+  ~~- [使用示例](lib/ARCHITECTURE_EXAMPLE.md) - 快速使用示例~~
 
 ## 🛠️ 技术栈
 
@@ -163,21 +163,21 @@ flutter test test/core/services/memory_rule_engine_real_data_test.dart
 
 - [项目架构图](docs/PROJECT_ARCHITECTURE.md) - 完整架构图和目录结构
 - [开发进度](docs/PROGRESS.md) - 详细的功能完成情况和待办事项
-- [迁移指南](docs/build/MIGRATION_GUIDE.md) - 新旧架构迁移指南
-- [使用示例](lib/ARCHITECTURE_EXAMPLE.md) - 快速使用示例
+  ~~- [迁移指南](docs/build/MIGRATION_GUIDE.md) - 新旧架构迁移指南~~
+  ~~- [使用示例](lib/ARCHITECTURE_EXAMPLE.md) - 快速使用示例~~
 
 ### 功能说明
 
-- [记忆管理模块](docs/MEMORY_MODULE.md) - 三层记忆模型详解
-- [SLM 规则引擎](docs/SLM_RULE_ENGINE.md) - 智能记忆处理机制
-- [手势唤醒系统](docs/GESTURE_SYSTEM.md) - 悬浮窗手势配置
-- [备份恢复指南](docs/BACKUP_RESTORE.md) - 数据备份与导入
+~~- [记忆管理模块](docs/MEMORY_MODULE.md) - 三层记忆模型详解~~
+~~- [SLM 规则引擎](docs/SLM_RULE_ENGINE.md) - 智能记忆处理机制~~
+~~- [手势唤醒系统](docs/GESTURE_SYSTEM.md) - 悬浮窗手势配置~~
+~~- [备份恢复指南](docs/BACKUP_RESTORE.md) - 数据备份与导入~~
 
 ### 开发与测试
 
-- [开发环境搭建](docs/DEVELOPMENT_SETUP.md) - 开发环境配置指南
-- [测试指南](docs/TESTING_GUIDE.md) - 单元测试和集成测试
-- [代码规范](docs/CODE_STYLE.md) - 代码风格和最佳实践
+~~- [开发环境搭建](docs/DEVELOPMENT_SETUP.md) - 开发环境配置指南~~
+~~- [测试指南](docs/TESTING_GUIDE.md) - 单元测试和集成测试~~
+~~- [代码规范](docs/CODE_STYLE.md) - 代码风格和最佳实践~~
 
 ## 🤝 贡献
 
