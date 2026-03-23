@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/di/service_locator.dart';
@@ -196,7 +198,12 @@ class SummaryEntityNotifier
 
   Future<void> checkAndMergeSessionBatches() async {
     try {
-      await useCases.checkAndMergeSessionBatches();
+      final capability = useCases.memoryCapability;
+      if (capability != null) {
+        // 触发后台的会话压缩与合并流程
+        unawaited(capability.compact());
+      }
+      // 刷新UI以反映最新状态
       await _loadSummaries();
     } catch (e) {
       debugPrint('Failed to check and merge session batches: $e');

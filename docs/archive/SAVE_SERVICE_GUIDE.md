@@ -289,4 +289,4 @@ SaveCoordinator().registerAfterSave((payload, context, success) async {
 ## 相关文档
 
 - [SHARE_SOLUTION.md](SHARE_SOLUTION.md) - 分享功能详细设计
-- [LocalVault-Context.md](LocalVault-Context.md) - 项目核心思想与能力摘要
+- [LocalVault-Context.md](../LocalVault-Context.md) - 项目核心思想与能力摘要

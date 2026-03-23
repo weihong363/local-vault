@@ -3,14 +3,13 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:local_vault/core/config/memory_policy_config.dart';
-import 'package:local_vault/core/domain/entities/rule_semantic_profile.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
+import 'package:local_vault/core/utils/memory_title_generator.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
-import 'package:local_vault/core/utils/topic_placeholder_utils.dart';
 
 /// 摘要业务用例
 class SummaryUseCases {
@@ -28,11 +27,35 @@ class SummaryUseCases {
 
   /// 添加摘要
   Future<void> addSummary(SummaryEntity summary) async {
-    await repository.addSummary(summary);
-    if (summary.type == MemoryType.fact) {
-      await _upgradeFactToCoreIfNeeded(summary.id);
+    final enhancedSummary = _enhanceWithStructuredTitle(summary);
+    await repository.addSummary(enhancedSummary);
+    if (enhancedSummary.type == MemoryType.fact) {
+      await _upgradeFactToCoreIfNeeded(enhancedSummary.id);
     }
     _scheduleMemoryCompaction();
+  }
+
+  /// 使用结构化标题生成器优化标题
+  SummaryEntity _enhanceWithStructuredTitle(SummaryEntity summary) {
+    final rawContent = '${summary.title} ${summary.content}'.trim();
+    if (rawContent.isEmpty) {
+      return summary;
+    }
+
+    final titleResult =
+        StructuredMemoryTitleGenerator.generateTitle(rawContent);
+    if (titleResult.confidence >= 0.5 && titleResult.title.isNotEmpty) {
+      debugPrint(
+        '📝 [StructuredTitle] Generated title: ${titleResult.title} '
+        '(confidence: ${(titleResult.confidence * 100).toStringAsFixed(1)}%)',
+      );
+      return summary.copyWith(
+        title: titleResult.title,
+        updatedAt: DateTime.now(),
+      );
+    }
+
+    return summary;
   }
 
   /// 更新摘要
@@ -136,14 +159,15 @@ class SummaryUseCases {
     SummaryEntity summary, {
     double? similarityThreshold,
   }) async {
+    final enhancedSummary = _enhanceWithStructuredTitle(summary);
     final effectiveSimilarityThreshold =
         similarityThreshold ?? policyConfig.similarity.deduplicationThreshold;
     final existingSummaries = getAllSummaries();
 
-    final duplicate = _findExactDuplicate(existingSummaries, summary);
+    final duplicate = _findExactDuplicate(existingSummaries, enhancedSummary);
     if (duplicate != null) {
       debugPrint(
-          '🔄 [Deduplication] Exact duplicate detected: ${summary.title}');
+          '🔄 [Deduplication] Exact duplicate detected: ${enhancedSummary.title}');
       await updateSummary(
         duplicate.copyWith(
           lastAccessedAt: DateTime.now(),
@@ -157,8 +181,8 @@ class SummaryUseCases {
     double bestSimilarity = 0.0;
     for (final existing in existingSummaries) {
       final similarity = SimilarityUtils.calculateMemorySimilarity(
-        summary.title,
-        summary.content,
+        enhancedSummary.title,
+        enhancedSummary.content,
         existing.title,
         existing.content,
       );
@@ -166,20 +190,20 @@ class SummaryUseCases {
       bestSimilarity = max(bestSimilarity, similarity);
       if (similarity >= effectiveSimilarityThreshold) {
         debugPrint(
-          '🔗 [Deduplication] High-similarity merge: ${summary.title} -> ${existing.title} '
+          '🔗 [Deduplication] High-similarity merge: ${enhancedSummary.title} -> ${existing.title} '
           '(similarity: ${(similarity * 100).toStringAsFixed(1)}%)',
         );
-        final merged = _mergeMemories(existing, summary);
+        final merged = _mergeMemories(existing, enhancedSummary);
         await updateSummary(merged);
         return;
       }
     }
 
     debugPrint(
-      '✅ [Deduplication] Added unique content: ${summary.title} '
+      '✅ [Deduplication] Added unique content: ${enhancedSummary.title} '
       '(highest similarity: ${(bestSimilarity * 100).toStringAsFixed(1)}%)',
     );
-    await addSummary(summary);
+    await addSummary(enhancedSummary);
   }
 
   /// 添加事实记忆，但不自动合并相似事实，改为返回合并候选供 UI 决策。
@@ -187,9 +211,10 @@ class SummaryUseCases {
     SummaryEntity summary, {
     double? similarityThreshold,
   }) async {
-    final factSummary = summary.type == MemoryType.fact
-        ? summary
-        : summary.copyWith(type: MemoryType.fact);
+    final enhancedSummary = _enhanceWithStructuredTitle(summary);
+    final factSummary = enhancedSummary.type == MemoryType.fact
+        ? enhancedSummary
+        : enhancedSummary.copyWith(type: MemoryType.fact);
     final duplicate =
         _findExactDuplicate(getSummariesByType(MemoryType.fact), factSummary);
 
@@ -223,13 +248,13 @@ class SummaryUseCases {
   }
 
   /// Adds a session memory and schedules background processing.
-  /// If a MemoryCapability is available, it delegates ingestion to the runtime.
-  /// Otherwise, falls back to legacy batch merging logic.
+  /// Delegates ingestion to the MemoryCapability runtime.
   Future<void> addSessionMemory(SummaryEntity summary) async {
+    final enhancedSummary = _enhanceWithStructuredTitle(summary);
     final sessionSummaries = getSummariesByType(MemoryType.session);
     SummaryEntity? savedSession;
 
-    final duplicate = _findExactDuplicate(sessionSummaries, summary);
+    final duplicate = _findExactDuplicate(sessionSummaries, enhancedSummary);
     if (duplicate != null) {
       savedSession = duplicate.copyWith(
         lastAccessedAt: DateTime.now(),
@@ -238,7 +263,7 @@ class SummaryUseCases {
       );
       await updateSummary(savedSession);
     } else {
-      savedSession = summary.copyWith(type: MemoryType.session);
+      savedSession = enhancedSummary.copyWith(type: MemoryType.session);
       await addSummary(savedSession);
     }
 
@@ -248,53 +273,7 @@ class SummaryUseCases {
       return;
     }
 
-    // Legacy fallback path - should be phased out after full migration
-    debugPrint('⚠️ [SummaryUseCases] Falling back to legacy session merge');
-  }
-
-  /// Processes session batches for merging.
-  /// If a MemoryCapability is available, it delegates compaction to the runtime.
-  /// Otherwise, executes local batch merging using SLM.
-  Future<int> checkAndMergeSessionBatches() async {
-    final capability = memoryCapability;
-    if (capability != null) {
-      return capability.compact();
-    }
-
-    // Legacy path - should be removed after migration
-    debugPrint('⚠️ [SummaryUseCases] Executing legacy session batch merge');
-    final sessions = getSummariesByType(MemoryType.session);
-    if (sessions.isEmpty) {
-      return 0;
-    }
-
-    final batches = await _buildSessionBatches(sessions);
-    await _syncSessionProtection(sessions, batches);
-
-    var mergedCount = 0;
-    for (final batch in batches) {
-      if (!_isEligibleForMerge(batch)) {
-        continue;
-      }
-
-      final mergeResponse = await slmService.mergeSessions(batch.sessions);
-      if (!mergeResponse.success || mergeResponse.data.content.trim().isEmpty) {
-        continue;
-      }
-
-      final mergedFact = _buildFactFromBatch(
-        batch,
-        mergeResponse.data,
-      );
-      await addSummary(mergedFact);
-
-      for (final session in batch.sessions) {
-        await deleteSummary(session.id);
-      }
-      mergedCount += 1;
-    }
-
-    return mergedCount;
+    throw StateError('addSessionMemory requires a MemoryCapability');
   }
 
   /// 查找完全重复的内容（标准化后比较）
@@ -416,7 +395,10 @@ class SummaryUseCases {
   Future<void> cleanupSessionMemories({
     Duration? maxAge,
   }) async {
-    await checkAndMergeSessionBatches();
+    final capability = memoryCapability;
+    if (capability != null) {
+      unawaited(capability.compact());
+    }
 
     final sessionMemories = getSummariesByType(MemoryType.session);
     final now = DateTime.now();
@@ -534,31 +516,36 @@ class SummaryUseCases {
     SummaryMergeResolution resolution = const SummaryMergeResolution(),
   }) {
     return primary.copyWith(
-      title: _resolveTextChoice(
-        existingValue: primary.title,
-        incomingValue: secondary.title,
-        choice: resolution.title,
-        combine: _mergeTitle,
-      ),
-      content: _resolveTextChoice(
-        existingValue: primary.content,
-        incomingValue: secondary.content,
-        choice: resolution.content,
-        combine: _mergeContent,
-      ),
-      tags: _resolveTagChoice(
-        existingTags: primary.tags,
-        incomingTags: secondary.tags,
-        choice: resolution.tags,
-      ),
+      title: resolution.title == SummaryMergeFieldChoice.incoming
+          ? secondary.title
+          : resolution.title == SummaryMergeFieldChoice.existing
+              ? primary.title
+              : resolution.title == SummaryMergeFieldChoice.combined
+                  ? '$primary.title $secondary.title'
+                  : primary.title,
+      content: resolution.content == SummaryMergeFieldChoice.incoming
+          ? secondary.content
+          : resolution.content == SummaryMergeFieldChoice.existing
+              ? primary.content
+              : resolution.content == SummaryMergeFieldChoice.combined
+                  ? '$primary.content\n\n$secondary.content'
+                  : primary.content,
+      tags: resolution.tags == SummaryMergeFieldChoice.incoming
+          ? secondary.tags
+          : resolution.tags == SummaryMergeFieldChoice.existing
+              ? primary.tags
+              : resolution.tags == SummaryMergeFieldChoice.combined
+                  ? {...primary.tags, ...secondary.tags}.toList()
+                  : primary.tags,
       createdAt: primary.createdAt.isBefore(secondary.createdAt)
           ? primary.createdAt
           : secondary.createdAt,
       updatedAt: DateTime.now(),
-      lastAccessedAt: _latestDate(
-        primary.lastAccessedAt,
-        secondary.lastAccessedAt,
-      ),
+      lastAccessedAt: primary.lastAccessedAt
+                  ?.isAfter(secondary.lastAccessedAt ?? DateTime(1970)) ??
+              false
+          ? primary.lastAccessedAt
+          : secondary.lastAccessedAt,
       topic: primary.topic ?? secondary.topic,
       importance: (primary.importance + secondary.importance) / 2,
       accessCount: primary.accessCount + secondary.accessCount,
@@ -580,415 +567,21 @@ class SummaryUseCases {
     );
   }
 
-  Future<List<_SessionBatch>> _buildSessionBatches(
-    List<SummaryEntity> sessions,
-  ) async {
-    final batchPolicy = policyConfig.sessionBatching;
-    final sortedSessions = List<SummaryEntity>.from(sessions)
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    final batches = <_SessionBatch>[];
 
-    for (final rawSession in sortedSessions) {
-      final session = await _ensureTopic(rawSession);
-      final sessionProfile = slmService.describeSummarySemantics(session);
-      var assigned = false;
 
-      for (final batch in batches) {
-        final anchor = batch.sessions.last;
-        final semanticSimilarity =
-            slmService.calculateSemanticProfileSimilarity(
-          batch.profile,
-          sessionProfile,
-        );
-        final ruleScore = _calculateBatchRuleScore(
-          batch,
-          session,
-          batch.profile,
-          sessionProfile,
-          semanticSimilarity,
-        );
-        final normalizedBatchTopic =
-            _normalizeTitle(batch.profile.displayTopic);
-        final normalizedSessionTopic =
-            _normalizeTitle(sessionProfile.displayTopic);
-        final topicMatches = slmService.hasStableSemanticAlignment(
-          batch.profile,
-          sessionProfile,
-          minTagOverlap: 1,
-        );
-        final hasSharedContext = _hasSharedBatchingContext(anchor, session);
-        final canBypassRuleGate = topicMatches && hasSharedContext;
-        if (ruleScore < batchPolicy.minimumRuleScoreForSemanticCheck &&
-            !canBypassRuleGate) {
-          debugPrint(
-            '🧩 [SessionBatch] Skipping batch match: ${session.id} -> ${anchor.id}, '
-            'ruleScore=${ruleScore.toStringAsFixed(2)} is below the threshold '
-            '${batchPolicy.minimumRuleScoreForSemanticCheck.toStringAsFixed(2)} '
-            'batchTopic="$normalizedBatchTopic" '
-            'sessionTopic="$normalizedSessionTopic"',
-          );
-          continue;
-        }
 
-        final semanticScore = topicMatches ? 1.0 : 0.0;
-        final canUseTopicShortcut = canBypassRuleGate ||
-            (topicMatches &&
-                ruleScore >= max(0.6, batchPolicy.topicMatchScoreFloor - 0.25));
-        final combinedScore = canUseTopicShortcut
-            ? max(batchPolicy.topicMatchScoreFloor, ruleScore)
-            : (ruleScore * batchPolicy.ruleWeight) +
-                (semanticScore * batchPolicy.semanticWeight);
 
-        debugPrint(
-          '🧩 [SessionBatch] Comparing ${session.id} -> ${batch.sessions.first.id} '
-          'topicMatch=$topicMatches shortcut=$canUseTopicShortcut '
-          'semantic=$topicMatches fallback=rules '
-          'ruleScore=${ruleScore.toStringAsFixed(2)} '
-          'combined=${combinedScore.toStringAsFixed(2)} '
-          'batchTopic="$normalizedBatchTopic" sessionTopic="$normalizedSessionTopic"',
-        );
 
-        if (combinedScore >= batchPolicy.combinedScoreThreshold) {
-          batch.sessions.add(session);
-          batch.sessionProfiles.add(sessionProfile);
-          batch.matchScores.add(combinedScore);
-          batch.profile = slmService.describeBatchSemantics(batch.sessions);
-          debugPrint(
-            '✅ [SessionBatch] ${session.id} joined batch ${batch.sessions.first.id}, '
-            'combined=${combinedScore.toStringAsFixed(2)}',
-          );
-          assigned = true;
-          break;
-        }
-      }
 
-      if (!assigned) {
-        batches.add(
-          _SessionBatch(
-            profile: sessionProfile,
-            sessions: <SummaryEntity>[session],
-            sessionProfiles: <RuleSemanticProfile>[sessionProfile],
-            matchScores: <double>[],
-          ),
-        );
-      }
-    }
 
-    return batches;
-  }
 
-  bool _hasSharedBatchingContext(SummaryEntity a, SummaryEntity b) {
-    if (_sourceFamily(a.source) == _sourceFamily(b.source)) {
-      return true;
-    }
 
-    if (a.tags.toSet().intersection(b.tags.toSet()).isNotEmpty) {
-      return true;
-    }
 
-    return a.createdAt.difference(b.createdAt).abs() <=
-        policyConfig.timeThresholds.mediumTerm;
-  }
 
-  Future<SummaryEntity> _ensureTopic(SummaryEntity session) async {
-    final existingTopic = session.topic?.trim() ?? '';
-    final topicResponse = await slmService.extractTopic(
-      session.title,
-      session.content,
-    );
-    final refreshedTopic = topicResponse.data.trim();
 
-    if (!_shouldRefreshSessionTopic(existingTopic, refreshedTopic)) {
-      return session;
-    }
 
-    final updated = session.copyWith(topic: refreshedTopic);
-    await repository.updateSummary(updated);
-    return updated;
-  }
 
-  bool _shouldRefreshSessionTopic(String existingTopic, String refreshedTopic) {
-    final trimmedExisting = existingTopic.trim();
-    final trimmedRefreshed = refreshedTopic.trim();
-    if (trimmedRefreshed.isEmpty) {
-      return false;
-    }
-    if (trimmedExisting.isEmpty) {
-      return true;
-    }
 
-    final normalizedExisting = _normalizeTitle(trimmedExisting);
-    final normalizedRefreshed = _normalizeTitle(trimmedRefreshed);
-    if (normalizedExisting == normalizedRefreshed) {
-      return false;
-    }
-
-    if (_isCanonicalSessionTopic(normalizedRefreshed)) {
-      return true;
-    }
-
-    return !_isStableComparableTopic(normalizedExisting) &&
-        _isStableComparableTopic(normalizedRefreshed);
-  }
-
-  bool _isCanonicalSessionTopic(String topic) {
-    return switch (topic) {
-      'rag' || 'llm' || 'slm' || 'ocr' => true,
-      _ => false,
-    };
-  }
-
-  Future<void> _syncSessionProtection(
-    List<SummaryEntity> originalSessions,
-    List<_SessionBatch> batches,
-  ) async {
-    final now = DateTime.now();
-    final candidateIds = <String, _SessionBatch>{};
-    for (final batch in batches.where((batch) => batch.sessions.length >= 2)) {
-      for (final session in batch.sessions) {
-        candidateIds[session.id] = batch;
-      }
-    }
-
-    for (final session in originalSessions) {
-      final batch = candidateIds[session.id];
-      final nextTopic = batch?.topic ?? session.topic;
-      final nextProtectedUntil = batch == null
-          ? null
-          : now.add(policyConfig.candidateProtectionWindow);
-      final hasProtectionChanged = batch == null
-          ? session.protectedUntil != null
-          : session.protectedUntil == null ||
-              session.protectedUntil!.isBefore(now) ||
-              session.protectedUntil!
-                      .difference(nextProtectedUntil!)
-                      .inMinutes
-                      .abs() >
-                  1;
-      final hasTopicChanged = nextTopic != null && nextTopic != session.topic;
-
-      if (!hasProtectionChanged && !hasTopicChanged) {
-        continue;
-      }
-
-      await repository.updateSummary(
-        session.copyWith(
-          topic: nextTopic,
-          clearProtectedUntil: batch == null,
-          protectedUntil: batch == null ? null : nextProtectedUntil,
-        ),
-      );
-    }
-  }
-
-  bool _isEligibleForMerge(_SessionBatch batch) {
-    final sessions = batch.sessions;
-    final hasContent =
-        sessions.any((session) => session.content.trim().isNotEmpty);
-    if (!hasContent) {
-      return false;
-    }
-
-    if (sessions.length >= policyConfig.sessionBatching.minimumMergeBatchSize) {
-      return true;
-    }
-
-    return _isHighConfidencePair(batch);
-  }
-
-  bool _isStableComparableTopic(String topic) {
-    return topic.isNotEmpty && !TopicPlaceholderUtils.isPlaceholderTopic(topic);
-  }
-
-  bool _isHighConfidencePair(_SessionBatch batch) {
-    if (batch.sessions.length != 2 ||
-        batch.matchScores.isEmpty ||
-        !batch.profile.hasDomain) {
-      return false;
-    }
-
-    final distinctFacetKeys = batch.sessionProfiles
-        .map((profile) => profile.facetKey)
-        .where((key) => key.isNotEmpty)
-        .toSet();
-    if (distinctFacetKeys.length != 1) {
-      return false;
-    }
-
-    final coherenceScore = batch.matchScores.reduce(min);
-    return coherenceScore >= 0.88 && batch.profile.confidence >= 0.65;
-  }
-
-  double _calculateBatchRuleScore(
-    _SessionBatch batch,
-    SummaryEntity session,
-    RuleSemanticProfile batchProfile,
-    RuleSemanticProfile sessionProfile,
-    double semanticSimilarity,
-  ) {
-    final batchPolicy = policyConfig.sessionBatching;
-    double score = 0.0;
-
-    final titleA = _normalizeTitle(batchProfile.displayTitle);
-    final titleB = _normalizeTitle(sessionProfile.displayTitle);
-    if (titleA.isNotEmpty && titleA == titleB) {
-      score += batchPolicy.exactTitleMatchWeight;
-    } else if (titleA.isNotEmpty &&
-        titleB.isNotEmpty &&
-        (titleA.contains(titleB) || titleB.contains(titleA))) {
-      score += batchPolicy.partialTitleMatchWeight;
-    }
-
-    score += semanticSimilarity * batchPolicy.semanticSimilarityWeight;
-
-    if (batchProfile.domainKey.isNotEmpty &&
-        batchProfile.domainKey == sessionProfile.domainKey) {
-      score += 0.12;
-    }
-
-    if (batchProfile.domainKey.isNotEmpty &&
-        batchProfile.facetKey.isNotEmpty &&
-        batchProfile.facetKey == sessionProfile.facetKey) {
-      score += 0.12;
-    }
-
-    final batchTags = batch.sessions.expand((item) => item.tags).toSet();
-    if (batchTags.isNotEmpty && session.tags.isNotEmpty) {
-      final overlap = batchTags.intersection(session.tags.toSet()).length;
-      final maxSize = max(batchTags.length, session.tags.length);
-      score += (overlap / max(1, maxSize)) * batchPolicy.tagOverlapWeight;
-    }
-
-    if (batch.sessions.any(
-      (item) => _sourceFamily(item.source) == _sourceFamily(session.source),
-    )) {
-      score += batchPolicy.sameSourceWeight;
-    }
-
-    final anchor = batch.sessions.last;
-    final timeDiff = anchor.createdAt.difference(session.createdAt).abs();
-    if (timeDiff <= policyConfig.timeThresholds.shortTerm) {
-      score += batchPolicy.shortTermTimeWeight;
-    } else if (timeDiff <= policyConfig.timeThresholds.mediumTerm) {
-      score += batchPolicy.mediumTermTimeWeight;
-    }
-
-    return score.clamp(0.0, 1.0);
-  }
-
-  String _sourceFamily(String source) {
-    final parts = source.split('_');
-    return parts.isEmpty ? source : parts.first;
-  }
-
-  String _mergeTitle(String title1, String title2) {
-    final normalized1 = _normalizeTitle(title1);
-    final normalized2 = _normalizeTitle(title2);
-    if (normalized1 == normalized2) {
-      return title1.length >= title2.length ? title1 : title2;
-    }
-    if (title1.contains(title2)) {
-      return title1;
-    }
-    if (title2.contains(title1)) {
-      return title2;
-    }
-    return title2.length >= title1.length ? title2 : title1;
-  }
-
-  String _resolveTextChoice({
-    required String existingValue,
-    required String incomingValue,
-    required SummaryMergeFieldChoice choice,
-    required String Function(String existing, String incoming) combine,
-  }) {
-    switch (choice) {
-      case SummaryMergeFieldChoice.existing:
-        return existingValue;
-      case SummaryMergeFieldChoice.incoming:
-        return incomingValue;
-      case SummaryMergeFieldChoice.combined:
-        return combine(existingValue, incomingValue);
-    }
-  }
-
-  List<String> _resolveTagChoice({
-    required List<String> existingTags,
-    required List<String> incomingTags,
-    required SummaryMergeFieldChoice choice,
-  }) {
-    switch (choice) {
-      case SummaryMergeFieldChoice.existing:
-        return existingTags;
-      case SummaryMergeFieldChoice.incoming:
-        return incomingTags;
-      case SummaryMergeFieldChoice.combined:
-        return <String>{...existingTags, ...incomingTags}.toList();
-    }
-  }
-
-  DateTime? _latestDate(DateTime? left, DateTime? right) {
-    if (left == null) {
-      return right;
-    }
-    if (right == null) {
-      return left;
-    }
-    return left.isAfter(right) ? left : right;
-  }
-
-  SummaryEntity _buildFactFromBatch(
-    _SessionBatch batch,
-    MemorySlmMergeResult mergeResult,
-  ) {
-    final accessCount = batch.sessions
-        .fold<int>(0, (sum, session) => sum + session.accessCount);
-    final importance = batch.sessions.fold<double>(
-          0.0,
-          (sum, session) => sum + session.importance,
-        ) /
-        batch.sessions.length;
-
-    DateTime? lastAccessedAt;
-    for (final session in batch.sessions) {
-      final candidate = session.lastAccessedAt;
-      if (candidate == null) {
-        continue;
-      }
-      if (lastAccessedAt == null || candidate.isAfter(lastAccessedAt)) {
-        lastAccessedAt = candidate;
-      }
-    }
-
-    return SummaryEntity.create(
-      title: mergeResult.title,
-      content: mergeResult.content,
-      tags: mergeResult.tags,
-      type: MemoryType.fact,
-      source: 'slm_session_merge',
-      topic: batch.topic,
-      importance: importance,
-    ).copyWith(
-      createdAt: batch.sessions.first.createdAt,
-      accessCount: accessCount,
-      lastAccessedAt: lastAccessedAt,
-      updatedAt: DateTime.now(),
-    );
-  }
 }
 
-class _SessionBatch {
-  _SessionBatch({
-    required this.profile,
-    required this.sessions,
-    required this.sessionProfiles,
-    required this.matchScores,
-  });
 
-  RuleSemanticProfile profile;
-  final List<SummaryEntity> sessions;
-  final List<RuleSemanticProfile> sessionProfiles;
-  final List<double> matchScores;
-
-  String get topic => profile.displayTopic;
-}

@@ -66,7 +66,7 @@ lib/
 
 - [项目架构图](docs/PROJECT_ARCHITECTURE.md) - 完整架构图和目录结构
 - [开发进度](docs/PROGRESS.md) - 详细的功能完成情况和待办事项
-- [迁移指南](docs/MIGRATION_GUIDE.md) - 新旧架构迁移指南
+- [迁移指南](docs/build/MIGRATION_GUIDE.md) - 新旧架构迁移指南
 - [使用示例](lib/ARCHITECTURE_EXAMPLE.md) - 快速使用示例
 
 ## 🛠️ 技术栈
@@ -163,7 +163,7 @@ flutter test test/core/services/memory_rule_engine_real_data_test.dart
 
 - [项目架构图](docs/PROJECT_ARCHITECTURE.md) - 完整架构图和目录结构
 - [开发进度](docs/PROGRESS.md) - 详细的功能完成情况和待办事项
-- [迁移指南](docs/MIGRATION_GUIDE.md) - 新旧架构迁移指南
+- [迁移指南](docs/build/MIGRATION_GUIDE.md) - 新旧架构迁移指南
 - [使用示例](lib/ARCHITECTURE_EXAMPLE.md) - 快速使用示例
 
 ### 功能说明
