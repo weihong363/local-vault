@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_vault/core/constants/app_routes.dart';
@@ -12,9 +11,11 @@ import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/providers/locale_provider.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/core/providers/theme_provider.dart';
+import 'package:local_vault/core/services/memory_slm_diagnostics_service.dart';
 import 'package:local_vault/core/services/save_coordinator.dart';
 import 'package:local_vault/core/services/share_service.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
+import 'package:local_vault/core/utils/memory_title_generator.dart';
 import 'package:local_vault/core/utils/storage_initializer.dart';
 import 'package:local_vault/core/widgets/bottom_navigation.dart';
 import 'package:local_vault/core/widgets/quick_action_activity_page.dart';
@@ -29,11 +30,14 @@ import 'package:local_vault/features/settings/presentation/pages/database_inspec
 import 'package:local_vault/features/settings/presentation/pages/diagnostics_page.dart';
 import 'package:local_vault/features/settings/presentation/pages/feedback_page.dart';
 import 'package:local_vault/features/summary/presentation/pages/summary_detail_page.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await StorageInitializer.initialize();
   await initializeDependencies();
+  // 初始化 Topic Taxonomy
+  await StructuredMemoryTitleGenerator.initialize();
   runApp(const ProviderScope(child: LocalVaultApp()));
 }
 
@@ -46,6 +50,10 @@ class LocalVaultApp extends ConsumerStatefulWidget {
 
 class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
     with WidgetsBindingObserver {
+  static const bool _autoRunSlmSelfCheckOnStartup = bool.fromEnvironment(
+    'AUTO_RUN_SLM_SELF_CHECK_ON_STARTUP',
+    defaultValue: false,
+  );
   bool _initialized = false;
   final GlobalKey<NavigatorState> _rootNavigatorKey =
       GlobalKey<NavigatorState>();
@@ -64,10 +72,10 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
     _setupQuickSaveChannel();
   }
 
-  /// 设置快速保存 MethodChannel
+  /// Configure the quick-save MethodChannel.
   void _setupQuickSaveChannel() {
     _quickSaveChannel.setMethodCallHandler((call) async {
-      debugPrint('📥 [main] 收到 MethodChannel 调用：${call.method}');
+      debugPrint('📥 [main] Received MethodChannel call: ${call.method}');
       try {
         switch (call.method) {
           case 'saveFromClipboard':
@@ -93,16 +101,18 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
             );
         }
       } catch (e) {
-        debugPrint('❌ [main] MethodChannel 处理失败：$e');
+        debugPrint('❌ [main] MethodChannel handling failed: $e');
         rethrow;
       }
     });
-    debugPrint('✅ [main] QuickSave MethodChannel 已设置');
+    debugPrint('✅ [main] QuickSave MethodChannel configured');
   }
 
-  /// 处理从剪贴板保存
+  /// Save content from the clipboard.
   Future<void> _handleSaveFromClipboard(String content) async {
-    debugPrint('💾 [main] 开始静默保存剪贴板内容，长度：${content.length}');
+    debugPrint(
+      '💾 [main] Starting silent clipboard save, length: ${content.length}',
+    );
     try {
       final saveCoordinator = SaveCoordinator();
       final success = await saveCoordinator.handleSilentShortcutSave(
@@ -111,68 +121,74 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
       );
 
       if (success) {
-        debugPrint('✅ [main] 静默保存成功');
+        debugPrint('✅ [main] Silent save succeeded');
       } else {
-        debugPrint('⚠️ [main] 静默保存被中断，跳转到保存页面');
+        debugPrint('⚠️ [main] Silent save interrupted, opening save page');
         _router.push(AppRoutes.save, extra: content);
       }
     } catch (e) {
-      debugPrint('❌ [main] 静默保存失败：$e，跳转到保存页面');
+      debugPrint('❌ [main] Silent save failed: $e, opening save page');
       _router.push(AppRoutes.save, extra: content);
     }
   }
 
-  /// 初始化分享服务
+  /// Initialize the share service.
   void _initializeShareService() {
-    debugPrint('🚀 [main] 开始初始化分享服务...');
+    debugPrint('🚀 [main] Initializing share service...');
 
-    // 初始化 ShareService
+    // Initialize ShareService.
     final shareService = ShareService();
     shareService.initialize();
 
-    // 监听分享文本流
+    // Listen for shared text.
     _shareSubscription = shareService.shareStream.listen((sharedText) {
       if (mounted) {
-        debugPrint('✨ [main] 从 Stream 收到分享，来源：${sharedText.source}');
         debugPrint(
-            '✨ [main] 文本内容：${sharedText.text.substring(0, sharedText.text.length.clamp(0, 50))}...');
+          '✨ [main] Received shared text from stream, source: ${sharedText.source}',
+        );
+        debugPrint(
+          '✨ [main] Text preview: '
+          '${sharedText.text.substring(0, sharedText.text.length.clamp(0, 50))}...',
+        );
 
-        // 根据来源决定处理方式
+        // Choose the flow based on the source.
         if (sharedText.source == 'quick_save' ||
             sharedText.source == 'silent_save_from_tile') {
-          // 快捷方式保存，静默保存
-          debugPrint('🤫 [main] 快捷方式保存，执行静默保存');
+          // Shortcut saves should stay silent.
+          debugPrint('🤫 [main] Shortcut save detected, using silent save');
           _handleSilentSave(sharedText.text);
         } else {
-          // 普通分享，打开保存页面
-          debugPrint('📱 [main] 普通分享，打开保存页面');
+          // Regular shares should open the save page.
+          debugPrint('📱 [main] Regular share detected, opening save page');
           _handleShareText(sharedText.text);
         }
       }
     });
 
-    // 监听分享图片流
+    // Listen for shared images.
     _imageSubscription = shareService.imageStream.listen((sharedImage) {
       if (mounted) {
-        debugPrint('🖼️ [main] 从 Stream 收到图片分享：${sharedImage.uris.length} 张');
+        debugPrint(
+          '🖼️ [main] Received ${sharedImage.uris.length} shared image(s) from stream',
+        );
         _handleShareImage(sharedImage.uris);
       }
     });
 
-    // 同时尝试获取待处理的分享文本（兼容旧模式）
+    // Also check for pending shared text for backward compatibility.
     shareService.getPendingShareText().then((text) {
       if (text != null && mounted) {
-        debugPrint('🔄 [main] 从 getPendingShareText 获取到分享文本');
+        debugPrint('🔄 [main] Loaded pending shared text');
         _handleShareText(text);
       }
     });
 
-    debugPrint('✅ [main] 分享服务初始化完成');
+    debugPrint('✅ [main] Share service initialized');
   }
 
-  /// 处理静默保存（不打开 UI）
+  /// Perform a silent save without opening the UI.
   Future<void> _handleSilentSave(String text) async {
-    debugPrint('💾 [main] 开始静默保存...');
+    debugPrint('💾 [main] Starting silent save...');
     try {
       final saveCoordinator = SaveCoordinator();
       final success = await saveCoordinator.handleSilentShortcutSave(
@@ -181,81 +197,61 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
       );
 
       if (success) {
-        debugPrint('✅ [main] 静默保存成功');
+        debugPrint('✅ [main] Silent save succeeded');
       } else {
-        debugPrint('⚠️ [main] 静默保存被中断，跳转到保存页面');
+        debugPrint('⚠️ [main] Silent save interrupted, opening save page');
         _router.push(AppRoutes.save, extra: text);
       }
     } catch (e) {
-      debugPrint('❌ [main] 静默保存失败：$e，跳转到保存页面');
+      debugPrint('❌ [main] Silent save failed: $e, opening save page');
       _router.push(AppRoutes.save, extra: text);
     }
   }
 
   void _handleShareText(String text) {
-    debugPrint('📝 [main] Flutter 收到分享文本，长度：${text.length}');
     debugPrint(
-        '📝 [main] 文本内容：${text.substring(0, text.length.clamp(0, 100))}${text.length > 100 ? '...' : ''}');
-    // 直接导航到保存页面，并传递文本
-    debugPrint('🚀 [main] 准备导航到保存页面...');
+        '📝 [main] Flutter received shared text, length: ${text.length}');
+    debugPrint(
+      '📝 [main] Text preview: '
+      '${text.substring(0, text.length.clamp(0, 100))}${text.length > 100 ? '...' : ''}',
+    );
+    // Navigate directly to the save page with the shared text.
+    debugPrint('🚀 [main] Navigating to the save page...');
     _router.push(AppRoutes.save, extra: text);
-    debugPrint('✅ [main] 导航完成');
+    debugPrint('✅ [main] Navigation finished');
   }
 
   void _handleShareImage(List<String> uris) {
-    debugPrint('Flutter 收到分享图片：${uris.length} 张');
-    // 导航到保存页面，传递图片 URIs
+    debugPrint('Flutter received ${uris.length} shared image(s)');
+    // Navigate to the save page with the shared image URIs.
     _router.push(AppRoutes.save, extra: {'type': 'image', 'uris': uris});
-  }
-
-  Future<void> _checkPermissions() async {
-    if (!mounted) return;
-
-    // 延迟检查，确保 UI 完全加载
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-
-    final hasUsageStats =
-        await AppPermissionManager.checkUsageStatsPermission();
-
-    if (!hasUsageStats && mounted) {
-      try {
-        _showUsageStatsPermissionDialog();
-      } catch (e) {
-        debugPrint('⚠️ [main] 显示权限对话框失败：$e，将在下次启动时重试');
-      }
-    }
   }
 
   void _showUsageStatsPermissionDialog() {
     final dialogContext = _rootNavigatorKey.currentContext;
     if (dialogContext == null) return;
+    final loc = AppLocalizations.of(dialogContext)!;
 
     showDialog(
       context: dialogContext,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('⚠️ 需要重要权限'),
-        content: const Text(
-          '检测到未授予"使用情况统计"权限，这将导致：\n\n'
-          '❌ 无法检测当前正在使用的应用\n'
-          '❌ 手势唤醒功能在其他应用中无法正常工作\n\n'
-          '请点击"去授权"按钮，在系统设置中找到该应用并开启此权限。',
-        ),
+        title: Text(loc.usageAccessPermissionRequiredTitle),
+        content: Text(loc.usageAccessPermissionRequiredMessage),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // 用户选择稍后提醒
+              // The user chose to be reminded later.
             },
-            child: const Text('稍后再说'),
+            child: Text(loc.laterLabel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               AppPermissionManager.requestUsageStatsPermission();
             },
-            child: const Text('去授权'),
+            child: Text(loc.grantAccessLabel),
           ),
         ],
       ),
@@ -274,7 +270,7 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint('🔄 [main] 应用恢复，执行记忆清理');
+      debugPrint('🔄 [main] App resumed, running memory cleanup');
       _runMemoryCleanup();
     }
   }
@@ -285,9 +281,9 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
       final notifier = container.read(summaryEntityNotifierProvider.notifier);
       await notifier.applyForgettingCurve();
       await notifier.cleanupSessionMemories();
-      debugPrint('✅ [main] 记忆清理完成');
+      debugPrint('✅ [main] Memory cleanup finished');
     } catch (e) {
-      debugPrint('❌ [main] 记忆清理失败: $e');
+      debugPrint('❌ [main] Memory cleanup failed: $e');
     }
   }
 
@@ -395,9 +391,35 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
   }
 
   Future<void> _runPostInitialization() async {
-    await _checkPermissions();
+    // 注意：权限检测已移至设置页面，仅在用户打开手势开关后触发
+    // await _checkPermissions();
     _initializeShareService();
     await _runMemoryCleanup();
+    await _runSlmSelfCheckIfEnabled();
+  }
+
+  Future<void> _runSlmSelfCheckIfEnabled() async {
+    if (!_autoRunSlmSelfCheckOnStartup) {
+      return;
+    }
+
+    try {
+      debugPrint('🧪 [main] Running startup SLM self-check...');
+      final result = await sl<MemorySlmDiagnosticsService>().runSelfCheck();
+      debugPrint(
+        '🧪 [main] Startup SLM self-check finished: '
+        'initializeCompleted=${result.initializeCompleted}, '
+        'topicFallback=${result.topicFallbackMode.name}, '
+        'metadataFallback=${result.metadataFallbackMode.name}, '
+        'usedNativeModel=${result.usedNativeModel}, '
+        'topic="${result.topic}", '
+        'title="${result.title}", '
+        'tags=${result.tags.join(",")}',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('❌ [main] Startup SLM self-check failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -415,26 +437,13 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
     final locale = LocaleManager.getLocale(appLocale);
 
     return MaterialApp.router(
-      title: 'Local Vault',
+      onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('en'),
-        Locale('zh'),
-        Locale('ja'),
-        Locale('ko'),
-        Locale('es'),
-        Locale('fr'),
-        Locale('de'),
-      ],
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       locale: locale,
       routerConfig: _router,
     );

@@ -1,16 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 设备 OCR 集成测试的占位校验。
+/// OCR Chinese Device Readiness Tests placeholder.
 ///
-/// 当前仓库没有可直接在 CI/本地桌面环境运行的真实设备 OCR 集成链路，
-/// 因此这里保留设备测试的说明，并把可在宿主环境验证的逻辑下沉为普通测试。
+/// Currently there is no real device OCR integration chain that can run directly in CI/local desktop environment in this repository,
+/// so we keep the description for device tests here, and downgrade the logic that can be validated on the host to regular tests.
 void main() {
   group('OCR Chinese Device Readiness Tests', () {
     test('prints guidance for real-device OCR verification', () {
-      debugPrint('⚠️ 真实图片 OCR 测试需要手动准备测试资源');
       debugPrint(
-        '💡 建议：从 DeepSeek 或其他应用分享包含中文的图片到 Local Vault 进行完整测试',
+          '⚠️ Real-image OCR tests require manually prepared test assets');
+      debugPrint(
+        '💡 Tip: share an image containing Chinese text from DeepSeek or another app to Local Vault for the full test',
       );
 
       expect(true, isTrue);
@@ -20,15 +21,17 @@ void main() {
       const chineseText = 'Hello 世界 World';
       final hasChinese = chineseText.contains(RegExp(r'[\u4e00-\u9fff]'));
 
-      expect(hasChinese, isTrue, reason: '应正确检测到中文字符');
-      debugPrint('✅ 中文检测逻辑验证通过');
+      expect(hasChinese, isTrue,
+          reason: 'Should correctly detect Chinese characters');
+      debugPrint('✅ Chinese text detection logic passed');
 
       const englishText = 'Hello World';
       final hasChineseInEnglish =
           englishText.contains(RegExp(r'[\u4e00-\u9fff]'));
-      expect(hasChineseInEnglish, isFalse, reason: '纯英文不应被误判为中文');
+      expect(hasChineseInEnglish, isFalse,
+          reason: 'Pure English should not be falsely detected as Chinese');
 
-      debugPrint('✅ 英文文本不会被误判为中文');
+      debugPrint('✅ English text is not falsely detected as Chinese');
     });
   });
 }

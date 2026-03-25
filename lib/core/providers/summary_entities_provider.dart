@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/di/service_locator.dart';
@@ -135,7 +137,7 @@ class SummaryEntityNotifier
       await useCases.recordAccess(id);
       await _loadSummaries();
     } catch (e) {
-      debugPrint('记录访问失败: $e');
+      debugPrint('Failed to record access: $e');
     }
   }
 
@@ -144,7 +146,26 @@ class SummaryEntityNotifier
       await useCases.updateImportance(id, importance);
       await _loadSummaries();
     } catch (e) {
-      debugPrint('更新重要性失败: $e');
+      debugPrint('Failed to update importance: $e');
+    }
+  }
+
+  Future<String?> getFactUpgradeReason(String id) async {
+    try {
+      return await useCases.getFactUpgradeReason(id);
+    } catch (e) {
+      debugPrint('Failed to get upgrade reason: $e');
+      return null;
+    }
+  }
+
+  Future<void> upgradeFactToCore(String id) async {
+    try {
+      await useCases.upgradeFactToCore(id);
+      await _loadSummaries();
+    } catch (e) {
+      debugPrint('Failed to manually upgrade core memory: $e');
+      rethrow;
     }
   }
 
@@ -162,7 +183,7 @@ class SummaryEntityNotifier
       await useCases.applyForgettingCurve();
       await _loadSummaries();
     } catch (e) {
-      debugPrint('应用遗忘曲线失败: $e');
+      debugPrint('Failed to apply the forgetting curve: $e');
     }
   }
 
@@ -171,16 +192,21 @@ class SummaryEntityNotifier
       await useCases.cleanupSessionMemories();
       await _loadSummaries();
     } catch (e) {
-      debugPrint('清理会话记忆失败: $e');
+      debugPrint('Failed to clean up session memories: $e');
     }
   }
 
   Future<void> checkAndMergeSessionBatches() async {
     try {
-      await useCases.checkAndMergeSessionBatches();
+      final capability = useCases.memoryCapability;
+      if (capability != null) {
+        // 触发后台的会话压缩与合并流程
+        unawaited(capability.compact());
+      }
+      // 刷新UI以反映最新状态
       await _loadSummaries();
     } catch (e) {
-      debugPrint('检查并合并会话批次失败: $e');
+      debugPrint('Failed to check and merge session batches: $e');
     }
   }
 
@@ -188,7 +214,7 @@ class SummaryEntityNotifier
     try {
       return useCases.findSimilarMemories(target);
     } catch (e) {
-      debugPrint('查找相似记忆失败: $e');
+      debugPrint('Failed to find similar memories: $e');
       return [];
     }
   }
@@ -197,7 +223,7 @@ class SummaryEntityNotifier
     try {
       return useCases.findMergeCandidates(target);
     } catch (e) {
-      debugPrint('查找合并候选失败: $e');
+      debugPrint('Failed to find merge candidates: $e');
       return [];
     }
   }

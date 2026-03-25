@@ -95,7 +95,7 @@ class QuickActionActivity : FlutterActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
-            Log.d(TAG, "onWindowFocusChanged - 窗口获得焦点，重新设置窗口属性")
+            Log.d(TAG, "onWindowFocusChanged - window gained focus, resetting window attributes")
             window?.apply {
                 setBackgroundDrawableResource(android.R.color.transparent)
                 decorView.setBackgroundColor(android.graphics.Color.TRANSPARENT)
@@ -130,12 +130,12 @@ class QuickActionActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "finishActivity" -> {
-                    Log.d(TAG, "收到 finishActivity 请求")
+                    Log.d(TAG, "Received finishActivity request")
                     finish()
                     result.success(null)
                 }
                 "getActionType" -> {
-                    Log.d(TAG, "收到 getActionType 请求，返回: $actionType")
+                    Log.d(TAG, "Received getActionType request, returning: $actionType")
                     result.success(actionType)
                 }
                 else -> {
@@ -200,12 +200,12 @@ class QuickActionActivity : FlutterActivity() {
             }
 
             fallbackIntent.resolveActivity(packageManager) != null -> {
-                Log.w(TAG, "Usage Access 设置页不可用，降级跳转到系统设置")
+                Log.w(TAG, "Usage Access settings page is unavailable, falling back to system settings")
                 startActivity(fallbackIntent)
             }
 
             else -> {
-                Log.e(TAG, "无法打开任何系统设置页面")
+                Log.e(TAG, "Unable to open any system settings page")
             }
         }
     }

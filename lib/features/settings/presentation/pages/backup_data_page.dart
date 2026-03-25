@@ -8,6 +8,7 @@ import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/core/providers/template_entities_provider.dart';
 import 'package:local_vault/core/services/storage_management_service.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 import 'package:share_plus/share_plus.dart';
 
 class BackupDataPage extends ConsumerStatefulWidget {
@@ -32,6 +33,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
   }
 
   Future<void> _createBackup() async {
+    final loc = AppLocalizations.of(context)!;
     setState(() {
       _isWorking = true;
     });
@@ -40,9 +42,8 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
       final result = await sl<StorageManagementService>().createBackup();
       await Share.shareXFiles(
         <XFile>[XFile(result.file.path)],
-        text:
-            'Local Vault 数据备份\n摘要 ${result.summaryCount} 条，模板 ${result.templateCount} 个',
-        subject: 'Local Vault Backup',
+        text: loc.shareBackupText,
+        subject: loc.shareBackupSubject,
       );
       if (!mounted) {
         return;
@@ -50,7 +51,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '备份已生成：${result.file.path.split('/').last}',
+            loc.backupCreatedMessage(result.file.path.split('/').last),
           ),
         ),
       );
@@ -60,7 +61,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('创建备份失败：$error')),
+        SnackBar(content: Text(loc.importFailedMessage('$error'))),
       );
     } finally {
       if (mounted) {
@@ -72,6 +73,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
   }
 
   Future<void> _importBackup() async {
+    final loc = AppLocalizations.of(context)!;
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['json'],
@@ -87,7 +89,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('导入失败：无法读取所选文件')),
+        SnackBar(content: Text(loc.importFailedUnableReadSelectedFile)),
       );
       return;
     }
@@ -103,17 +105,20 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
         return;
       }
 
-      final formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
+      final formatter =
+          DateFormat.yMd(Localizations.localeOf(context).toLanguageTag())
+              .add_Hms();
       final exportedLabel = preview.exportedAt == null
-          ? '未知时间'
+          ? loc.unknownValue
           : formatter.format(preview.exportedAt!.toLocal());
       final confirmed = await _confirmAction(
-        title: '导入备份',
-        message:
-            '检测到备份文件包含 ${preview.summaryCount} 条摘要、${preview.templateCount} 个模板。\n'
-            '导出时间：$exportedLabel\n\n'
-            '导入后会覆盖当前摘要与模板数据，是否继续？',
-        confirmLabel: '导入',
+        title: loc.importBackup,
+        message: loc.backupImportPreviewMessage(
+          '${preview.summaryCount}',
+          '${preview.templateCount}',
+          exportedLabel,
+        ),
+        confirmLabel: loc.importBackup,
       );
       if (confirmed != true) {
         return;
@@ -128,7 +133,10 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '导入完成：${result.summaryCount} 条摘要，${result.templateCount} 个模板',
+            loc.importFinishedMessage(
+              '${result.summaryCount}',
+              '${result.templateCount}',
+            ),
           ),
         ),
       );
@@ -138,14 +146,14 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('导入失败：备份文件格式不正确')),
+        SnackBar(content: Text(loc.invalidBackupFileFormat)),
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('导入失败：$error')),
+        SnackBar(content: Text(loc.failedToCreateBackupMessage('$error'))),
       );
     } finally {
       if (mounted) {
@@ -157,18 +165,20 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
   }
 
   Future<void> _shareBackup(BackupFileEntry entry) async {
+    final loc = AppLocalizations.of(context)!;
     await Share.shareXFiles(
       <XFile>[XFile(entry.file.path)],
-      text: 'Local Vault 数据备份',
-      subject: 'Local Vault Backup',
+      text: loc.shareBackupText,
+      subject: loc.shareBackupSubject,
     );
   }
 
   Future<void> _restoreBackup(BackupFileEntry entry) async {
+    final loc = AppLocalizations.of(context)!;
     final confirmed = await _confirmAction(
-      title: '恢复备份',
-      message: '恢复后会覆盖当前摘要与模板数据，是否继续？',
-      confirmLabel: '恢复',
+      title: loc.restoreLabel,
+      message: loc.restoreBackupMessage,
+      confirmLabel: loc.restoreLabel,
     );
     if (confirmed != true) {
       return;
@@ -188,7 +198,10 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '恢复完成：${result.summaryCount} 条摘要，${result.templateCount} 个模板',
+            loc.restoreFinishedMessage(
+              '${result.summaryCount}',
+              '${result.templateCount}',
+            ),
           ),
         ),
       );
@@ -198,7 +211,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('恢复备份失败：$error')),
+        SnackBar(content: Text(loc.restoreFailedMessage('$error'))),
       );
     } finally {
       if (mounted) {
@@ -210,10 +223,11 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
   }
 
   Future<void> _deleteBackup(BackupFileEntry entry) async {
+    final loc = AppLocalizations.of(context)!;
     final confirmed = await _confirmAction(
-      title: '删除备份',
-      message: '确定要删除备份 ${entry.fileName} 吗？',
-      confirmLabel: '删除',
+      title: loc.deleteLabel,
+      message: loc.deleteBackupConfirmMessage(entry.fileName),
+      confirmLabel: loc.deleteLabel,
     );
     if (confirmed != true) {
       return;
@@ -224,7 +238,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('备份已删除')),
+      SnackBar(content: Text(loc.backupDeleted)),
     );
     await _refresh();
   }
@@ -234,6 +248,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
     required String message,
     required String confirmLabel,
   }) {
+    final loc = AppLocalizations.of(context)!;
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -242,7 +257,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(loc.cancelLabel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -255,14 +270,15 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('备份数据'),
+        title: Text(loc.backupData),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isWorking ? null : _refresh,
-            tooltip: '刷新',
+            tooltip: loc.refresh,
           ),
         ],
       ),
@@ -277,7 +293,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('读取备份列表失败：${snapshot.error}'),
+                child: Text(loc.failedToLoadBackupList('${snapshot.error}')),
               ),
             );
           }
@@ -291,9 +307,9 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
                 _buildBackupOverviewCard(backups),
                 const SizedBox(height: 16),
                 if (backups.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: Text('还没有本地备份文件')),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: Text(loc.noLocalBackupFilesYet)),
                   ),
                 for (final entry in backups) _buildBackupCard(entry),
               ],
@@ -305,31 +321,30 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
   }
 
   Widget _buildBackupOverviewCard(List<BackupFileEntry> backups) {
+    final loc = AppLocalizations.of(context)!;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '本地备份',
-              style: TextStyle(
+            Text(
+              loc.localBackups,
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              '当前有 ${backups.length} 个备份文件',
+              loc.backupFilesAvailable('${backups.length}'),
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '创建备份后会生成 JSON 文件并弹出分享面板；也可以从外部选择备份文件导入恢复。',
-            ),
+            Text(loc.backupOverviewDescription),
             const SizedBox(height: 16),
             Wrap(
               spacing: 12,
@@ -338,12 +353,14 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
                 FilledButton.icon(
                   onPressed: _isWorking ? null : _createBackup,
                   icon: const Icon(Icons.ios_share_outlined),
-                  label: Text(_isWorking ? '处理中...' : '创建并分享备份'),
+                  label: Text(
+                    _isWorking ? loc.workingLabel : loc.createAndShareBackup,
+                  ),
                 ),
                 OutlinedButton.icon(
                   onPressed: _isWorking ? null : _importBackup,
                   icon: const Icon(Icons.file_download_outlined),
-                  label: const Text('导入备份数据'),
+                  label: Text(loc.importBackupData),
                 ),
               ],
             ),
@@ -354,7 +371,10 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
   }
 
   Widget _buildBackupCard(BackupFileEntry entry) {
-    final formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
+    final loc = AppLocalizations.of(context)!;
+    final formatter =
+        DateFormat.yMd(Localizations.localeOf(context).toLanguageTag())
+            .add_Hms();
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -387,17 +407,17 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
               children: [
                 OutlinedButton.icon(
                   icon: const Icon(Icons.share_outlined),
-                  label: const Text('分享'),
+                  label: Text(loc.shareLabel),
                   onPressed: _isWorking ? null : () => _shareBackup(entry),
                 ),
                 FilledButton.tonalIcon(
                   icon: const Icon(Icons.restore_outlined),
-                  label: const Text('恢复'),
+                  label: Text(loc.restoreLabel),
                   onPressed: _isWorking ? null : () => _restoreBackup(entry),
                 ),
                 TextButton.icon(
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
+                  label: Text(loc.deleteLabel),
                   onPressed: _isWorking ? null : () => _deleteBackup(entry),
                 ),
               ],

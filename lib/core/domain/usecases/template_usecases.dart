@@ -1,38 +1,38 @@
 import 'package:local_vault/core/domain/entities/template_entity.dart';
 import 'package:local_vault/core/domain/repositories/template_repository_interface.dart';
 
-/// 模板业务用例
+/// Template business use cases
 class TemplateUseCases {
   final TemplateRepositoryInterface repository;
 
   TemplateUseCases(this.repository);
 
-  /// 添加模板
+  /// Add template
   Future<void> addTemplate(TemplateEntity template) async {
     await repository.addTemplate(template);
   }
 
-  /// 更新模板
+  /// Update template
   Future<void> updateTemplate(TemplateEntity template) async {
     await repository.updateTemplate(template);
   }
 
-  /// 删除模板
+  /// Delete template
   Future<void> deleteTemplate(String id) async {
     await repository.deleteTemplate(id);
   }
 
-  /// 获取单个模板
+  /// Get single template
   TemplateEntity? getTemplate(String id) {
     return repository.getTemplate(id);
   }
 
-  /// 获取所有模板
+  /// Get all templates
   List<TemplateEntity> getAllTemplates() {
     return repository.getAllTemplates();
   }
 
-  /// 搜索模板
+  /// Search templates
   List<TemplateEntity> searchTemplates(String query) {
     return repository.searchTemplates(query);
   }

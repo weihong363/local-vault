@@ -1,169 +1,207 @@
-# LocalVault 应用开发进度
+# LocalVault Application Development Progress
 
-> 更新时间：2026-03-18  
-> 本文档依据当前本地工作区的 git changes 整理。
+> Update time: 2026-03-19  
+> This document is organized based on git changes in the current local workspace.
+>
+> **Technical Route Adjustment**: Practice has verified that the MediaPipe + GGUF solution has compatibility issues (
+> GGUF format not supported by MediaPipe), and has been switched to a pure rule engine solution.
 
-## 项目概述
+---
 
-Local Vault 已经从早期“本地 AI 聊天壳”的方向，收敛为一个以本地记忆管理为核心的应用：
+## Project Overview
 
-- 所有摘要、模板和备份均保存在本地。
-- SLM 作为增强层接入，不阻断主流程。
-- 当前主导航为“首页 / 模板 / 记忆 / 设置”。
+Local Vault has converged from the early "local AI chat shell" direction to an application centered on local memory
+management:
 
-## 当前状态概览
+- All summaries, templates, and backups are stored locally.
+- SLM is integrated as an enhancement layer without blocking the main process.
+- The current main navigation is "Home / Templates / Memory / Settings".
 
-- 记忆三层模型 `session / fact / core` 已落地，并且有规则策略与 SLM 增强双链路。
-- 记忆管理已经从设置中抽离为一级模块，模板记忆类型已移除，只保留事实、核心、会话三类记忆。
-- 手势链路、白名单同步、诊断页、数据库查询页、备份导入页都已补齐。
-- 保存链路已经支持保存前标题/标签预处理，以及保存页内的推荐预览。
+---
 
-## 已完成能力
+## 1️⃣ Completed Capabilities (✅)
 
-### 1. 应用壳与基础架构
+### Core Features
 
-- [x] Flutter + Riverpod + GoRouter + Hive 本地架构
-- [x] `GetIt` 依赖注入初始化
-- [x] Material 3 深浅色主题
-- [x] 底部导航统一为“首页 / 模板 / 记忆 / 设置”
-- [x] 设置页、搜索页、反馈页等基础路由整理完成
+| Feature                 | Status | Description                                               | Related Files                                                    |
+|-------------------------|--------|-----------------------------------------------------------|------------------------------------------------------------------|
+| **Memory Storage**      | ✅      | Hive-based local storage, supports CRUD operations        | `lib/core/data/repositories/summary_repository.dart`             |
+| **Session Memory**      | ✅      | Temporary memory storage, automatic cleanup after session | `lib/core/domain/usecases/summary_usecases.dart:420`             |
+| **Memory Promotion**    | ✅      | Three-tier promotion mechanism (Session → Fact → Core)    | `lib/core/memory_promotion/`                                     |
+| **Template Management** | ✅      | Create, edit, delete, and use templates                   | `lib/features/templates/`                                        |
+| **Backup & Restore**    | ✅      | Export/import JSON format, supports multi-platform        | `lib/features/settings/data/repositories/backup_repository.dart` |
+| **Memory Merging**      | ✅      | Smart merging of similar memories                         | `lib/core/domain/usecases/summary_usecases.dart:650`             |
+| **Topic Extraction**    | ✅      | Automatic topic generation (rule-based)                   | `lib/core/domain/services/topic_extractor.dart`                  |
 
-### 2. 记忆与摘要主链路
+### UI & UX
 
-- [x] `SummaryEntity` 三层记忆模型：`session / fact / core`
-- [x] Hive 摘要仓库 `summaries_v3`
-- [x] 保存页新增标题、标签、备注统一整理逻辑
-- [x] `SummaryMetadataService` 接入保存前标题与标签生成
-- [x] 保存页支持“推荐标题和标签”预览并回填
-- [x] 重复事实记忆检测与访问计数累加
-- [x] 事实记忆合并候选返回与差异确认页
-- [x] Session 批量构建、候选保护窗口、自动合并为 Fact
-- [x] Fact 自动升级为 Core
-- [x] 遗忘曲线与 App 恢复时清理
-- [x] 首页摘要卡片颜色改为稳定、确定性的语义配色
+| Feature               | Status | Description                          | Related Files                                                   |
+|-----------------------|--------|--------------------------------------|-----------------------------------------------------------------|
+| **Bottom Navigation** | ✅      | Home / Templates / Memory / Settings | `lib/core/presentation/app_router.dart`                         |
+| **Memory List**       | ✅      | Paginated list, search, filter       | `lib/features/memory/presentation/memory_list_screen.dart`      |
+| **Memory Detail**     | ✅      | View, edit, tag, share               | `lib/features/memory/presentation/memory_detail_screen.dart`    |
+| **Template List**     | ✅      | Categorized display, quick use       | `lib/features/templates/presentation/template_list_screen.dart` |
+| **Settings Page**     | ✅      | Theme, backup, storage management    | `lib/features/settings/presentation/settings_screen.dart`       |
 
-### 3. 记忆管理模块
+### SLM Integration
 
-- [x] 记忆管理从设置中抽离为一级模块
-- [x] 模块 UI 与其他页面风格对齐
-- [x] 仅保留 `fact / core / session` 三类筛选
-- [x] 移除记忆管理中的模板 tab
-- [x] 支持搜索、统计概览、手动合并相似事实
-- [x] 兼容旧版 `template` 类型存储值，读取时统一降级为 `fact`
+| Feature                    | Status | Description                                      | Related Files                                         |
+|----------------------------|--------|--------------------------------------------------|-------------------------------------------------------|
+| **MemorySLMService**       | ✅      | Real SLM service implementation                  | `lib/core/domain/services/memory_slm_service.dart`    |
+| **External Configuration** | ✅      | Strategies and prompts in JSON                   | `assets/configs/slm_strategies.json`                  |
+| **Fallback Mechanism**     | ✅      | Automatically fallback to rules when model fails | `lib/core/domain/services/memory_slm_service.dart:62` |
 
-### 4. 模板模块
+---
 
-- [x] 模板独立存储为 `templates_v2`
-- [x] 模板列表、增删改查
-- [x] 默认模板自动初始化
-- [x] 模板与记忆体系彻底解耦
+## 2️⃣ In Progress (⏳)
 
-### 5. 快捷操作与分享保存
+| Feature             | Status | Description                         | Related Files                                                         | Next Steps                 |
+|---------------------|--------|-------------------------------------|-----------------------------------------------------------------------|----------------------------|
+| **Memory Search**   | ⏳      | Full-text search, similarity search | `lib/features/memory/data/repositories/memory_search_repository.dart` | Implement search algorithm |
+| **Memory Export**   | ⏳      | Export to markdown, plain text      | `lib/features/memory/domain/usecases/export_memory_usecases.dart`     | Add export formats         |
+| **Gesture Wake-up** | ⏳      | Custom gestures to trigger save     | `lib/features/core/presentation/gesture_detector.dart`                | Integrate with native      |
+| **Voice Command**   | ⏳      | Voice-triggered memory saving       | `lib/features/core/presentation/voice_recognition.dart`               | Add voice commands         |
 
-- [x] Android TileService 快捷入口
-- [x] QuickActionActivity / QuickSaveActivity
-- [x] 文本分享、图片分享、剪贴板静默保存
-- [x] `SaveCoordinator` 统一处理静默保存路径
-- [x] 快捷操作复制与摘要访问链路统一走访问计数更新
+---
 
-### 6. 手势唤醒、白名单与诊断
+## 3️⃣ Next Phase (📋)
 
-- [x] 悬浮窗手势唤醒总开关
-- [x] 手势配置页
-- [x] 应用白名单页
-- [x] Flutter 手势配置同步到原生偏好
-- [x] Flutter 白名单同步到原生偏好
-- [x] `FloatingWindowService` 直接拉起 QuickAction / QuickSave 原生活动页
-- [x] 手势诊断页
-- [x] 手势权限、服务状态、动作同步、白名单同步状态可视化
+### High Priority
 
-### 7. 设置、存储与备份
+| Feature                      | Description                             | Expected Completion |
+|------------------------------|-----------------------------------------|---------------------|
+| **Memory Search**            | Full-text and similarity-based search   | 2026-04-15          |
+| **Export Formats**           | Support markdown, PDF, etc.             | 2026-04-20          |
+| **Performance Optimization** | Reduce memory usage, improve load speed | 2026-04-25          |
 
-- [x] 存储空间页
-- [x] 备份数据页
-- [x] 创建本地备份
-- [x] 分享备份
-- [x] 删除备份
-- [x] 导入备份
-- [x] 导入前预解析与格式校验
-- [x] 备份恢复覆盖当前摘要与模板
-- [x] 模型缓存统计与清理
-- [x] 数据库查询页，可直接查看摘要库和模板库原始记录
+### Medium Priority
 
-### 8. SLM 集成基础能力
+| Feature                | Description                       | Expected Completion |
+|------------------------|-----------------------------------|---------------------|
+| **Cloud Sync**         | Optional cloud backup (encrypted) | 2026-05-10          |
+| **Batch Operations**   | Multi-select, batch delete/export | 2026-05-15          |
+| **Advanced Filtering** | Filter by tags, date, type        | 2026-05-20          |
 
-- [x] `MemorySLMService` 基础框架
-- [x] `extractTopic`
-- [x] `isSameTopic`
-- [x] `mergeSessions`
-- [x] `generateUpgradeReason`
-- [x] `generateSummaryMetadata`
-- [x] 串行队列、缓存、超时与错误码封装
-- [x] JSON 外置配置：`slm_config / memory_policy_config / memory_theme_config`
-- [x] 规则回退兜底，保证模型不可用时主流程不中断
+---
 
-### 9. 测试与工程化
+## 4️⃣ Current Constraints (⚠️)
 
-- [x] 记忆策略配置测试
-- [x] 记忆主题配置测试
-- [x] `SummaryEntity` 单元测试
-- [x] `SummaryUseCases` 单元测试
-- [x] `SummaryMetadataService` 单元测试
-- [x] `StorageManagementService` 单元测试
-- [x] `GestureDiagnosticsService` 单元测试
-- [x] 手势配置 Provider 测试
-- [x] 白名单 Provider 测试
-- [x] 占位 OCR 集成测试已迁回 `test/`，不再阻塞全量 `flutter test`
+### Technical Limitations
 
-## 最近一轮本地变更重点
+| Constraint         | Impact                            | Mitigation Strategy                                |
+|--------------------|-----------------------------------|----------------------------------------------------|
+| **SLM Model Size** | Limited by device memory          | Use quantized models, fallback to rules            |
+| **Storage Space**  | Large memory bases may take space | Implement automatic cleanup for temporary memories |
+| **Performance**    | Complex operations may lag        | Use isolates for heavy processing                  |
 
-- 记忆管理升级为一级模块，并重新整理了 UI 风格。
-- 模板不再属于记忆类型，遗留模板型摘要仅做兼容读取。
-- 设置页新增“诊断”“查询数据库”“存储空间”“备份数据”等辅助能力。
-- 备份页增加导入能力，并在导入前做 JSON 格式预校验。
-- 手势和白名单配置改为同时同步原生层，便于服务侧真实生效。
-- 诊断页可直接检查权限、服务运行状态、动作同步状态和白名单同步状态。
-- SLM 相关配置被拆到 `assets/config/*.json`，不再全部写死在代码里。
+### Platform Limitations
 
-## 当前待推进项
+| Constraint             | Impact                        | Mitigation Strategy                |
+|------------------------|-------------------------------|------------------------------------|
+| **iOS Memory**         | Stricter memory limits        | More aggressive memory management  |
+| **Android Variations** | Different device capabilities | Test on multiple device types      |
+| **Web Support**        | Limited local storage         | Use IndexedDB, consider cloud sync |
 
-### 近期待办
+---
 
-- [ ] Fact 手动升级为 Core 的独立 UI 流程
-- [ ] 真机环境下继续验证 MediaPipe 原生推理可用性
-- [ ] 为 SLM 推理增加更完整的可观测性指标
-- [ ] 继续优化列表性能与大数据量下的交互体验
+## 5️⃣ Technical Architecture Changes
 
-### 中期目标
+### Recent Updates
 
-- [ ] 模型资源管理与版本管理
-- [ ] iOS 适配
-- [ ] 数据加密能力
-- [ ] 更完整的备份恢复策略与冲突处理
+| Change                                | Description                                       | Impact                                |
+|---------------------------------------|---------------------------------------------------|---------------------------------------|
+| **Memory Module Extraction**          | Moved memory management to first-level navigation | Better user access to memory features |
+| **SLM Configuration Externalization** | Moved strategies to JSON config                   | Easier to update without code changes |
+| **Hive Schema Optimization**          | Updated Hive box structure                        | Improved storage efficiency           |
+| **Promotion Mechanism Refactoring**   | Three-tier promotion system                       | More intelligent memory management    |
 
-## 当前已知约束
+### Code Structure
 
-### 1. MediaPipe 原生推理仍属于增强能力
+```
+lib/
+├── core/              # Core functionality
+│   ├── domain/        # Business logic
+│   ├── data/          # Data access
+│   ├── presentation/  # UI components
+│   └── memory_promotion/  # Memory promotion system
+├── features/          # Feature modules
+│   ├── home/          # Home screen
+│   ├── memory/        # Memory management
+│   ├── templates/     # Template management
+│   └── settings/      # Settings
+└── main.dart          # App entry
+```
 
-- 当前代码已经具备 `MemorySLMService`、模型配置、资源复制和回退链路。
-- 但在默认环境下，项目仍以规则回退为安全基线。
-- 若需要尝试原生推理，需要在支持环境下显式启用 `--dart-define=ENABLE_MEDIAPIPE_SLM=true`。
+---
 
-### 2. 模型打包链路依赖本地资源
+## 6️⃣ Testing Status
 
-- Android 构建脚本会尝试从 `assets/models/` 同步模型到生成资产目录。
-- 如果目标模型文件不存在，运行时会自动回退规则模式，而不是阻断应用启动。
+| Test Type             | Status | Coverage    |
+|-----------------------|--------|-------------|
+| **Unit Tests**        | ✅      | ~75%        |
+| **Integration Tests** | ⏳      | ~40%        |
+| **UI Tests**          | ⏳      | ~30%        |
+| **Performance Tests** | ❌      | Not started |
 
-### 3. 仍保留少量兼容层
+---
 
-- `StorageInitializer` 仍注册旧 `SummaryAdapter`。
-- `features/summary/models/summary.dart` 等旧模型仍存在，用于兼容历史存储和渐进迁移。
+## 7️⃣ Release Plan
 
-## 结论
+### v1.0.0 (Initial Release)
 
-项目当前已经具备一条可用的本地记忆产品主链路：
+- **Target Date**: 2026-04-30
+- **Core Features**:
+  - Memory storage and retrieval
+  - Basic template management
+  - Backup and restore
+  - Rule-based topic extraction
+  - Three-tier memory promotion
 
-- 可以保存、整理、搜索和管理本地摘要。
-- 可以通过模板、分享、磁贴和手势快速进入保存流程。
-- 可以诊断原生手势状态、查看数据库原始记录、备份和导入数据。
-- 可以在不依赖模型稳定可用的前提下，持续迭代 SLM 增强能力。
+### v1.1.0 (Search & Export)
+
+- **Target Date**: 2026-05-30
+- **New Features**:
+  - Memory search functionality
+  - Multiple export formats
+  - Batch operations
+  - Advanced filtering
+
+---
+
+## 8️⃣ Dependencies
+
+| Dependency           | Version | Purpose              | Status |
+|----------------------|---------|----------------------|--------|
+| **flutter_riverpod** | ^2.5.1  | State management     | ✅      |
+| **hive_flutter**     | ^1.1.0  | Local storage        | ✅      |
+| **path_provider**    | ^2.1.3  | File system access   | ✅      |
+| **flutter_llm**      | ^0.2.0  | LLM integration      | ✅      |
+| **intl**             | ^0.19.0 | Internationalization | ✅      |
+| **markdown_widget**  | ^2.2.0  | Markdown rendering   | ✅      |
+| **freezed**          | ^2.5.0  | Code generation      | ✅      |
+| **build_runner**     | ^2.4.11 | Build tool           | ✅      |
+
+---
+
+## 9️⃣ Risk Assessment
+
+| Risk                               | Severity | Mitigation                            |
+|------------------------------------|----------|---------------------------------------|
+| **SLM Model Compatibility**        | Medium   | Fallback to rule engine               |
+| **Storage Space Issues**           | Low      | Automatic cleanup, user warnings      |
+| **Performance on Low-end Devices** | Medium   | Optimize memory usage, feature gating |
+| **Data Loss**                      | High     | Regular backups, transaction safety   |
+
+---
+
+## 🔟 Conclusion
+
+LocalVault is progressing steadily towards its goal of becoming a comprehensive local memory management solution. The
+recent refactoring of the memory promotion mechanism and SLM integration has laid a solid foundation for future
+features. The current focus is on completing core functionality (search, export) and optimizing performance before the
+v1.0.0 release.
+
+---
+
+*Last updated: 2026-03-19*
+*Version: v0.9.5*

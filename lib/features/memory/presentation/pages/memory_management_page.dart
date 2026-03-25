@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
@@ -9,8 +11,9 @@ import 'package:local_vault/core/theme/memory_theme.dart';
 import 'package:local_vault/core/theme/memory_theme_config.dart';
 import 'package:local_vault/features/memory/presentation/pages/memory_merge_diff_page.dart';
 import 'package:local_vault/features/summary/presentation/widgets/empty_state.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
-/// 记忆管理页面
+/// Memory management page.
 class MemoryManagementPage extends ConsumerStatefulWidget {
   const MemoryManagementPage({super.key});
 
@@ -34,16 +37,17 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final summariesState = ref.watch(summaryEntityNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('记忆管理'),
+        title: Text(loc.memoryManagement),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshAndCleanup,
-            tooltip: '刷新并清理',
+            tooltip: loc.refreshAndCleanup,
           ),
         ],
       ),
@@ -52,42 +56,57 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
         error: (error, stack) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('加载失败: $error'),
+            child: Text(loc.loadFailedMessage('$error')),
           ),
         ),
         data: (summaries) {
           final filtered = _filterSummaries(summaries);
           final counts = _buildTypeCounts(summaries);
+          final hasEmptyState = filtered.isEmpty;
 
           return RefreshIndicator(
             onRefresh: _refreshAndCleanup,
-            child: ListView(
+            child: ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              children: [
-                _buildOverviewCard(
-                  context,
-                  allSummaries: summaries,
-                  filteredSummaries: filtered,
-                ),
-                const SizedBox(height: 16),
-                _buildTypeFilter(context, counts),
-                const SizedBox(height: 16),
-                _buildSearchBar(),
-                const SizedBox(height: 20),
-                if (filtered.isEmpty)
-                  SizedBox(
-                    height: 280,
-                    child: EmptyState(message: _emptyMessage()),
-                  )
-                else
-                  ...filtered.map(
-                    (summary) => Padding(
+              itemCount: 3 + (hasEmptyState ? 1 : filtered.length),
+              itemBuilder: (context, index) {
+                switch (index) {
+                  case 0:
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildOverviewCard(
+                        context,
+                        allSummaries: summaries,
+                        filteredSummaries: filtered,
+                      ),
+                    );
+                  case 1:
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildTypeFilter(context, counts),
+                    );
+                  case 2:
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: _buildSearchBar(),
+                    );
+                  default:
+                    if (hasEmptyState) {
+                      return SizedBox(
+                        height: 280,
+                        child: EmptyState(message: _emptyMessage()),
+                      );
+                    }
+
+                    final summary = filtered[index - 3];
+                    return Padding(
+                      key: ValueKey('memory-card-${summary.id}'),
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _buildMemoryCard(context, summary),
-                    ),
-                  ),
-              ],
+                    );
+                }
+              },
             ),
           );
         },
@@ -100,6 +119,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
     required List<SummaryEntity> allSummaries,
     required List<SummaryEntity> filteredSummaries,
   }) {
+    final loc = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
     final accentColor = _memoryTypeColor(context, _selectedType);
 
@@ -158,16 +178,16 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
             runSpacing: 8,
             children: [
               _MemoryStatChip(
-                label: '当前分类',
-                value: '${filteredSummaries.length} 条',
+                label: loc.currentView,
+                value: loc.itemCountLabel('${filteredSummaries.length}'),
               ),
               _MemoryStatChip(
-                label: '全部记忆',
-                value: '${allSummaries.length} 条',
+                label: loc.allMemories,
+                value: loc.itemCountLabel('${allSummaries.length}'),
               ),
               _MemoryStatChip(
-                label: '搜索状态',
-                value: _searchQuery.isEmpty ? '未筛选' : '已筛选',
+                label: loc.searchFilter,
+                value: _searchQuery.isEmpty ? loc.notFiltered : loc.filtered,
               ),
             ],
           ),
@@ -180,11 +200,12 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
     BuildContext context,
     Map<MemoryType, int> counts,
   ) {
+    final loc = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '记忆类型',
+          loc.memoryType,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -213,6 +234,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
                     : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               selectedColor: accentColor.withValues(alpha: 0.12),
+              showCheckmark: false,
               side: BorderSide(
                 color: isSelected
                     ? accentColor.withValues(alpha: 0.25)
@@ -229,10 +251,11 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   Widget _buildSearchBar() {
+    final loc = AppLocalizations.of(context)!;
     return TextField(
       controller: _searchController,
       decoration: InputDecoration(
-        hintText: '搜索标题、内容或标签...',
+        hintText: loc.searchHint,
         prefixIcon: const Icon(Icons.search),
         suffixIcon: _searchQuery.isEmpty
             ? null
@@ -283,13 +306,19 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   Map<MemoryType, int> _buildTypeCounts(List<SummaryEntity> summaries) {
-    return {
-      for (final type in MemoryType.values)
-        type: summaries.where((summary) => summary.type == type).length,
+    final counts = {
+      for (final type in MemoryType.values) type: 0,
     };
+
+    for (final summary in summaries) {
+      counts.update(summary.type, (value) => value + 1);
+    }
+
+    return counts;
   }
 
   Widget _buildMemoryCard(BuildContext context, SummaryEntity summary) {
+    final loc = AppLocalizations.of(context)!;
     final isExpanded = _expandedSummaryIds.contains(summary.id);
     final colorScheme = Theme.of(context).colorScheme;
     final accentColor = _memoryTypeColor(context, summary.type);
@@ -377,24 +406,29 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
                           runSpacing: 8,
                           children: [
                             _MemoryMetaChip(
-                              label:
-                                  '重要性 ${(summary.importance * 100).toInt()}%',
+                              label: loc.metaImportanceLabel(
+                                '${(summary.importance * 100).toInt()}%',
+                              ),
                               backgroundColor: _getImportanceColor(
                                 context,
                                 summary.importance,
                               ),
                             ),
                             _MemoryMetaChip(
-                              label: '访问 ${summary.accessCount}',
+                              label:
+                                  loc.metaVisitsLabel('${summary.accessCount}'),
                             ),
                             _MemoryMetaChip(
-                              label:
-                                  '更新 ${_formatDate(summary.updatedAt ?? summary.createdAt)}',
+                              label: loc.metaUpdatedLabel(
+                                _formatDate(
+                                    summary.updatedAt ?? summary.createdAt),
+                              ),
                             ),
                             if (summary.lastAccessedAt != null)
                               _MemoryMetaChip(
-                                label:
-                                    '最近访问 ${_formatDate(summary.lastAccessedAt!)}',
+                                label: loc.metaLastOpenedLabel(
+                                  _formatDate(summary.lastAccessedAt!),
+                                ),
                               ),
                           ],
                         ),
@@ -460,7 +494,10 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   Widget _buildMemoryActions(SummaryEntity summary) {
+    final loc = AppLocalizations.of(context)!;
     final canManualMerge = summary.type == MemoryType.fact;
+    final canUpgradeToCore = summary.type == MemoryType.fact;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -468,18 +505,27 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
         FilledButton.tonalIcon(
           onPressed: () => _editMemory(summary),
           icon: const Icon(Icons.edit_outlined),
-          label: const Text('编辑'),
+          label: Text(loc.editLabel),
         ),
+        if (canUpgradeToCore)
+          OutlinedButton.icon(
+            onPressed: () => _upgradeToCore(summary),
+            icon: const Icon(Icons.stars_rounded),
+            label: Text(loc.setAsCore),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.orange.shade700,
+            ),
+          ),
         if (canManualMerge)
           OutlinedButton.icon(
             onPressed: () => _mergeSimilarMemories(summary),
             icon: const Icon(Icons.merge_type),
-            label: const Text('合并相似'),
+            label: Text(loc.mergeSimilar),
           ),
         TextButton.icon(
           onPressed: () => _deleteMemory(summary),
           icon: const Icon(Icons.delete_outline),
-          label: const Text('删除'),
+          label: Text(loc.deleteLabel),
           style: TextButton.styleFrom(
             foregroundColor: Colors.red,
           ),
@@ -489,6 +535,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   Widget _buildImportanceSlider(BuildContext context, SummaryEntity summary) {
+    final loc = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -501,7 +548,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
           Row(
             children: [
               Text(
-                '重要性评分',
+                loc.importanceScore,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -533,6 +580,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   Future<void> _refreshAndCleanup() async {
+    final loc = AppLocalizations.of(context)!;
     await ref.read(summaryEntityNotifierProvider.notifier).refresh();
     await ref
         .read(summaryEntityNotifierProvider.notifier)
@@ -543,8 +591,8 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('已刷新并清理'),
+        SnackBar(
+          content: Text(loc.refreshCleanupCompleted),
           backgroundColor: Colors.green,
         ),
       );
@@ -552,12 +600,100 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   Future<void> _editMemory(SummaryEntity summary) async {
+    await context.push(AppRoutes.save, extra: summary);
+    if (!mounted) {
+      return;
+    }
+    await ref.read(summaryEntityNotifierProvider.notifier).refresh();
+  }
+
+  Future<void> _upgradeToCore(SummaryEntity summary) async {
+    final loc = AppLocalizations.of(context)!;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(loc.setAsCoreMemory),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                loc.promotionDialogBody(summary.title),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                loc.promotionStatsLine(
+                  '${summary.accessCount}',
+                  '${(summary.importance * 100).toInt()}%',
+                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '手动升级为 Core 记忆后，该记忆将免受遗忘曲线影响。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.cancelLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(loc.confirmSetAsCore),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    await ref.read(summaryEntityNotifierProvider.notifier).upgradeFactToCore(
+          summary.id,
+        );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _expandedSummaryIds.remove(summary.id);
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('编辑功能开发中')),
+      SnackBar(
+        content: Text(loc.setAsCoreSuccess),
+        backgroundColor: Colors.orange.shade700,
+        action: SnackBarAction(
+          label: loc.viewCore,
+          textColor: Colors.white,
+          onPressed: () {
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _selectedType = MemoryType.core;
+            });
+          },
+        ),
+      ),
     );
   }
 
   Future<void> _mergeSimilarMemories(SummaryEntity summary) async {
+    final loc = AppLocalizations.of(context)!;
     final candidates = ref
         .read(summaryEntityNotifierProvider.notifier)
         .findMergeCandidates(summary);
@@ -565,7 +701,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
     if (candidates.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('没有找到相似的记忆')),
+          SnackBar(content: Text(loc.noSimilarMemoriesFound)),
         );
       }
       return;
@@ -584,8 +720,8 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
         builder: (_) => MemoryMergeDiffPage(
           primarySummary: summary,
           secondarySummary: selectedCandidate.summary,
-          primaryLabel: '当前事实记忆',
-          secondaryLabel: '候选事实记忆',
+          primaryLabel: loc.currentFactMemory,
+          secondaryLabel: loc.candidateFactMemory,
           similarity: selectedCandidate.similarity,
         ),
       ),
@@ -593,7 +729,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
 
     if (merged == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('合并完成')),
+        SnackBar(content: Text(loc.mergeCompleted)),
       );
     }
   }
@@ -602,16 +738,19 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
     SummaryEntity summary,
     List<SummaryMergeCandidate> candidates,
   ) {
+    final loc = AppLocalizations.of(context)!;
     return showDialog<SummaryMergeCandidate>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('选择要比较的记忆'),
+        title: Text(loc.chooseMemoryToCompare),
         content: SizedBox(
           width: 420,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('“${summary.title}” 找到 ${candidates.length} 条可合并候选'),
+              Text(
+                loc.mergeCandidateCount(summary.title, '${candidates.length}'),
+              ),
               const SizedBox(height: 12),
               SizedBox(
                 height: 280,
@@ -623,8 +762,10 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
                             contentPadding: EdgeInsets.zero,
                             title: Text(candidate.summary.title),
                             subtitle: Text(
-                              '相似度 ${(candidate.similarity * 100).toStringAsFixed(1)}% · '
-                              '${candidate.summary.content}',
+                              loc.similarityWithContent(
+                                '${(candidate.similarity * 100).toStringAsFixed(1)}%',
+                                candidate.summary.content,
+                              ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -642,7 +783,7 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(loc.cancelLabel),
           ),
         ],
       ),
@@ -650,20 +791,21 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   Future<void> _deleteMemory(SummaryEntity summary) async {
+    final loc = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除 "${summary.title}" 吗？'),
+        title: Text(loc.deleteMemory),
+        content: Text(loc.deleteMemoryConfirm(summary.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(loc.cancelLabel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
+            child: Text(loc.deleteLabel),
           ),
         ],
       ),
@@ -673,14 +815,29 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
       await ref
           .read(summaryEntityNotifierProvider.notifier)
           .deleteSummary(summary.id);
+      final deleteState = ref.read(summaryEntityNotifierProvider);
+      if (deleteState.hasError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                loc.deleteFailedMessage(
+                  '${deleteState.error ?? loc.unknownError}',
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      }
 
       if (mounted) {
         setState(() {
           _expandedSummaryIds.remove(summary.id);
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('删除成功'),
+          SnackBar(
+            content: Text(loc.deletedLabel),
             backgroundColor: Colors.red,
           ),
         );
@@ -689,35 +846,38 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   String _memoryTypeTitle(MemoryType type) {
+    final loc = AppLocalizations.of(context)!;
     switch (type) {
       case MemoryType.fact:
-        return '事实记忆';
+        return loc.factMemories;
       case MemoryType.core:
-        return '核心记忆';
+        return loc.coreMemories;
       case MemoryType.session:
-        return '会话记忆';
+        return loc.sessionMemories;
     }
   }
 
   String _memoryTypeLabel(MemoryType type) {
+    final loc = AppLocalizations.of(context)!;
     switch (type) {
       case MemoryType.fact:
-        return '事实';
+        return loc.factMemoryLabel;
       case MemoryType.core:
-        return '核心';
+        return loc.coreMemoryLabel;
       case MemoryType.session:
-        return '会话';
+        return loc.sessionMemoryLabel;
     }
   }
 
   String _memoryTypeDescription(MemoryType type) {
+    final loc = AppLocalizations.of(context)!;
     switch (type) {
       case MemoryType.fact:
-        return '适合长期保留的普通事实和稳定信息。';
+        return loc.factMemoryDescription;
       case MemoryType.core:
-        return '最关键的长期记忆，不参与普通遗忘衰减。';
+        return loc.coreMemoryDescription;
       case MemoryType.session:
-        return '来自近期交互的临时上下文，适合快速整理。';
+        return loc.sessionMemoryDescription;
     }
   }
 
@@ -745,32 +905,35 @@ class _MemoryManagementPageState extends ConsumerState<MemoryManagementPage> {
   }
 
   String _formatDate(DateTime date) {
+    final loc = AppLocalizations.of(context)!;
     final diff = DateTime.now().difference(date);
 
     if (diff.inMinutes < 60) {
-      return '${diff.inMinutes.max(1)} 分钟前';
+      return loc.relativeMinutesAgo('${diff.inMinutes.max(1)}');
     }
     if (diff.inHours < 24) {
-      return '${diff.inHours} 小时前';
+      return loc.relativeHoursAgo('${diff.inHours}');
     }
     if (diff.inDays < 7) {
-      return '${diff.inDays} 天前';
+      return loc.relativeDaysAgo('${diff.inDays}');
     }
-    return DateFormat('yyyy/MM/dd').format(date);
+    return DateFormat.yMd(Localizations.localeOf(context).toLanguageTag())
+        .format(date);
   }
 
   String _emptyMessage() {
+    final loc = AppLocalizations.of(context)!;
     if (_searchQuery.isNotEmpty) {
-      return '没有匹配的记忆';
+      return loc.noMatchingMemories;
     }
 
     switch (_selectedType) {
       case MemoryType.fact:
-        return '暂无事实记忆';
+        return loc.noFactMemoriesYet;
       case MemoryType.core:
-        return '暂无核心记忆';
+        return loc.noCoreMemoriesYet;
       case MemoryType.session:
-        return '暂无会话记忆';
+        return loc.noSessionMemoriesYet;
     }
   }
 }
@@ -823,6 +986,7 @@ class _MemoryTypeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
     final accentColor = switch (type) {
       MemoryType.fact => colorScheme.primary,
@@ -830,9 +994,9 @@ class _MemoryTypeBadge extends StatelessWidget {
       MemoryType.session => Colors.teal.shade700,
     };
     final label = switch (type) {
-      MemoryType.fact => '事实',
-      MemoryType.core => '核心',
-      MemoryType.session => '会话',
+      MemoryType.fact => loc.factMemoryLabel,
+      MemoryType.core => loc.coreMemoryLabel,
+      MemoryType.session => loc.sessionMemoryLabel,
     };
 
     return Container(

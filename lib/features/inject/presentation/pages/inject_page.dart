@@ -1,34 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
-import 'package:local_vault/core/services/share_sheet.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/services/share_sheet.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class InjectPage extends StatelessWidget {
   const InjectPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('内容注入'),
+        title: Text(loc.inject),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           InjectItem(
             summary: SummaryEntity.create(
-              title: '示例摘要 1',
-              content: '这是通过本地记忆库保存的示例内容，可以在其他应用中快速注入使用。',
-              tags: ['示例', '测试'],
+              title: 'Sample summary 1',
+              content:
+                  'This sample was saved in Local Vault and can be injected into other apps for quick reuse.',
+              tags: ['sample', 'test'],
               source: 'manual',
             ),
           ),
           InjectItem(
             summary: SummaryEntity.create(
-              title: '示例摘要 2',
-              content: '另一个示例内容，展示如何在不同应用之间共享重要信息。',
-              tags: ['示例', '分享'],
+              title: 'Sample summary 2',
+              content:
+                  'Another example that shows how to share important information across different apps.',
+              tags: ['sample', 'share'],
               source: 'manual',
             ),
           ),
@@ -85,9 +89,10 @@ class InjectItem extends StatelessWidget {
   }
 
   void _copyToClipboard(BuildContext context, String text) {
+    final loc = AppLocalizations.of(context)!;
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板')),
+      SnackBar(content: Text(loc.copiedToClipboard)),
     );
   }
 

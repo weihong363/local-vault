@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/services/gesture_diagnostics_service.dart';
+import 'package:local_vault/core/services/memory_slm_diagnostics_service.dart';
+import 'package:local_vault/core/services/memory_slm_service.dart';
+import 'package:local_vault/core/services/storage_management_service.dart';
 import 'package:local_vault/features/app_whitelist/domain/providers/app_whitelist_provider.dart';
 import 'package:local_vault/features/app_whitelist/models/app_info.dart';
 import 'package:local_vault/features/gesture_config/domain/providers/gesture_config_provider.dart';
 import 'package:local_vault/features/gesture_config/models/gesture_config.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class DiagnosticsPage extends ConsumerStatefulWidget {
   const DiagnosticsPage({super.key});
@@ -16,15 +21,20 @@ class DiagnosticsPage extends ConsumerStatefulWidget {
 
 class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
   late final GestureDiagnosticsService _diagnosticsService;
+  late final MemorySlmDiagnosticsService _slmDiagnosticsService;
   GestureDiagnosticsSnapshot? _snapshot;
+  MemorySlmDiagnosticsSnapshot? _slmSnapshot;
+  MemorySlmSelfCheckResult? _slmSelfCheckResult;
   Object? _error;
   bool _isLoading = true;
   bool _isRefreshing = false;
+  bool _isRunningSlmSelfCheck = false;
 
   @override
   void initState() {
     super.initState();
     _diagnosticsService = sl<GestureDiagnosticsService>();
+    _slmDiagnosticsService = sl<MemorySlmDiagnosticsService>();
     _loadDiagnostics();
   }
 
@@ -42,10 +52,12 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
 
     try {
       final snapshot = await _diagnosticsService.collectSnapshot();
+      final slmSnapshot = await _slmDiagnosticsService.collectSnapshot();
       if (!mounted) return;
 
       setState(() {
         _snapshot = snapshot;
+        _slmSnapshot = slmSnapshot;
         _isLoading = false;
         _isRefreshing = false;
       });
@@ -62,17 +74,18 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final gestureConfigs = ref.watch(gestureConfigProvider);
     final whitelist = ref.watch(appWhitelistProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('诊断'),
+        title: Text(loc.diagnostics),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isRefreshing ? null : _loadDiagnostics,
-            tooltip: '刷新诊断',
+            tooltip: loc.refreshDiagnostics,
           ),
         ],
       ),
@@ -89,6 +102,7 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
     required AsyncValue<List<GestureConfig>> gestureConfigs,
     required AsyncValue<List<AppInfo>> whitelist,
   }) {
+    final loc = AppLocalizations.of(context)!;
     if (_isLoading ||
         (gestureConfigs.isLoading && !gestureConfigs.hasValue) ||
         (whitelist.isLoading && !whitelist.hasValue)) {
@@ -102,8 +116,11 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
           error: (error, _) => error,
         );
 
-    if (_error != null || providerError != null || _snapshot == null) {
-      final message = _error ?? providerError ?? '无法加载诊断信息';
+    if (_error != null ||
+        providerError != null ||
+        _snapshot == null ||
+        _slmSnapshot == null) {
+      final message = _error ?? providerError ?? loc.failedToLoadDiagnostics;
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -119,7 +136,7 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _loadDiagnostics,
-                child: const Text('重试'),
+                child: Text(loc.retryLabel),
               ),
             ],
           ),
@@ -136,6 +153,11 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
       configs: configs,
       whitelistApps: whitelistApps,
     );
+    final slmSnapshot = _slmSnapshot!;
+    final slmItems = _buildSlmDiagnosticItems(
+      context,
+      snapshot: slmSnapshot,
+    );
 
     return RefreshIndicator(
       onRefresh: _loadDiagnostics,
@@ -146,14 +168,14 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
           _DiagnosticSummaryBanner(items: items),
           const SizedBox(height: 16),
           Text(
-            '手势诊断',
+            loc.gestureDiagnosticsTitle,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: 8),
           Text(
-            '下拉可刷新权限、服务和原生同步状态。',
+            loc.gestureDiagnosticsDescription,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -163,10 +185,33 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _DiagnosticItemCard(item: item),
               )),
+          const SizedBox(height: 12),
+          Text(
+            loc.slmDiagnosticsTitle,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            loc.slmDiagnosticsDescription,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 16),
+          ...slmItems.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _DiagnosticItemCard(item: item),
+              )),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildSlmSelfCheckCard(context, slmSnapshot),
+          ),
           if (whitelistApps.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              '白名单应用',
+              loc.allowlistedAppsLabel,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -195,6 +240,7 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
     required List<GestureConfig> configs,
     required List<AppInfo> whitelistApps,
   }) {
+    final loc = AppLocalizations.of(context)!;
     final flutterTap2Action = _findAction(configs, GestureType.tap2);
     final flutterTap3Action = _findAction(configs, GestureType.tap3);
     final nativeTap2Action = _actionFromIndex(snapshot.nativeTap2ActionIndex);
@@ -209,47 +255,54 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
 
     return [
       _DiagnosticItem(
-        title: '悬浮窗手势唤醒',
-        value: snapshot.floatingWindowEnabled ? '已开启' : '已关闭',
+        title: loc.floatingGestureLauncherTitle,
+        value: snapshot.floatingWindowEnabled
+            ? loc.statusEnabled
+            : loc.statusDisabled,
         description: snapshot.floatingWindowEnabled
-            ? '设置中的手势总开关已打开。'
-            : '总开关关闭时，双击和三击都不会触发。',
+            ? loc.floatingGestureLauncherEnabledDescription
+            : loc.floatingGestureLauncherDisabledDescription,
         tone: snapshot.floatingWindowEnabled
             ? _DiagnosticTone.healthy
             : _DiagnosticTone.warning,
       ),
       _DiagnosticItem(
-        title: '悬浮窗权限',
-        value: snapshot.overlayPermissionGranted ? '已授权' : '未授权',
+        title: loc.overlayPermissionTitle,
+        value: snapshot.overlayPermissionGranted
+            ? loc.statusGranted
+            : loc.statusNotGranted,
         description: snapshot.overlayPermissionGranted
-            ? '系统允许应用在其他应用上层工作。'
-            : '未授权时，悬浮窗服务无法正常启动。',
+            ? loc.overlayPermissionGrantedDescription
+            : loc.overlayPermissionDeniedDescription,
         tone: snapshot.overlayPermissionGranted
             ? _DiagnosticTone.healthy
             : _DiagnosticTone.error,
       ),
       _DiagnosticItem(
-        title: '使用情况统计权限',
-        value: snapshot.usageStatsPermissionGranted ? '已授权' : '未授权',
+        title: loc.usageAccessPermissionTitle,
+        value: snapshot.usageStatsPermissionGranted
+            ? loc.statusGranted
+            : loc.statusNotGranted,
         description: snapshot.usageStatsPermissionGranted
-            ? '应用可以识别当前前台应用，用于白名单判断。'
-            : '未授权时，白名单判断和跨应用手势触发都会失效。',
+            ? loc.usageAccessGrantedDescription
+            : loc.usageAccessDeniedDescription,
         tone: snapshot.usageStatsPermissionGranted
             ? _DiagnosticTone.healthy
             : _DiagnosticTone.error,
       ),
       _DiagnosticItem(
-        title: '悬浮窗服务状态',
+        title: loc.floatingServiceStatusTitle,
         value: switch (snapshot.floatingServiceRunning) {
-          true => '运行中',
-          false => '未运行',
-          null => '状态不可用',
+          true => loc.statusRunning,
+          false => loc.statusStopped,
+          null => loc.statusUnavailable,
         },
         description: switch (snapshot.floatingServiceRunning) {
-          true => '原生悬浮窗服务当前正在监听手势。',
-          false when snapshot.floatingWindowEnabled => '总开关已开启，但原生悬浮窗服务当前没有运行。',
-          false => '总开关关闭时，服务通常会保持停止。',
-          null => '当前无法读取原生服务状态。',
+          true => loc.floatingServiceRunningDescription,
+          false when snapshot.floatingWindowEnabled =>
+            loc.floatingServiceEnabledButStoppedDescription,
+          false => loc.floatingServiceStoppedDescription,
+          null => loc.floatingServiceUnavailableDescription,
         },
         tone: switch (snapshot.floatingServiceRunning) {
           true => _DiagnosticTone.healthy,
@@ -259,52 +312,202 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
         },
       ),
       _DiagnosticItem(
-        title: '双击动作同步',
-        value:
-            'Flutter：${_actionLabel(flutterTap2Action)} / 原生：${_actionLabel(nativeTap2Action)}',
+        title: loc.doubleTapActionSyncTitle,
+        value: loc.actionSyncValue(
+          _actionLabel(flutterTap2Action),
+          _actionLabel(nativeTap2Action),
+        ),
         description: flutterTap2Action == nativeTap2Action
-            ? '双击动作已经同步到原生层。'
-            : '当前双击动作和原生层不一致，建议重新保存一次手势配置。',
+            ? loc.doubleTapActionSyncedDescription
+            : loc.doubleTapActionOutOfSyncDescription,
         tone: flutterTap2Action == nativeTap2Action
             ? _DiagnosticTone.healthy
             : _DiagnosticTone.warning,
       ),
       _DiagnosticItem(
-        title: '三击动作同步',
-        value:
-            'Flutter：${_actionLabel(flutterTap3Action)} / 原生：${_actionLabel(nativeTap3Action)}',
+        title: loc.tripleTapActionSyncTitle,
+        value: loc.actionSyncValue(
+          _actionLabel(flutterTap3Action),
+          _actionLabel(nativeTap3Action),
+        ),
         description: flutterTap3Action == nativeTap3Action
-            ? '三击动作已经同步到原生层。'
-            : '当前三击动作和原生层不一致，建议重新保存一次手势配置。',
+            ? loc.tripleTapActionSyncedDescription
+            : loc.tripleTapActionOutOfSyncDescription,
         tone: flutterTap3Action == nativeTap3Action
             ? _DiagnosticTone.healthy
             : _DiagnosticTone.warning,
       ),
       _DiagnosticItem(
-        title: '白名单范围',
-        value:
-            whitelistApps.isEmpty ? '全部应用' : '已限制 ${whitelistApps.length} 个应用',
+        title: loc.allowlistScopeTitle,
+        value: whitelistApps.isEmpty
+            ? loc.allAppsValue
+            : loc.restrictedAppsValue('${whitelistApps.length}'),
         description: whitelistApps.isEmpty
-            ? '当前手势会在所有前台应用中尝试生效。'
-            : '当前只有白名单中的前台应用会响应手势。',
+            ? loc.allowlistScopeAllAppsDescription
+            : loc.allowlistScopeRestrictedDescription,
         tone: whitelistApps.isEmpty
             ? _DiagnosticTone.info
             : _DiagnosticTone.healthy,
       ),
       _DiagnosticItem(
-        title: '白名单原生同步',
-        value:
-            'Flutter：${whitelistApps.length} 个 / 原生：${nativeWhitelistPackages?.length ?? '-'} 个',
+        title: loc.allowlistNativeSyncTitle,
+        value: loc.flutterNativeCountLabel(
+          '${whitelistApps.length}',
+          '${nativeWhitelistPackages?.length ?? '-'}',
+        ),
         description: nativeWhitelistPackages == null
-            ? '当前无法读取原生白名单。'
+            ? loc.allowlistNativeUnreadableDescription
             : whitelistSynced
-                ? '白名单已经同步到原生层。'
-                : 'Flutter 和原生白名单不一致，建议重新进入白名单页触发一次同步。',
+                ? loc.allowlistNativeSyncedDescription
+                : loc.allowlistNativeOutOfSyncDescription,
         tone: nativeWhitelistPackages == null
             ? _DiagnosticTone.info
             : whitelistSynced
                 ? _DiagnosticTone.healthy
                 : _DiagnosticTone.warning,
+      ),
+    ];
+  }
+
+  List<_DiagnosticItem> _buildSlmDiagnosticItems(
+    BuildContext context, {
+    required MemorySlmDiagnosticsSnapshot snapshot,
+  }) {
+    final loc = AppLocalizations.of(context)!;
+    final environmentLabel = snapshot.runningOnAndroid
+        ? loc.environmentAndroid
+        : snapshot.runningOnWeb
+            ? loc.environmentWeb
+            : loc.environmentDesktop;
+    final modelFileValue = loc.statusAndSizeLabel(
+      snapshot.modelFileExists ? loc.statusReady : loc.statusMissing,
+      StorageManagementService.formatBytes(snapshot.modelBytes),
+    );
+    final cacheValue = loc.cacheSummaryLabel(
+      StorageManagementService.formatBytes(snapshot.cacheBytes),
+      '${snapshot.maxCacheEntries}',
+    );
+
+    return [
+      _DiagnosticItem(
+        title: loc.runtimeEnvironmentTitle,
+        value: environmentLabel,
+        description: snapshot.runningOnAndroid
+            ? loc.runtimeEnvironmentAndroidDescription
+            : loc.runtimeEnvironmentNonAndroidDescription,
+        tone: snapshot.runningOnAndroid
+            ? _DiagnosticTone.healthy
+            : _DiagnosticTone.info,
+      ),
+      _DiagnosticItem(
+        title: loc.experimentalNativeInferenceFlagTitle,
+        value: snapshot.experimentalNativeInferenceEnabled
+            ? loc.statusEnabled
+            : loc.statusDisabled,
+        description: snapshot.experimentalNativeInferenceEnabled
+            ? loc.experimentalNativeInferenceEnabledDescription
+            : loc.experimentalNativeInferenceDisabledDescription,
+        tone: snapshot.experimentalNativeInferenceEnabled
+            ? _DiagnosticTone.healthy
+            : snapshot.runningOnAndroid
+                ? _DiagnosticTone.warning
+                : _DiagnosticTone.info,
+      ),
+      _DiagnosticItem(
+        title: loc.nativeInferenceSupportTitle,
+        value: snapshot.nativeInferenceSupported
+            ? loc.statusAvailable
+            : loc.statusUnavailable,
+        description: snapshot.nativeInferenceSupported
+            ? loc.nativeInferenceSupportAvailableDescription
+            : loc.nativeInferenceSupportUnavailableDescription,
+        tone: snapshot.nativeInferenceSupported
+            ? _DiagnosticTone.healthy
+            : snapshot.runningOnAndroid &&
+                    snapshot.experimentalNativeInferenceEnabled
+                ? _DiagnosticTone.warning
+                : _DiagnosticTone.info,
+      ),
+      _DiagnosticItem(
+        title: loc.nativeSymbolDetectionTitle,
+        value: snapshot.nativeSymbolsAvailable
+            ? loc.statusDetected
+            : loc.statusNotDetected,
+        description: snapshot.nativeSymbolsAvailable
+            ? loc.nativeSymbolDetectedDescription
+            : loc.nativeSymbolMissingDescription,
+        tone: snapshot.nativeSymbolsAvailable
+            ? _DiagnosticTone.healthy
+            : snapshot.runningOnAndroid &&
+                    snapshot.experimentalNativeInferenceEnabled
+                ? _DiagnosticTone.warning
+                : _DiagnosticTone.info,
+      ),
+      _DiagnosticItem(
+        title: loc.bundledModelFormatTitle,
+        value: snapshot.modelFormatSupported
+            ? loc.statusCompatible
+            : loc.statusIncompatible,
+        description: '${snapshot.modelFormatDescription}\n'
+            '${snapshot.bundledFileName}',
+        tone: snapshot.modelFormatSupported
+            ? _DiagnosticTone.healthy
+            : snapshot.runningOnAndroid
+                ? _DiagnosticTone.warning
+                : _DiagnosticTone.info,
+      ),
+      _DiagnosticItem(
+        title: loc.slmInitializationStateTitle,
+        value: snapshot.initialized
+            ? loc.statusInitialized
+            : loc.statusNotInitialized,
+        description: snapshot.initialized
+            ? loc.slmInitializedDescription
+            : loc.slmNotInitializedDescription,
+        tone: snapshot.initialized
+            ? _DiagnosticTone.healthy
+            : _DiagnosticTone.info,
+      ),
+      _DiagnosticItem(
+        title: loc.modelAvailabilityTitle,
+        value: snapshot.modelAvailable
+            ? loc.modelAvailableNow
+            : loc.usingRuleFallback,
+        description: snapshot.modelAvailable
+            ? loc.modelAvailabilityAvailableDescription
+            : snapshot.modelFileExists && !snapshot.modelFormatSupported
+                ? loc.modelAvailabilityIncompatibleDescription
+                : loc.modelAvailabilityFallbackDescription,
+        tone: snapshot.modelAvailable
+            ? _DiagnosticTone.healthy
+            : snapshot.runningOnAndroid &&
+                    snapshot.experimentalNativeInferenceEnabled &&
+                    snapshot.modelFileExists
+                ? _DiagnosticTone.warning
+                : _DiagnosticTone.info,
+      ),
+      _DiagnosticItem(
+        title: loc.modelFile,
+        value: modelFileValue,
+        description: snapshot.modelFileExists
+            ? '${snapshot.bundledFileName}\n${snapshot.modelFilePath}'
+            : loc.modelFileMissingDescription(snapshot.modelFilePath),
+        tone: snapshot.modelFileExists
+            ? _DiagnosticTone.healthy
+            : snapshot.runningOnAndroid
+                ? _DiagnosticTone.warning
+                : _DiagnosticTone.info,
+      ),
+      _DiagnosticItem(
+        title: loc.modelCacheRuntimeParametersTitle,
+        value: cacheValue,
+        description: loc.modelCacheRuntimeParametersDescription(
+          '${snapshot.requestTimeoutSeconds}',
+          '${snapshot.maxQueueWaitSeconds}',
+          '${snapshot.maxTokens}',
+          snapshot.bundledAssetPath,
+        ),
+        tone: _DiagnosticTone.info,
       ),
     ];
   }
@@ -335,15 +538,181 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
   }
 
   String _actionLabel(GestureAction? action) {
+    final loc = AppLocalizations.of(context)!;
     switch (action) {
       case GestureAction.openTemplates:
-        return '打开提示词模板';
+        return loc.gestureActionOpenTemplates;
       case GestureAction.saveSummary:
-        return '保存摘要';
+        return loc.gestureActionSaveSummary;
       case GestureAction.openSummaries:
-        return '打开已保存的上下文';
+        return loc.gestureActionOpenSavedContext;
       case null:
-        return '未读取到';
+        return loc.statusUnavailable;
+    }
+  }
+
+  Future<void> _runSlmSelfCheck() async {
+    final loc = AppLocalizations.of(context)!;
+    if (_isRunningSlmSelfCheck) {
+      return;
+    }
+
+    setState(() {
+      _isRunningSlmSelfCheck = true;
+    });
+
+    try {
+      final result = await _slmDiagnosticsService.runSelfCheck();
+      final snapshot = await _slmDiagnosticsService.collectSnapshot();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _slmSelfCheckResult = result;
+        _slmSnapshot = snapshot;
+        _isRunningSlmSelfCheck = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isRunningSlmSelfCheck = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.slmSelfCheckFailed('$error'))),
+      );
+    }
+  }
+
+  Widget _buildSlmSelfCheckCard(
+    BuildContext context,
+    MemorySlmDiagnosticsSnapshot snapshot,
+  ) {
+    final loc = AppLocalizations.of(context)!;
+    final result = _slmSelfCheckResult;
+    final colorScheme = Theme.of(context).colorScheme;
+    final formatter = DateFormat('MM-dd HH:mm:ss');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      loc.slmSelfCheckTitle,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      snapshot.runningOnAndroid
+                          ? loc.slmSelfCheckAndroidHint
+                          : loc.slmSelfCheckNonAndroidHint,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: _isRunningSlmSelfCheck ? null : _runSlmSelfCheck,
+                icon: _isRunningSlmSelfCheck
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.science_outlined),
+                label: Text(
+                  _isRunningSlmSelfCheck ? loc.runningLabel : loc.runSelfCheck,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (result == null)
+            Text(
+              loc.noSelfCheckYet,
+              style: Theme.of(context).textTheme.bodyMedium,
+            )
+          else ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _ResultChip(
+                  label: loc.completedChipLabel(
+                    formatter.format(result.completedAt),
+                  ),
+                ),
+                _ResultChip(
+                  label: result.usedNativeModel
+                      ? loc.statusModelUsed
+                      : loc.statusModelNotUsed,
+                  accentColor: result.usedNativeModel
+                      ? Colors.green.shade700
+                      : Colors.orange.shade700,
+                ),
+                _ResultChip(
+                  label: result.initializeCompleted
+                      ? loc.statusInitializationComplete
+                      : loc.statusInitializationIncomplete,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _SelfCheckBlock(
+              title: loc.topicExtraction,
+              value: result.topic.isEmpty ? loc.emptyValue : result.topic,
+              detail: loc.fallbackDetailLabel(
+                _fallbackLabel(result.topicFallbackMode),
+                '${result.topicLatencyMs}',
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SelfCheckBlock(
+              title: loc.titleAndTagGeneration,
+              value: result.title.isEmpty ? loc.emptyValue : result.title,
+              detail:
+                  '${loc.fallbackDetailLabel(_fallbackLabel(result.metadataFallbackMode), '${result.metadataLatencyMs}')}\n'
+                  '${loc.tagsDetailLabel(result.tags.isEmpty ? loc.emptyValue : result.tags.join(', '))}',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _fallbackLabel(MemorySlmFallbackMode mode) {
+    final loc = AppLocalizations.of(context)!;
+    switch (mode) {
+      case MemorySlmFallbackMode.none:
+        return loc.fallbackModel;
+      case MemorySlmFallbackMode.cache:
+        return loc.fallbackCache;
+      case MemorySlmFallbackMode.rules:
+        return loc.fallbackRules;
+      case MemorySlmFallbackMode.disabled:
+        return loc.fallbackDisabledUnavailable;
     }
   }
 }
@@ -378,6 +747,7 @@ class _DiagnosticSummaryBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final hasError = items.any((item) => item.tone == _DiagnosticTone.error);
     final hasWarning =
         items.any((item) => item.tone == _DiagnosticTone.warning);
@@ -394,15 +764,15 @@ class _DiagnosticSummaryBanner extends StatelessWidget {
             ? Colors.amber.shade900
             : Colors.green.shade800;
     final title = hasError
-        ? '发现会直接影响手势工作的异常'
+        ? loc.summaryBannerErrorTitle
         : hasWarning
-            ? '发现需要留意的手势配置问题'
-            : '当前没有发现明显的手势异常';
+            ? loc.summaryBannerWarningTitle
+            : loc.summaryBannerHealthyTitle;
     final description = hasError
-        ? '建议优先处理权限未授权这类问题。'
+        ? loc.summaryBannerErrorDescription
         : hasWarning
-            ? '同步状态或服务状态存在偏差时，手势可能不会按预期触发。'
-            : '权限、服务和原生同步状态看起来都正常。';
+            ? loc.summaryBannerWarningDescription
+            : loc.summaryBannerHealthyDescription;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -515,6 +885,90 @@ class _DiagnosticItemCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultChip extends StatelessWidget {
+  const _ResultChip({
+    required this.label,
+    this.accentColor,
+  });
+
+  final String label;
+  final Color? accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        accentColor ?? Theme.of(context).colorScheme.surfaceContainerHighest;
+    final isAccent = accentColor != null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isAccent ? color.withValues(alpha: 0.12) : color,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: isAccent ? color : null,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
+}
+
+class _SelfCheckBlock extends StatelessWidget {
+  const _SelfCheckBlock({
+    required this.title,
+    required this.value,
+    required this.detail,
+  });
+
+  final String title;
+  final String value;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            detail,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
         ],
       ),

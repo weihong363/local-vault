@@ -37,8 +37,10 @@ void main() {
     expect(configs, hasLength(2));
     expect(configs[0].gestureType, GestureType.tap2);
     expect(configs[0].action, GestureAction.openTemplates);
+    expect(configs[0].name, 'tap_2');
     expect(configs[1].gestureType, GestureType.tap3);
     expect(configs[1].action, GestureAction.openSummaries);
+    expect(configs[1].name, 'tap_3');
 
     expect(calls.map((call) => call.method), [
       'setTapGestureConfig',
@@ -93,6 +95,12 @@ void main() {
     final storedConfigs = prefs.getStringList('gesture_configs');
     expect(storedConfigs, isNotNull);
     expect(storedConfigs, hasLength(2));
+
+    final decodedConfigs = storedConfigs!
+        .map((item) => jsonDecode(item) as Map<String, dynamic>)
+        .toList(growable: false);
+    expect(decodedConfigs[0]['name'], 'tap_2');
+    expect(decodedConfigs[1]['name'], 'tap_3');
 
     expect((calls[0].arguments as Map)['tapCount'], 2);
     expect((calls[0].arguments as Map)['actionIndex'], 2);

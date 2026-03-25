@@ -1,12 +1,12 @@
 import 'dart:math';
 
-import 'package:local_vault/core/config/memory_policy_config.dart';
+import 'package:local_vault/core/memory_promotion/memory_promotion.dart';
 
-/// 记忆类型
+/// Memory types
 enum MemoryType {
-  session, // 会话记忆（临时）
-  fact, // 普通事实（持久化）
-  core, // 核心记忆（持久化，免受遗忘曲线影响）
+  session, // Session memory (temporary)
+  fact, // Fact memory (persistent)
+  core, // Core memory (persistent, exempt from forgetting curve)
 }
 
 extension MemoryTypeX on MemoryType {
@@ -31,7 +31,7 @@ extension MemoryTypeX on MemoryType {
         case 'core':
           return MemoryType.core;
         case 'template':
-          // 兼容旧版本遗留的模板记忆，统一按 fact 读取。
+          // Handle legacy template memories left over from previous versions by treating them as facts.
           return MemoryType.fact;
       }
     }
@@ -48,7 +48,7 @@ extension MemoryTypeX on MemoryType {
       case 3:
         return MemoryType.core;
       case 2:
-      // 旧版 template 存储值，继续兼容读取。
+      // Legacy template storage value, continue to support reading.
       case 0:
       default:
         return MemoryType.fact;
@@ -56,8 +56,8 @@ extension MemoryTypeX on MemoryType {
   }
 }
 
-/// 摘要实体 - 领域模型（增强版）
-/// 纯 Dart 类，不依赖外部库
+/// Summary entity - domain model (enhanced version)
+/// Pure Dart class, no external dependencies
 class SummaryEntity {
   final String id;
   final String title;
@@ -75,6 +75,8 @@ class SummaryEntity {
   final int accessCount;
   final bool isAutoExtracted;
   final int sortOrder;
+  final MemoryContentType contentType;
+  final MemoryState state;
 
   SummaryEntity({
     required this.id,
@@ -93,6 +95,8 @@ class SummaryEntity {
     this.accessCount = 0,
     this.isAutoExtracted = false,
     this.sortOrder = 0,
+    this.contentType = MemoryContentType.projectContext,
+    this.state = MemoryState.session,
   });
 
   factory SummaryEntity.create({
@@ -106,6 +110,9 @@ class SummaryEntity {
     double importance = 0.5,
     int sortOrder = 0,
   }) {
+    // 自动推断内容类型
+    final inferredContentType = MemoryContentType.inferFromText(title, content);
+
     return SummaryEntity(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
@@ -118,35 +125,38 @@ class SummaryEntity {
       embedding: embedding,
       importance: importance,
       sortOrder: sortOrder,
+      contentType: inferredContentType,
+      state: _typeToState(type),
     );
   }
 
-  /// 计算时效性分数（遗忘曲线）
+  static MemoryState _typeToState(MemoryType type) {
+    switch (type) {
+      case MemoryType.session:
+        return MemoryState.session;
+      case MemoryType.fact:
+        return MemoryState.fact;
+      case MemoryType.core:
+        return MemoryState.core;
+    }
+  }
+
+  /// Calculate recency score (forgetting curve)
   double get recencyScore {
     if (type == MemoryType.core) return 1.0;
     if (lastAccessedAt == null) return 0.5;
 
     final daysSinceAccess = DateTime.now().difference(lastAccessedAt!).inDays;
-    // 每天衰减 5%
+    // Decay 5% per day
     return pow(0.95, daysSinceAccess).toDouble();
   }
 
-  /// 综合评分 = 重要性 * 时效性 * 访问频率
+  /// Combined score = importance * recency * access frequency
   double get combinedScore {
     if (type == MemoryType.core) return 1.0;
     final frequencyScore =
         accessCount > 0 ? 1.0 - (1.0 / (accessCount + 1)) : 0.0;
     return importance * 0.5 + recencyScore * 0.3 + frequencyScore * 0.2;
-  }
-
-  bool get shouldUpgradeToCore {
-    return shouldUpgradeToCoreWithPolicy(MemoryPolicyConfig.defaults);
-  }
-
-  bool shouldUpgradeToCoreWithPolicy(MemoryPolicyConfig policyConfig) {
-    if (type != MemoryType.fact) return false;
-    return accessCount >= policyConfig.coreUpgrade.accessCountThreshold ||
-        importance >= policyConfig.coreUpgrade.importanceThreshold;
   }
 
   bool get isSessionProtected {
@@ -173,6 +183,8 @@ class SummaryEntity {
     int? accessCount,
     bool? isAutoExtracted,
     int? sortOrder,
+    MemoryContentType? contentType,
+    MemoryState? state,
   }) {
     return SummaryEntity(
       id: id ?? this.id,
@@ -192,6 +204,8 @@ class SummaryEntity {
       accessCount: accessCount ?? this.accessCount,
       isAutoExtracted: isAutoExtracted ?? this.isAutoExtracted,
       sortOrder: sortOrder ?? this.sortOrder,
+      contentType: contentType ?? this.contentType,
+      state: state ?? this.state,
     );
   }
 
@@ -213,6 +227,8 @@ class SummaryEntity {
       'accessCount': accessCount,
       'isAutoExtracted': isAutoExtracted,
       'sortOrder': sortOrder,
+      'contentType': contentType.name,
+      'state': state.name,
     };
   }
 
@@ -248,6 +264,14 @@ class SummaryEntity {
       },
       isAutoExtracted: json['isAutoExtracted'] as bool? ?? false,
       sortOrder: json['sortOrder'] as int? ?? 0,
+      contentType: MemoryContentType.values.firstWhere(
+        (e) => e.name == json['contentType'],
+        orElse: () => MemoryContentType.projectContext,
+      ),
+      state: MemoryState.values.firstWhere(
+        (e) => e.name == json['state'],
+        orElse: () => MemoryState.session,
+      ),
     );
   }
 }

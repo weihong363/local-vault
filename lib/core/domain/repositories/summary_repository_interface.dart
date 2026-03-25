@@ -1,6 +1,6 @@
 import '../entities/summary_entity.dart';
 
-/// 摘要仓库接口
+/// Summary repository interface
 abstract class SummaryRepositoryInterface {
   Future<void> init();
   Future<void> addSummary(SummaryEntity summary);
@@ -14,13 +14,13 @@ abstract class SummaryRepositoryInterface {
   List<SummaryEntity> getSummariesBySource(String source);
   int get totalCount;
   Future<void> clearAll();
-  
-  /// 记录访问
+
+  /// Record access
   Future<void> recordAccess(String id);
-  
-  /// 更新重要性评分
+
+  /// Update importance score
   Future<void> updateImportance(String id, double importance);
-  
-  /// 根据记忆类型获取
+
+  /// Get by memory type
   List<SummaryEntity> getSummariesByType(MemoryType type);
 }

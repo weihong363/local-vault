@@ -34,6 +34,7 @@ class MainActivity : FlutterActivity() {
  companion object {
      // 保存 FlutterEngine 的静态引用，供 QuickSaveActivity 和 QuickActionActivity 使用
     var flutterEngine: FlutterEngine? = null
+     private var slmNativeLibraryLoaded: Boolean = false
  }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,10 +60,13 @@ class MainActivity : FlutterActivity() {
                             val text = intent.getStringExtra(Intent.EXTRA_TEXT)
                             if (text != null) {
                                 pendingShareText = text
-                                Log.d(TAG, "收到文本分享：${text.take(100)}${if (text.length > 100) "..." else ""}")
+                                Log.d(
+                                    TAG,
+                                    "Received shared text: ${text.take(100)}${if (text.length > 100) "..." else ""}"
+                                )
                                 notifyFlutterOfShare(text)
                             } else {
-                                Log.w(TAG, "收到文本分享意图但 EXTRA_TEXT 为空")
+                                Log.w(TAG, "Received text-share intent but EXTRA_TEXT was null")
                             }
                         }
                         // 处理图片分享
@@ -70,17 +74,17 @@ class MainActivity : FlutterActivity() {
                             val imageUri = intent.getParcelableExtraCompat<Uri>(Intent.EXTRA_STREAM)
                             if (imageUri != null) {
                                 pendingShareImageUri = imageUri.toString()
-                                Log.d(TAG, "收到单张图片分享：$imageUri")
+                                Log.d(TAG, "Received single shared image: $imageUri")
                                 shareChannel?.invokeMethod("onImageReceived", mapOf(
                                     "uri" to imageUri.toString(),
                                     "type" to "single"
                                 ))
                             } else {
-                                Log.w(TAG, "收到图片分享意图但 EXTRA_STREAM 为空")
+                                Log.w(TAG, "Received image-share intent but EXTRA_STREAM was null")
                             }
                         }
                         else -> {
-                            Log.w(TAG, "收到不支持的分享类型：$mimeType")
+                            Log.w(TAG, "Received unsupported share type: $mimeType")
                         }
                     }
                 }
@@ -92,13 +96,13 @@ class MainActivity : FlutterActivity() {
                             uris?.let { uriList ->
                                 if (uriList.isNotEmpty()) {
                                     pendingShareText = uriList.joinToString("\n") { uri -> uri.toString() }
-                                    Log.d(TAG, "收到多个文本分享，共 ${uriList.size} 项")
+                                    Log.d(TAG, "Received multiple shared text items: ${uriList.size}")
                                     notifyFlutterOfShare(pendingShareText!!)
                                 } else {
-                                    Log.w(TAG, "收到多个文本分享意图但列表为空")
+                                    Log.w(TAG, "Received multiple text-share intent but the list was empty")
                                 }
                             } ?: run {
-                                Log.w(TAG, "收到多个文本分享意图但 EXTRA_STREAM 为空")
+                                Log.w(TAG, "Received multiple text-share intent but EXTRA_STREAM was null")
                             }
                         }
                         // 处理多张图片分享
@@ -107,37 +111,37 @@ class MainActivity : FlutterActivity() {
                             uris?.let { uriList ->
                                 val uriStrings = uriList.map { uri -> uri.toString() }
                                 pendingShareImageUri = uriStrings.firstOrNull()
-                                Log.d(TAG, "收到多张图片分享，共 ${uriStrings.size} 张")
+                                Log.d(TAG, "Received multiple shared images: ${uriStrings.size}")
                                 shareChannel?.invokeMethod("onImageReceived", mapOf(
                                     "uris" to uriStrings,
                                     "type" to "multiple"
                                 ))
                             } ?: run {
-                                Log.w(TAG, "收到多张图片分享意图但 EXTRA_STREAM 为空")
+                                Log.w(TAG, "Received multiple image-share intent but EXTRA_STREAM was null")
                             }
                         }
                         else -> {
-                            Log.w(TAG, "收到不支持的多重分享类型：$mimeType")
+                            Log.w(TAG, "Received unsupported multi-share type: $mimeType")
                         }
                     }
                 }
                 "OPEN_TEMPLATES", "OPEN_SUMMARIES", "OPEN_INJECT" -> {
                pendingAction = action
-             Log.d(TAG, "收到待处理动作：$action")
+                    Log.d(TAG, "Received pending action: $action")
             }
            "QUICK_SAVE" -> {
                // 快速保存 - 从剪贴板读取内容
-             Log.d(TAG, "收到快速保存请求")
+               Log.d(TAG, "Received quick save request")
               handleQuickSave()
             }
             "QUICK_SAVE_FROM_TILE" -> {
                 // 从控制中心快捷开关触发的快速保存
-              Log.d(TAG, "收到控制中心快速保存请求")
+                Log.d(TAG, "Received Quick Settings quick save request")
                // 直接从剪贴板读取内容
              handleQuickSave()
             }
           else -> {
-            Log.d(TAG, "收到未知意图：action=$action, type=$mimeType")
+              Log.d(TAG, "Received unknown intent: action=$action, type=$mimeType")
             }
             }
         }
@@ -174,34 +178,35 @@ class MainActivity : FlutterActivity() {
      */
   private fun handleQuickSave() {
    try {
-    Log.d(TAG, "=== 开始处理快速保存 ===")
+       Log.d(TAG, "=== Starting quick save handling ===")
      val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
      val clipData = clipboard.primaryClip
     
    if (clipData != null && clipData.itemCount > 0) {
        val text = clipData.getItemAt(0).text
       if (text != null) {
-        Log.d(TAG, "✅ 从剪贴板读取到内容，长度：${text.length}")
-       Log.d(TAG, "📋 内容预览：${text.take(100)}${if (text.length > 100) "..." else ""}")
+          Log.d(TAG, "✅ Read clipboard content, length: ${text.length}")
+          Log.d(TAG, "📋 Content preview: ${text.take(100)}${if (text.length > 100) "..." else ""}")
          // 通知 Flutter 处理快捷保存
-       Log.d(TAG, "📤 正在调用 shareChannel.invokeMethod...")
+          Log.d(TAG, "📤 Calling shareChannel.invokeMethod...")
        shareChannel?.invokeMethod("onQuickSaveRequested", text.toString())
-      Log.d(TAG, "✅ 已成功通知 Flutter")
+          Log.d(TAG, "✅ Flutter notified successfully")
       return
        }
     }
     
    // 如果剪贴板为空，通知 Flutter 显示输入框
- Log.d(TAG, "⚠️ 剪贴板为空，请求显示输入界面")
+       Log.d(TAG, "⚠️ Clipboard is empty, requesting input UI")
    shareChannel?.invokeMethod("onQuickSaveRequested", null)
  } catch (e: Exception) {
-  Log.e(TAG, "❌ 处理快速保存失败", e)
+       Log.e(TAG, "❌ Failed to handle quick save", e)
    shareChannel?.invokeMethod("onQuickSaveRequested", null)
  }
 }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        loadSlmNativeLibraryIfAvailable()
         MainActivity.flutterEngine = flutterEngine
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FLOATING_CHANNEL).setMethodCallHandler { call, result ->
@@ -297,14 +302,14 @@ class MainActivity : FlutterActivity() {
                             val uri = Uri.parse(uriString)
                             val cacheFile = copyContentUriToCache(uri)
                             if (cacheFile != null) {
-                                Log.d(TAG, "成功读取 content URI 到缓存：${cacheFile.absolutePath}")
+                                Log.d(TAG, "Read content URI into cache successfully: ${cacheFile.absolutePath}")
                                 result.success(cacheFile.absolutePath)
                             } else {
-                                Log.e(TAG, "无法读取 content URI: $uriString")
+                                Log.e(TAG, "Unable to read content URI: $uriString")
                                 result.error("READ_ERROR", "无法读取 content URI", null)
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "读取 content URI 失败：${e.message}", e)
+                            Log.e(TAG, "Failed to read content URI: ${e.message}", e)
                             result.error("READ_ERROR", e.message, null)
                         }
                     } else {
@@ -346,7 +351,7 @@ class MainActivity : FlutterActivity() {
                         val copiedFile = copyModelAssetToFiles(assetPath, fileName, targetPath)
                         result.success(copiedFile.absolutePath)
                     } catch (e: Exception) {
-                        Log.e(TAG, "复制模型资源失败: ${e.message}", e)
+                        Log.e(TAG, "Failed to copy model asset: ${e.message}", e)
                         result.error("MODEL_COPY_FAILED", e.message, null)
                     }
                 }
@@ -364,7 +369,7 @@ class MainActivity : FlutterActivity() {
                         val installedApps = getInstalledApps()
                         result.success(installedApps)
                     } catch (e: Exception) {
-                        Log.e(TAG, "获取已安装应用失败", e)
+                        Log.e(TAG, "Failed to get installed apps", e)
                         result.error("GET_APPS_FAILED", e.message, null)
                     }
                 }
@@ -377,10 +382,10 @@ class MainActivity : FlutterActivity() {
                             .edit()
                             .putStringSet("app_whitelist", packages.toSet())
                             .apply()
-                        Log.d(TAG, "设置应用白名单：$whitelistPackages")
+                        Log.d(TAG, "Updated app whitelist: $whitelistPackages")
                         result.success(null)
                     } catch (e: Exception) {
-                        Log.e(TAG, "设置应用白名单失败", e)
+                        Log.e(TAG, "Failed to update app whitelist", e)
                         result.error("SET_WHITELIST_FAILED", e.message, null)
                     }
                 }
@@ -394,7 +399,7 @@ class MainActivity : FlutterActivity() {
                             ?: emptyList()
                         result.success(packages)
                     } catch (e: Exception) {
-                        Log.e(TAG, "获取应用白名单失败", e)
+                        Log.e(TAG, "Failed to get app whitelist", e)
                         result.error("GET_WHITELIST_FAILED", e.message, null)
                     }
                 }
@@ -407,7 +412,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, QUICK_ACTION_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "finishActivity" -> {
-                    Log.d(TAG, "收到 finishActivity 请求，正在关闭 Activity")
+                    Log.d(TAG, "Received finishActivity request, closing activity")
                     finish()
                     result.success(null)
                 }
@@ -419,6 +424,22 @@ class MainActivity : FlutterActivity() {
         
         // 保存 channel 引用，用于主动通知 Flutter
         shareChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_CHANNEL)
+    }
+
+    private fun loadSlmNativeLibraryIfAvailable() {
+        if (slmNativeLibraryLoaded) {
+            return
+        }
+
+        try {
+            System.loadLibrary("llm_inference_engine")
+            slmNativeLibraryLoaded = true
+            Log.i(TAG, "SLM native library loaded successfully")
+        } catch (e: UnsatisfiedLinkError) {
+            Log.w(TAG, "SLM native library unavailable, fallback mode will be used: ${e.message}")
+        } catch (e: SecurityException) {
+            Log.w(TAG, "SLM native library load blocked: ${e.message}")
+        }
     }
 
     private fun saveTapGestureConfig(tapCount: Int, actionIndex: Int) {
@@ -484,12 +505,12 @@ class MainActivity : FlutterActivity() {
             }
 
             fallbackIntent.resolveActivity(packageManager) != null -> {
-                Log.w(TAG, "Usage Access 设置页不可用，降级跳转到系统设置")
+                Log.w(TAG, "Usage Access settings page is unavailable, falling back to system settings")
                 startActivity(fallbackIntent)
             }
 
             else -> {
-                Log.e(TAG, "无法打开任何系统设置页面")
+                Log.e(TAG, "Unable to open any system settings page")
             }
         }
     }
@@ -531,14 +552,21 @@ class MainActivity : FlutterActivity() {
     private fun startFloatingService() {
         // 检查悬浮窗权限
         if (!hasOverlayPermission()) {
-            Log.w(TAG, "缺少悬浮窗权限，正在请求授权")
+            Log.w(TAG, "Missing overlay permission, requesting access")
             requestOverlayPermission()
             return
         }
 
+        // 检查使用情况统计权限（用于应用白名单检测）
+        if (!hasUsageStatsPermission()) {
+            Log.w(TAG, "Missing usage stats permission, requesting access")
+            requestUsageStatsPermission()
+            // 不直接返回，让用户去设置页面授权后再次尝试
+        }
+
         // 避免重复启动
         if (FloatingWindowService.isServiceRunning) {
-            Log.d(TAG, "悬浮窗服务已在运行中")
+            Log.d(TAG, "Floating window service is already running")
             return
         }
 
@@ -546,15 +574,15 @@ class MainActivity : FlutterActivity() {
         val serviceIntent = Intent(this, FloatingWindowService::class.java)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Log.d(TAG, "启动前台服务 (Android O+)")
+                Log.d(TAG, "Starting foreground service (Android O+)")
                 startForegroundService(serviceIntent)
             } else {
-                Log.d(TAG, "启动普通服务 (Android < O)")
+                Log.d(TAG, "Starting background service (Android < O)")
                 startService(serviceIntent)
             }
-            Log.i(TAG, "悬浮窗服务启动请求已发送")
+            Log.i(TAG, "Floating window service start request sent")
         } catch (e: Exception) {
-            Log.e(TAG, "启动悬浮窗服务失败：${e.message}", e)
+            Log.e(TAG, "Failed to start floating window service: ${e.message}", e)
         }
     }
 
@@ -576,7 +604,7 @@ class MainActivity : FlutterActivity() {
             
             // 尝试获取 MIME 类型
             val mimeType = contentResolver.getType(uri)
-            Log.d(TAG, "Content URI 的 MIME 类型：$mimeType")
+            Log.d(TAG, "Content URI MIME type: $mimeType")
             
             // 根据 MIME 类型决定扩展名
             val extension = when (mimeType) {
@@ -589,8 +617,8 @@ class MainActivity : FlutterActivity() {
             
             val fileName = "ocr_${System.currentTimeMillis()}.$extension"
             val cacheFile = File(cacheDir, fileName)
-            
-            Log.d(TAG, "准备保存文件：$fileName, MIME: $mimeType")
+
+            Log.d(TAG, "Preparing to save file: $fileName, MIME: $mimeType")
             
             // 使用 BufferedInputStream 和 BufferedOutputStream 提高可靠性
             input = java.io.BufferedInputStream(input, 8192)
@@ -612,31 +640,31 @@ class MainActivity : FlutterActivity() {
             // 使用 FileDescriptor 确保数据完全写入存储
             if (output is java.io.FileOutputStream) {
                 output.fd.sync()
-                Log.d(TAG, "已调用 fd.sync() 确保数据写入磁盘")
+                Log.d(TAG, "Called fd.sync() to ensure data was flushed to disk")
             }
             
             output.close()
             input.close()
-            
-            Log.d(TAG, "成功复制 $totalBytes 字节到缓存文件：$fileName")
-            Log.d(TAG, "缓存文件路径：${cacheFile.absolutePath}")
-            Log.d(TAG, "缓存文件大小：${cacheFile.length()} 字节")
+
+            Log.d(TAG, "Copied $totalBytes bytes to the cache file successfully: $fileName")
+            Log.d(TAG, "Cache file path: ${cacheFile.absolutePath}")
+            Log.d(TAG, "Cache file size: ${cacheFile.length()} bytes")
             
             // 验证文件是否正确写入
             if (!cacheFile.exists() || cacheFile.length() == 0L) {
-                Log.e(TAG, "缓存文件为空或不存在")
+                Log.e(TAG, "Cache file is empty or missing")
                 return null
             }
             
             // 验证文件大小是否匹配（如果输入流支持 mark/reset）
             if (totalBytes == 0L) {
-                Log.e(TAG, "复制的字节数为 0")
+                Log.e(TAG, "Copied byte count was 0")
                 return null
             }
             
             // 读取文件头几个字节检查是否是有效的 PNG/JPG 格式
             val fileHeader = readImageHeader(cacheFile)
-            Log.d(TAG, "文件头检查：$fileHeader")
+            Log.d(TAG, "File header check: $fileHeader")
             
             // 验证图片是否可以被 BitmapFactory 解码
             val options = android.graphics.BitmapFactory.Options()
@@ -644,23 +672,23 @@ class MainActivity : FlutterActivity() {
             android.graphics.BitmapFactory.decodeFile(cacheFile.absolutePath, options)
             
             if (options.outWidth > 0 && options.outHeight > 0) {
-                Log.d(TAG, "图片解码成功：${options.outWidth}x${options.outHeight}")
+                Log.d(TAG, "Image decode succeeded: ${options.outWidth}x${options.outHeight}")
             } else {
-                Log.e(TAG, "图片解码失败！宽：${options.outWidth}, 高：${options.outHeight}")
-                Log.e(TAG, "文件头：$fileHeader")
-                Log.w(TAG, "即使解码失败，也返回文件路径让 ML Kit 尝试")
+                Log.e(TAG, "Image decode failed! Width: ${options.outWidth}, height: ${options.outHeight}")
+                Log.e(TAG, "File header: $fileHeader")
+                Log.w(TAG, "Returning the file path anyway so ML Kit can still try")
             }
             
             cacheFile
         } catch (e: Exception) {
-            Log.e(TAG, "复制 content URI 失败：${e.message}", e)
+            Log.e(TAG, "Failed to copy content URI: ${e.message}", e)
             null
         } finally {
             try {
                 input?.close()
                 output?.close()
             } catch (e: Exception) {
-                Log.e(TAG, "关闭流失败：${e.message}")
+                Log.e(TAG, "Failed to close stream: ${e.message}")
             }
         }
     }
@@ -702,16 +730,16 @@ class MainActivity : FlutterActivity() {
      */
    private fun stopFloatingService() {
        if (!FloatingWindowService.isServiceRunning) {
-            Log.d(TAG, "悬浮窗服务未在运行中")
+           Log.d(TAG, "Floating window service is not running")
             return
         }
         
        val serviceIntent = Intent(this, FloatingWindowService::class.java)
         try {
             stopService(serviceIntent)
-            Log.i(TAG, "悬浮窗服务停止请求已发送")
+            Log.i(TAG, "Floating window service stop request sent")
         } catch (e: Exception) {
-            Log.e(TAG, "停止悬浮窗服务失败：${e.message}", e)
+            Log.e(TAG, "Failed to stop floating window service: ${e.message}", e)
         }
     }
 

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:local_vault/core/services/save_coordinator.dart';
 
-/// 分享文本数据模型
+/// Shared text model.
 class SharedText {
   final String text;
   final DateTime timestamp;
@@ -21,7 +21,7 @@ class SharedText {
       'SharedText(text: ${text.substring(0, text.length.clamp(0, 50))}..., timestamp: $timestamp, source: $source)';
 }
 
-/// 分享图片数据模型
+/// Shared image model.
 class SharedImage {
   final List<String> uris;
   final DateTime timestamp;
@@ -38,7 +38,7 @@ class SharedImage {
       'SharedImage(uris: ${uris.length} images, type: $type, timestamp: $timestamp)';
 }
 
-/// 分享服务 - 单例模式
+/// Share service implemented as a singleton.
 class ShareService {
   static final ShareService _instance = ShareService._internal();
 
@@ -54,38 +54,40 @@ class ShareService {
   final StreamController<SharedImage> _imageStreamController =
       StreamController<SharedImage>.broadcast();
 
-  /// 获取分享文本流
+  /// Stream of shared text events.
   Stream<SharedText> get shareStream => _shareStreamController.stream;
 
-  /// 获取分享图片流
+  /// Stream of shared image events.
   Stream<SharedImage> get imageStream => _imageStreamController.stream;
 
   bool _isInitialized = false;
 
-  /// 初始化分享服务
+  /// Initialize the share service.
   void initialize() {
     if (_isInitialized) {
-      debugPrint('⚠️ [ShareService] 已经初始化过，跳过');
+      debugPrint('⚠️ [ShareService] Already initialized. Skipping');
       return;
     }
 
-    debugPrint('🔧 [ShareService] 开始初始化...');
+    debugPrint('🔧 [ShareService] Initializing...');
     _isInitialized = true;
 
-    // 设置 MethodChannel 监听器
+    // Register the MethodChannel listener.
     _channel.setMethodCallHandler(_handleMethodCall);
 
-    debugPrint('✅ [ShareService] 初始化完成');
+    debugPrint('✅ [ShareService] Initialization complete');
   }
 
-  /// 处理来自原生端的方法调用
+  /// Handle method calls from the native layer.
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'onShareReceived':
         final text = call.arguments as String?;
         if (text != null && text.isNotEmpty) {
           debugPrint(
-              '📥 [ShareService] 收到分享文本：${text.substring(0, text.length.clamp(0, 50))}...');
+            '📥 [ShareService] Received shared text: '
+            '${text.substring(0, text.length.clamp(0, 50))}...',
+          );
           _shareStreamController.add(SharedText(
             text: text,
             timestamp: DateTime.now(),
@@ -112,7 +114,8 @@ class ShareService {
 
           if (uris.isNotEmpty) {
             debugPrint(
-                '🖼️ [ShareService] 收到${type == 'single' ? '单张' : '多张'}图片分享：${uris.length} 张');
+              '🖼️ [ShareService] Received ${type == 'single' ? 'single' : 'multiple'} image share: ${uris.length} image(s)',
+            );
             _imageStreamController.add(SharedImage(
               uris: uris,
               timestamp: DateTime.now(),
@@ -123,55 +126,67 @@ class ShareService {
         break;
 
       case 'onQuickSaveRequested':
-        // 处理快速保存请求（来自控制中心或手势）
+        // Handle quick-save requests from tiles or gestures.
         final clipboardText = call.arguments as String?;
-        debugPrint('⚡ [ShareService] 收到快速保存请求');
+        debugPrint('⚡ [ShareService] Received quick-save request');
         if (clipboardText != null && clipboardText.isNotEmpty) {
-          debugPrint('📋 [ShareService] 剪贴板内容长度：${clipboardText.length}');
           debugPrint(
-              '📋 [ShareService] 内容预览：${clipboardText.substring(0, clipboardText.length.clamp(0, 100))}${clipboardText.length > 100 ? '...' : ''}');
-          // 直接通过 Stream 推送给监听者
-          debugPrint('📤 [ShareService] 正在推送到 Stream...');
+            '📋 [ShareService] Clipboard content length: ${clipboardText.length}',
+          );
+          debugPrint(
+            '📋 [ShareService] Preview: '
+            '${clipboardText.substring(0, clipboardText.length.clamp(0, 100))}${clipboardText.length > 100 ? '...' : ''}',
+          );
+          // Push directly to the stream listeners.
+          debugPrint('📤 [ShareService] Pushing event to the stream...');
           _shareStreamController.add(SharedText(
             text: clipboardText,
             timestamp: DateTime.now(),
             source: 'quick_save',
           ));
-          debugPrint('✅ [ShareService] 已推送到 Stream');
+          debugPrint('✅ [ShareService] Event pushed to the stream');
         } else {
-          debugPrint('⚠️ [ShareService] 剪贴板为空或无内容');
+          debugPrint('⚠️ [ShareService] Clipboard is empty');
         }
         break;
 
       case 'saveFromClipboard':
-        // 处理从 QuickSaveActivity 直接调用的保存请求（静默保存）
+        // Handle silent saves invoked directly by QuickSaveActivity.
         final clipboardText = call.arguments as String?;
-        debugPrint('🔇 [ShareService] 收到静默保存请求，将直接保存到数据库');
+        debugPrint(
+          '🔇 [ShareService] Received silent save request. Will save directly to the database',
+        );
         if (clipboardText != null && clipboardText.isNotEmpty) {
-          debugPrint('📋 [ShareService] 剪贴板内容长度：${clipboardText.length}');
           debugPrint(
-              '📋 [ShareService] 内容预览：${clipboardText.substring(0, clipboardText.length.clamp(0, 100))}${clipboardText.length > 100 ? '...' : ''}');
+            '📋 [ShareService] Clipboard content length: ${clipboardText.length}',
+          );
+          debugPrint(
+            '📋 [ShareService] Preview: '
+            '${clipboardText.substring(0, clipboardText.length.clamp(0, 100))}${clipboardText.length > 100 ? '...' : ''}',
+          );
           _silentSave(clipboardText);
         } else {
-          debugPrint('⚠️ [ShareService] 剪贴板为空');
+          debugPrint('⚠️ [ShareService] Clipboard is empty');
         }
         break;
 
       default:
-        debugPrint('⚠️ [ShareService] 未知的方法调用：${call.method}');
+        debugPrint('⚠️ [ShareService] Unknown method call: ${call.method}');
     }
   }
 
-  /// 获取待处理的分享文本（被动拉取模式）
+  /// Pull pending shared text from the native side if available.
   Future<String?> getPendingShareText() async {
     try {
-      debugPrint('🔍 [ShareService] 尝试获取待处理的分享文本...');
+      debugPrint('🔍 [ShareService] Fetching pending shared text...');
       final text = await _channel.invokeMethod<String>('getPendingShareText');
       if (text != null && text.isNotEmpty) {
         debugPrint(
-            '📥 [ShareService] 被动拉取到分享文本：${text.substring(0, text.length.clamp(0, 50))}...');
+          '📥 [ShareService] Pulled shared text: '
+          '${text.substring(0, text.length.clamp(0, 50))}...',
+        );
 
-        // 同时也推送到流中
+        // Mirror the pulled text into the stream as well.
         _shareStreamController.add(SharedText(
           text: text,
           timestamp: DateTime.now(),
@@ -180,44 +195,51 @@ class ShareService {
       }
       return text;
     } on MissingPluginException catch (e) {
-      debugPrint('⚠️ [ShareService] 原生方法 getPendingShareText 未实现，跳过：$e');
+      debugPrint(
+        '⚠️ [ShareService] Native getPendingShareText is not implemented. Skipping: $e',
+      );
       return null;
     } on PlatformException catch (e) {
-      debugPrint('❌ [ShareService] 获取分享文本失败：${e.message}');
+      debugPrint('❌ [ShareService] Failed to get shared text: ${e.message}');
       return null;
     } catch (e) {
-      debugPrint('⚠️ [ShareService] 获取分享文本时发生未知错误：$e');
+      debugPrint(
+        '⚠️ [ShareService] Unexpected error while fetching shared text: $e',
+      );
       return null;
     }
   }
 
-  /// 重置分享状态（清除缓存）
+  /// Reset share state and clear any cached native state.
   Future<void> reset() async {
     try {
       await _channel.invokeMethod('reset');
-      debugPrint('✅ [ShareService] 已重置分享状态');
+      debugPrint('✅ [ShareService] Share state reset');
     } on MissingPluginException catch (e) {
-      debugPrint('⚠️ [ShareService] 原生方法 reset 未实现，跳过：$e');
+      debugPrint(
+          '⚠️ [ShareService] Native reset is not implemented. Skipping: $e');
     } on PlatformException catch (e) {
-      debugPrint('❌ [ShareService] 重置失败：${e.message}');
+      debugPrint('❌ [ShareService] Reset failed: ${e.message}');
     } catch (e) {
-      debugPrint('⚠️ [ShareService] 重置时发生未知错误：$e');
+      debugPrint('⚠️ [ShareService] Unexpected error during reset: $e');
     }
   }
 
-  /// 释放资源
+  /// Release resources owned by this service.
   void dispose() {
     _shareStreamController.close();
     _imageStreamController.close();
     _isInitialized = false;
-    debugPrint('🗑️ [ShareService] 已释放资源');
+    debugPrint('🗑️ [ShareService] Resources released');
   }
 
-  /// 静默保存（不打开 UI）
+  /// Perform a silent save without opening UI.
   Future<void> _silentSave(String content) async {
     try {
-      debugPrint('💾 [ShareService] 开始静默保存到数据库...');
-      debugPrint('🧠 [ShareService] 使用快捷保存链路，自动优化标题和标签');
+      debugPrint('💾 [ShareService] Starting silent database save...');
+      debugPrint(
+        '🧠 [ShareService] Using the shortcut save path to optimize titles and tags automatically',
+      );
 
       final success = await SaveCoordinator().handleSilentShortcutSave(
         content: content,
@@ -225,12 +247,12 @@ class ShareService {
       );
 
       if (success) {
-        debugPrint('✅ [ShareService] 静默保存成功！');
+        debugPrint('✅ [ShareService] Silent save succeeded');
       } else {
-        debugPrint('❌ [ShareService] 静默保存失败');
+        debugPrint('❌ [ShareService] Silent save failed');
       }
     } catch (e) {
-      debugPrint('❌ [ShareService] 静默保存异常：$e');
+      debugPrint('❌ [ShareService] Silent save threw an error: $e');
     }
   }
 }

@@ -37,7 +37,7 @@ void main() {
       expect(config.darkImportance.lowColor, const Color(0xFF123456));
     });
 
-    test('load merges bundled config with override file', () async {
+    test('Load merges bundled config with override file', () async {
       final tempDirectory = await Directory.systemTemp.createTemp(
         'memory_theme_config_test',
       );

@@ -33,7 +33,7 @@ class GestureConfigNotifier
         final loadedConfigs = configsJson.map((json) {
           return GestureConfig.fromJson(
               jsonDecode(json) as Map<String, dynamic>);
-        }).toList();
+        }).toList(growable: false);
         final normalizedConfigs = _normalizeConfigs(loadedConfigs);
         state = AsyncData(normalizedConfigs);
         if (!_areConfigsEqual(loadedConfigs, normalizedConfigs)) {
@@ -48,8 +48,9 @@ class GestureConfigNotifier
 
   Future<void> _saveConfigs(List<GestureConfig> configs) async {
     final prefs = await SharedPreferences.getInstance();
-    final configsJson =
-        configs.map((config) => jsonEncode(config.toJson())).toList();
+    final configsJson = configs
+        .map((config) => jsonEncode(config.toJson()))
+        .toList(growable: false);
     await prefs.setStringList(_prefsKey, configsJson);
   }
 
@@ -136,7 +137,7 @@ class GestureConfigNotifier
         }
       }
     } catch (e) {
-      debugPrint('同步手势配置到原生端失败: $e');
+      debugPrint('Failed to sync gesture config to the native layer: $e');
     }
   }
 

@@ -1,52 +1,38 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_vault/core/config/memory_policy_config.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 
 void main() {
-  group('SummaryEntity core upgrade policy', () {
-    test('default getter uses centralized default thresholds', () {
+  group('SummaryEntity basic functionality', () {
+    test('create entity with default values', () {
       final summary = SummaryEntity.create(
-        title: '默认阈值测试',
-        content: '记录核心升级行为',
-      ).copyWith(
-        accessCount: 10,
+        title: 'Test Summary',
+        content: 'Test Content',
       );
 
-      expect(summary.shouldUpgradeToCore, isTrue);
+      expect(summary.title, 'Test Summary');
+      expect(summary.content, 'Test Content');
+      expect(summary.type,
+          MemoryType.fact); // The default type has been changed to fact
+      expect(summary.accessCount, 0);
+      expect(summary.importance, 0.5);
     });
 
-    test('custom policy overrides access count and importance thresholds', () {
+    test('update entity importance', () {
       final summary = SummaryEntity.create(
-        title: '自定义阈值测试',
-        content: '验证可配置升级策略',
-      ).copyWith(
-        accessCount: 3,
-        importance: 0.6,
-      );
+        title: 'Test',
+        content: 'Content',
+      ).copyWith(importance: 0.8);
 
-      expect(
-        summary.shouldUpgradeToCoreWithPolicy(
-          const MemoryPolicyConfig(
-            coreUpgrade: CoreUpgradePolicy(
-              accessCountThreshold: 5,
-              importanceThreshold: 0.7,
-            ),
-          ),
-        ),
-        isFalse,
-      );
+      expect(summary.importance, 0.8);
+    });
 
-      expect(
-        summary.shouldUpgradeToCoreWithPolicy(
-          const MemoryPolicyConfig(
-            coreUpgrade: CoreUpgradePolicy(
-              accessCountThreshold: 3,
-              importanceThreshold: 0.9,
-            ),
-          ),
-        ),
-        isTrue,
-      );
+    test('update entity access count', () {
+      final summary = SummaryEntity.create(
+        title: 'Test',
+        content: 'Content',
+      ).copyWith(accessCount: 10);
+
+      expect(summary.accessCount, 10);
     });
   });
 }

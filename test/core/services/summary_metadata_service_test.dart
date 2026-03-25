@@ -1,20 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_vault/core/services/app_settings_service.dart';
-import 'package:local_vault/core/services/memory_slm_config.dart';
-import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/services/summary_metadata_service.dart';
 import 'package:local_vault/core/utils/summary_text_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('SummaryMetadataService', () {
-    test('rule mode generates refined title and semantic tags', () async {
+    test('save uses refined local rules when SLM inference is disabled',
+        () async {
       SharedPreferences.setMockInitialValues(const <String, Object>{
-        'slm_summary_metadata_enabled': false,
+        'slm_inference_enabled': false,
       });
 
       final service = SummaryMetadataService(
-        slmService: _FakeMemorySlmService(),
         settingsService: AppSettingsService(),
       );
 
@@ -31,51 +29,33 @@ void main() {
       expect(draft.tags.join(','), contains('项目进展'));
     });
 
-    test('slm mode bypasses rule generation and uses model output', () async {
+    test('save still falls back to local rules when SLM inference is enabled',
+        () async {
       SharedPreferences.setMockInitialValues(const <String, Object>{
-        'slm_summary_metadata_enabled': true,
+        'slm_inference_enabled': true,
       });
 
       final service = SummaryMetadataService(
-        slmService: _FakeMemorySlmService(),
         settingsService: AppSettingsService(),
       );
 
       final draft = await service.prepareForSave(
-        content: '原始摘要内容',
-      );
-
-      expect(draft.usedModel, isTrue);
-      expect(draft.title, '项目周报整理');
-      expect(draft.tags, <String>['项目进展', '登录改版', '埋点补齐']);
-    });
-
-    test('slm fallback title follows resolved config', () async {
-      SharedPreferences.setMockInitialValues(const <String, Object>{
-        'slm_summary_metadata_enabled': true,
-      });
-
-      final service = SummaryMetadataService(
-        slmService: _FallbackMemorySlmService(),
-        settingsService: AppSettingsService(),
-      );
-
-      final draft = await service.prepareForSave(
-        content: '这里只提供正文，不提供可靠标题。',
+        content: '原始摘要内容，用于验证当前占位 SLM 入口不会改变保存效果。',
       );
 
       expect(draft.usedModel, isFalse);
-      expect(draft.title, '待人工整理');
+      expect(draft.title, isNot(SummaryTextUtils.unnamedTitle));
+      expect(draft.title, isNot('SLM 自检摘要'));
+      expect(draft.tags, isNotEmpty);
     });
 
     test('preview mode regenerates metadata from content even if form has text',
         () async {
       SharedPreferences.setMockInitialValues(const <String, Object>{
-        'slm_summary_metadata_enabled': false,
+        'slm_inference_enabled': true,
       });
 
       final service = SummaryMetadataService(
-        slmService: _FakeMemorySlmService(),
         settingsService: AppSettingsService(),
       );
 
@@ -90,62 +70,23 @@ void main() {
       expect(draft.title, contains('项目'));
       expect(draft.tags, isNot(contains('记录')));
     });
+
+    test('remark marker uses language-neutral separator', () async {
+      SharedPreferences.setMockInitialValues(const <String, Object>{
+        'slm_inference_enabled': false,
+      });
+
+      final service = SummaryMetadataService(
+        settingsService: AppSettingsService(),
+      );
+
+      final draft = await service.prepareForSave(
+        content: 'Discuss release readiness.',
+        remark: 'Need rollback steps.',
+      );
+
+      expect(draft.content, contains('---Remark---'));
+      expect(draft.content, isNot(contains('---备注---')));
+    });
   });
-}
-
-class _FakeMemorySlmService extends MemorySLMService {
-  @override
-  Future<MemorySlmConfig> resolveConfig() async => MemorySlmConfig.fallback;
-
-  @override
-  Future<MemorySlmResponse<MemorySlmSummaryMetadata>> generateSummaryMetadata({
-    String title = '',
-    required String content,
-    List<String> tags = const [],
-  }) async {
-    return const MemorySlmResponse<MemorySlmSummaryMetadata>(
-      success: true,
-      data: MemorySlmSummaryMetadata(
-        title: '项目周报整理',
-        tags: <String>['项目进展', '登录改版', '埋点补齐'],
-      ),
-      fallbackUsed: MemorySlmFallbackMode.none,
-      latencyMs: 0,
-    );
-  }
-}
-
-class _FallbackMemorySlmService extends MemorySLMService {
-  @override
-  Future<MemorySlmConfig> resolveConfig() async {
-    return MemorySlmConfig.fallback.copyWith(
-      fallbacks: const MemorySlmFallbackValues(
-        summaryMetadataTitle: '待人工整理',
-        emptyFactTitle: '未命名事实',
-        emptyChineseTopic: '临时主题',
-        emptyEnglishTopic: 'General topic',
-        upgradeReasonHighAccess: '高频访问',
-        upgradeReasonHighImportance: '高重要性',
-        upgradeReasonDefault: '默认升级原因',
-      ),
-    );
-  }
-
-  @override
-  Future<MemorySlmResponse<MemorySlmSummaryMetadata>> generateSummaryMetadata({
-    String title = '',
-    required String content,
-    List<String> tags = const [],
-  }) async {
-    return const MemorySlmResponse<MemorySlmSummaryMetadata>(
-      success: true,
-      data: MemorySlmSummaryMetadata(
-        title: '',
-        tags: <String>[],
-      ),
-      fallbackUsed: MemorySlmFallbackMode.disabled,
-      latencyMs: 0,
-      errorCode: 'slm_model_unavailable',
-    );
-  }
 }

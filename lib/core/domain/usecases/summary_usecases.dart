@@ -1,105 +1,390 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:local_vault/core/config/memory_policy_config.dart';
+import 'package:local_vault/core/domain/entities/memory_promotion_metadata.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
+import 'package:local_vault/core/domain/repositories/memory_promotion_repository_interface.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
+import 'package:local_vault/core/memory_promotion/memory_promotion.dart';
+import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
+import 'package:local_vault/core/utils/memory_title_generator.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
+import 'package:local_vault/core/utils/summary_text_utils.dart';
 
-/// 摘要业务用例
+/// Summary business use cases
 class SummaryUseCases {
   SummaryUseCases(
     this.repository,
     this.slmService, {
     this.policyConfig = MemoryPolicyConfig.defaults,
+    this.memoryCapability,
+    this.promotionRepository,
+    this.merger,
   });
 
   final SummaryRepositoryInterface repository;
   final MemorySLMService slmService;
   final MemoryPolicyConfig policyConfig;
+  final MemoryCapability? memoryCapability;
+  final MemoryPromotionRepositoryInterface? promotionRepository;
+  final MemoryMerger? merger;
 
-  /// 添加摘要
+  /// Add summary
   Future<void> addSummary(SummaryEntity summary) async {
-    await repository.addSummary(summary);
-    if (summary.type == MemoryType.fact) {
-      await _upgradeFactToCoreIfNeeded(summary.id);
+    debugPrint(
+      '💾 [SummaryUseCases.addSummary] Before enhance: title="${summary.title}", topic="${summary.topic}"',
+    );
+
+    final enhancedSummary = _enhanceWithStructuredTitle(summary);
+    await repository.addSummary(enhancedSummary);
+    if (enhancedSummary.type == MemoryType.fact) {
+      await _upgradeFactToCoreIfNeeded(enhancedSummary.id);
     }
+    _scheduleMemoryCompaction();
   }
 
-  /// 更新摘要
+  /// Optimize title and topic using structured title generator
+  SummaryEntity _enhanceWithStructuredTitle(SummaryEntity summary) {
+    // ✅ Key fix: If title is "Untitled", do not pass rawContent to avoid pollution
+    final rawContent = SummaryTextUtils.isUnnamedTitleValue(summary.title)
+        ? summary.content
+        : '${summary.title} ${summary.content}'.trim();
+
+    debugPrint(
+      '🔍 [_enhanceWithStructuredTitle] Input: title="${summary.title}", content length=${summary.content.length}, rawContent length=$rawContent',
+    );
+
+    if (rawContent.isEmpty) {
+      debugPrint(
+          '⚠️ [_enhanceWithStructuredTitle] Raw content is empty, returning original summary');
+      return summary;
+    }
+
+    final titleResult =
+        StructuredMemoryTitleGenerator.generateTitle(rawContent);
+    debugPrint(
+      '📊 [_enhanceWithStructuredTitle] Generated: title="${titleResult.title}", topic="${titleResult.structuredData.topic}", confidence=${titleResult.confidence}',
+    );
+
+    if (titleResult.confidence >= 0.5 && titleResult.title.isNotEmpty) {
+      // ✅ Check if topic is a placeholder (e.g., Untitled, unnamed, etc.)
+      final extractedTopic = titleResult.structuredData.topic ?? '';
+      final isValidTopic = _isValidSemanticTopic(extractedTopic);
+
+      debugPrint(
+        '📝 [StructuredTitle] Generated title: ${titleResult.title} '
+        '(confidence: ${(titleResult.confidence * 100).toStringAsFixed(1)}%)',
+      );
+      debugPrint(
+        '🏷️ [StructuredTitle] Extracted topic: "$extractedTopic" '
+        '(valid: $isValidTopic)',
+      );
+
+      // ✅ If topic is a placeholder, try to regenerate a better title
+      String finalTitle;
+      String? finalTopic;
+
+      if (!isValidTopic) {
+        // Topic is a placeholder, try to extract more meaningful keywords from content
+        final bestKeyword = _extractBestKeywordFromContent(summary.content);
+        if (bestKeyword != null && bestKeyword.isNotEmpty) {
+          finalTitle =
+              '$bestKeyword:${titleResult.title.split(':').last.trim()}';
+          finalTopic = bestKeyword;
+          debugPrint(
+            '♻️ [StructuredTitle] Regenerated with keyword: title="$finalTitle", topic="$finalTopic"',
+          );
+        } else {
+          // ⚠️ Cannot extract keyword, use SummaryTextUtils as final fallback
+          final fallbackTitle = SummaryTextUtils.generateTitle(summary.content);
+          if (!SummaryTextUtils.isUnnamedTitleValue(fallbackTitle)) {
+            finalTitle = fallbackTitle;
+            finalTopic = null;
+            debugPrint(
+              '🔄 [StructuredTitle] Fallback to SummaryTextUtils: title="$finalTitle"',
+            );
+          } else {
+            // All methods failed, keep original title but clear topic
+            finalTitle = titleResult.title;
+            finalTopic = null;
+            debugPrint(
+              '⚠️ [StructuredTitle] All title generation failed, keeping original with empty topic',
+            );
+          }
+        }
+      } else {
+        // Topic is valid, use directly
+        finalTitle = titleResult.title;
+        finalTopic = extractedTopic;
+      }
+
+      final enhanced = summary.copyWith(
+        title: finalTitle,
+        topic: finalTopic,
+        updatedAt: DateTime.now(),
+      );
+
+      debugPrint(
+        '✅ [_enhanceWithStructuredTitle] Enhanced summary: title="${enhanced.title}", topic="${enhanced.topic}"',
+      );
+      return enhanced;
+    }
+
+    debugPrint(
+      '⚠️ [_enhanceWithStructuredTitle] Low confidence or empty title, keeping original: confidence=${titleResult.confidence}, title="${titleResult.title}"',
+    );
+    return summary;
+  }
+
+  /// Extract best keyword from content
+  ///
+  /// Fallback strategy when original topic is a placeholder
+  String? _extractBestKeywordFromContent(String content) {
+    if (content.isEmpty) return null;
+
+    // Try to extract technical terms, keywords from first line, etc.
+    final lines = content.split('\n').where((line) => line.trim().isNotEmpty);
+    if (lines.isEmpty) return null;
+
+    // Extract first few meaningful words from the first line
+    final firstLine = lines.first.trim();
+    final words = firstLine.split(RegExp(r'[\s,.!?;:]+'));
+
+    for (final word in words.take(5)) {
+      var cleanWord = word.trim();
+      // Remove leading quotes and brackets
+      while (cleanWord.isNotEmpty &&
+          (cleanWord.codeUnitAt(0) == 34 || // "
+              cleanWord.codeUnitAt(0) == 39 || // '
+              cleanWord.codeUnitAt(0) == 40 || // (
+              cleanWord.codeUnitAt(0) == 91)) {
+        // [
+        cleanWord = cleanWord.substring(1);
+      }
+      // Remove trailing quotes and brackets
+      while (cleanWord.isNotEmpty &&
+          (cleanWord.codeUnitAt(cleanWord.length - 1) == 34 || // "
+              cleanWord.codeUnitAt(cleanWord.length - 1) == 39 || // '
+              cleanWord.codeUnitAt(cleanWord.length - 1) == 41 || // )
+              cleanWord.codeUnitAt(cleanWord.length - 1) == 93)) {
+        // ]
+        cleanWord = cleanWord.substring(0, cleanWord.length - 1);
+      }
+
+      if (cleanWord.isNotEmpty &&
+          cleanWord.length > 2 &&
+          !_isStopWord(cleanWord.toLowerCase())) {
+        return cleanWord;
+      }
+    }
+
+    return null;
+  }
+
+  /// Check if it's a common stop word
+  bool _isStopWord(String word) {
+    const stopWords = {
+      // English stop words
+      'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+      'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+      'and', 'or', 'but', 'if', 'then', 'else', 'when', 'what', 'where',
+      'which', 'who', 'whom', 'whose', 'why', 'how', 'this', 'that',
+      'these', 'those', 'it', 'its', 'of', 'for', 'with', 'at', 'by',
+      'from', 'up', 'to', 'in', 'on', 'as', 'so', 'than', 'too',
+      // Chinese stop words
+      '的', '了', '是', '在', '我', '有', '和', '就', '不', '人',
+      '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去',
+      '你', '会', '着', '没有', '看', '好', '自己', '这',
+    };
+
+    return stopWords.contains(word);
+  }
+
+  /// Check if it's a valid semantic topic
+  ///
+  /// Filter out placeholder text (e.g., Untitled, unnamed, etc.)
+  bool _isValidSemanticTopic(String topic) {
+    if (topic.isEmpty) return false;
+
+    final normalizedTopic = topic.trim().toLowerCase();
+
+    // English placeholders
+    const invalidEnglishTopics = {
+      'untitled',
+      'untitled summary',
+      'untitled memory',
+      'untitled fact',
+      'unknown',
+      'unnamed',
+      'default',
+    };
+
+    // Chinese placeholders
+    const invalidChineseTopics = {
+      '未命名',
+      '未命名摘要',
+      '未命名记忆',
+      '未命名事实',
+      '未知',
+      '默认',
+    };
+
+    // Check if contains placeholder
+    if (invalidEnglishTopics.contains(normalizedTopic)) return false;
+    if (invalidChineseTopics.contains(normalizedTopic)) return false;
+
+    // Check if starts with placeholder (e.g., "Untitled:xxx")
+    for (final invalid in invalidEnglishTopics) {
+      if (normalizedTopic.startsWith('$invalid:') ||
+          normalizedTopic.startsWith('$invalid：')) {
+        return false;
+      }
+    }
+
+    for (final invalid in invalidChineseTopics) {
+      if (normalizedTopic.startsWith('$invalid:') ||
+          normalizedTopic.startsWith('$invalid：')) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Update summary
   Future<void> updateSummary(SummaryEntity summary) async {
     await repository.updateSummary(summary);
     if (summary.type == MemoryType.fact) {
       await _upgradeFactToCoreIfNeeded(summary.id);
     }
+    _scheduleMemoryCompaction();
   }
 
-  /// 删除摘要
+  /// Delete summary
   Future<void> deleteSummary(String id) async {
+    // 1. First delete associated promotion metadata
+    await promotionRepository?.deleteMetadata(id);
+
+    // 2. Delete core memory data
     await repository.deleteSummary(id);
+
+    // 3. Trigger memory compaction
+    _scheduleMemoryCompaction();
   }
 
-  /// 获取单个摘要
+  /// Get single summary
   SummaryEntity? getSummary(String id) {
     return repository.getSummary(id);
   }
 
-  /// 获取所有摘要
+  /// Get all summaries
   List<SummaryEntity> getAllSummaries() {
     return repository.getAllSummaries();
   }
 
-  /// 搜索摘要
+  /// Search summaries
   List<SummaryEntity> searchSummaries(String query) {
     return repository.searchSummaries(query);
   }
 
-  /// 更新排序
+  /// Update sort order
   Future<void> updateSortOrders(List<SummaryEntity> summaries) async {
     await repository.updateSortOrders(summaries);
   }
 
-  /// 根据标签获取摘要
+  /// Get summaries by tag
   List<SummaryEntity> getSummariesByTag(String tag) {
     return repository.getSummariesByTag(tag);
   }
 
-  /// 根据来源获取摘要
+  /// Get summaries by source
   List<SummaryEntity> getSummariesBySource(String source) {
     return repository.getSummariesBySource(source);
   }
 
-  /// 记录访问
+  /// Record access
+  ///
+  /// ✅ NEW: Trigger Session → Fact auto-detection
   Future<void> recordAccess(String id) async {
     await repository.recordAccess(id);
+
+    // ✅ NEW: Session → Fact auto-detection
+    await _upgradeSessionToFactIfNeeded(id);
+
+    // Existing Fact → Core detection
     await _upgradeFactToCoreIfNeeded(id);
+    _scheduleMemoryCompaction();
   }
 
-  /// 更新重要性评分
+  /// Update importance score
+  ///
+  /// ✅ NEW: Trigger Session → Fact auto-detection
   Future<void> updateImportance(String id, double importance) async {
     await repository.updateImportance(id, importance);
+
+    // ✅ NEW: Session → Fact auto-detection
+    await _upgradeSessionToFactIfNeeded(id);
+
+    // Existing Fact → Core detection
     await _upgradeFactToCoreIfNeeded(id);
+    _scheduleMemoryCompaction();
   }
 
-  /// 根据记忆类型获取
+  /// Get description for upgrading fact memory to core memory
+  Future<String?> getFactUpgradeReason(String id) async {
+    final summary = getSummary(id);
+    if (summary == null || summary.type != MemoryType.fact) {
+      return null;
+    }
+
+    final response = await slmService.generateUpgradeReason(summary);
+    final reason = response.data.trim();
+    return reason.isEmpty ? null : reason;
+  }
+
+  /// Manually upgrade fact memory to core memory
+  Future<SummaryEntity?> upgradeFactToCore(String id) async {
+    final summary = getSummary(id);
+    if (summary == null || summary.type != MemoryType.fact) {
+      return null;
+    }
+
+    final updated = summary.copyWith(
+      type: MemoryType.core,
+      importance: max(
+        summary.importance,
+        policyConfig.coreUpgrade.importanceThreshold,
+      ),
+      updatedAt: DateTime.now(),
+    );
+    await repository.updateSummary(updated);
+    _scheduleMemoryCompaction();
+    return updated;
+  }
+
+  /// Get summaries by memory type
   List<SummaryEntity> getSummariesByType(MemoryType type) {
     return repository.getSummariesByType(type);
   }
 
-  /// 添加记忆（带去重）
+  /// Add memory (with deduplication)
   Future<void> addWithDeduplication(
     SummaryEntity summary, {
     double? similarityThreshold,
   }) async {
+    final enhancedSummary = _enhanceWithStructuredTitle(summary);
     final effectiveSimilarityThreshold =
         similarityThreshold ?? policyConfig.similarity.deduplicationThreshold;
     final existingSummaries = getAllSummaries();
 
-    final duplicate = _findExactDuplicate(existingSummaries, summary);
+    final duplicate = _findExactDuplicate(existingSummaries, enhancedSummary);
     if (duplicate != null) {
-      debugPrint('🔄 [去重] 检测到完全重复：${summary.title}');
+      debugPrint(
+          '🔄 [Deduplication] Exact duplicate detected: ${enhancedSummary.title}');
       await updateSummary(
         duplicate.copyWith(
           lastAccessedAt: DateTime.now(),
@@ -113,8 +398,8 @@ class SummaryUseCases {
     double bestSimilarity = 0.0;
     for (final existing in existingSummaries) {
       final similarity = SimilarityUtils.calculateMemorySimilarity(
-        summary.title,
-        summary.content,
+        enhancedSummary.title,
+        enhancedSummary.content,
         existing.title,
         existing.content,
       );
@@ -122,30 +407,31 @@ class SummaryUseCases {
       bestSimilarity = max(bestSimilarity, similarity);
       if (similarity >= effectiveSimilarityThreshold) {
         debugPrint(
-          '🔗 [去重] 高相似度合并：${summary.title} -> ${existing.title} '
-          '(相似度：${(similarity * 100).toStringAsFixed(1)}%)',
+          '🔗 [Deduplication] High-similarity merge: ${enhancedSummary.title} -> ${existing.title} '
+          '(similarity: ${(similarity * 100).toStringAsFixed(1)}%)',
         );
-        final merged = _mergeMemories(existing, summary);
+        final merged = _mergeMemories(existing, enhancedSummary);
         await updateSummary(merged);
         return;
       }
     }
 
     debugPrint(
-      '✅ [去重] 新增唯一内容：${summary.title} '
-      '(最高相似度：${(bestSimilarity * 100).toStringAsFixed(1)}%)',
+      '✅ [Deduplication] Added unique content: ${enhancedSummary.title} '
+      '(highest similarity: ${(bestSimilarity * 100).toStringAsFixed(1)}%)',
     );
-    await addSummary(summary);
+    await addSummary(enhancedSummary);
   }
 
-  /// 添加事实记忆，但不自动合并相似事实，改为返回合并候选供 UI 决策。
+  /// Add fact summary, but do not automatically merge similar facts, instead return merge candidates for UI decision.
   Future<FactSummarySaveResult> addFactSummary(
     SummaryEntity summary, {
     double? similarityThreshold,
   }) async {
-    final factSummary = summary.type == MemoryType.fact
-        ? summary
-        : summary.copyWith(type: MemoryType.fact);
+    final enhancedSummary = _enhanceWithStructuredTitle(summary);
+    final factSummary = enhancedSummary.type == MemoryType.fact
+        ? enhancedSummary
+        : enhancedSummary.copyWith(type: MemoryType.fact);
     final duplicate =
         _findExactDuplicate(getSummariesByType(MemoryType.fact), factSummary);
 
@@ -178,63 +464,61 @@ class SummaryUseCases {
     );
   }
 
-  /// 添加会话记忆（仅在会话内合并）
+  /// Adds a session memory and schedules background processing.
+  /// Delegates ingestion to the MemoryCapability runtime.
+  ///
+  /// ✅ NEW: Automatically trigger Session → Fact detection
   Future<void> addSessionMemory(SummaryEntity summary) async {
+    final enhancedSummary = _enhanceWithStructuredTitle(summary);
     final sessionSummaries = getSummariesByType(MemoryType.session);
+    SummaryEntity? savedSession;
 
-    final duplicate = _findExactDuplicate(sessionSummaries, summary);
+    final duplicate = _findExactDuplicate(sessionSummaries, enhancedSummary);
     if (duplicate != null) {
-      await updateSummary(
-        duplicate.copyWith(
-          lastAccessedAt: DateTime.now(),
-          accessCount: duplicate.accessCount + 1,
-          updatedAt: DateTime.now(),
-        ),
+      // ✅ Get metadata from promotion repository and update
+      final metadata = promotionRepository?.getMetadata(duplicate.id);
+      final newSessionSpan = (metadata?.sessionSpan ?? 0) + 1;
+
+      savedSession = duplicate.copyWith(
+        lastAccessedAt: DateTime.now(),
+        accessCount: duplicate.accessCount + 1,
+        updatedAt: DateTime.now(),
       );
+      await updateSummary(savedSession);
+
+      // ✅ Update sessionSpan in promotion repository
+      if (metadata != null) {
+        await promotionRepository?.saveMetadata(
+          metadata.copyWith(sessionSpan: newSessionSpan),
+        );
+      } else {
+        // If no metadata existed before, create new one
+        await promotionRepository?.saveMetadata(
+          MemoryPromotionMetadata(
+            summaryId: duplicate.id,
+            sessionSpan: newSessionSpan,
+            summaryTitle: duplicate.title,
+          ),
+        );
+      }
     } else {
-      await addSummary(summary.copyWith(type: MemoryType.session));
+      savedSession = enhancedSummary.copyWith(type: MemoryType.session);
+      await addSummary(savedSession);
     }
 
-    await checkAndMergeSessionBatches();
+    // ✅ NEW: After saving, check if promotion conditions are met
+    await _upgradeSessionToFactIfNeeded(savedSession.id);
+
+    final capability = memoryCapability;
+    if (capability != null) {
+      unawaited(capability.ingestSession(savedSession));
+      return;
+    }
+
+    throw StateError('addSessionMemory requires a MemoryCapability');
   }
 
-  /// 检查并合并 Session 批次
-  Future<int> checkAndMergeSessionBatches() async {
-    final sessions = getSummariesByType(MemoryType.session);
-    if (sessions.isEmpty) {
-      return 0;
-    }
-
-    final batches = await _buildSessionBatches(sessions);
-    await _syncSessionProtection(sessions, batches);
-
-    var mergedCount = 0;
-    for (final batch in batches) {
-      if (!_isEligibleForMerge(batch.sessions)) {
-        continue;
-      }
-
-      final mergeResponse = await slmService.mergeSessions(batch.sessions);
-      if (!mergeResponse.success || mergeResponse.data.content.trim().isEmpty) {
-        continue;
-      }
-
-      final mergedFact = _buildFactFromBatch(
-        batch,
-        mergeResponse.data,
-      );
-      await addSummary(mergedFact);
-
-      for (final session in batch.sessions) {
-        await deleteSummary(session.id);
-      }
-      mergedCount += 1;
-    }
-
-    return mergedCount;
-  }
-
-  /// 查找完全重复的内容（标准化后比较）
+  /// Find exact duplicate content (compare after normalization)
   SummaryEntity? _findExactDuplicate(
     List<SummaryEntity> existing,
     SummaryEntity incoming,
@@ -266,7 +550,7 @@ class SummaryUseCases {
     return content.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
-  /// 合并两个相似记忆
+  /// Merge two similar memories
   SummaryEntity _mergeMemories(SummaryEntity existing, SummaryEntity newOne) {
     final mergedTags = {...existing.tags, ...newOne.tags}.toList();
     final mergedContent = _mergeContent(existing.content, newOne.content);
@@ -281,7 +565,7 @@ class SummaryUseCases {
     );
   }
 
-  /// 合并记忆内容，避免重复
+  /// Merge memory content, avoiding duplication
   String _mergeContent(String content1, String content2) {
     if (content1.contains(content2)) {
       return content1;
@@ -301,7 +585,7 @@ class SummaryUseCases {
     return '$content1\n\n$content2';
   }
 
-  /// 应用遗忘曲线
+  /// Apply forgetting curve
   Future<void> applyForgettingCurve() async {
     final allSummaries = getAllSummaries();
     final now = DateTime.now();
@@ -349,11 +633,14 @@ class SummaryUseCases {
     }
   }
 
-  /// 清理过期会话记忆（默认 2 小时）
+  /// Clean up expired session memories (default 2 hours)
   Future<void> cleanupSessionMemories({
     Duration? maxAge,
   }) async {
-    await checkAndMergeSessionBatches();
+    final capability = memoryCapability;
+    if (capability != null) {
+      unawaited(capability.compact());
+    }
 
     final sessionMemories = getSummariesByType(MemoryType.session);
     final now = DateTime.now();
@@ -372,7 +659,15 @@ class SummaryUseCases {
     }
   }
 
-  /// 查找相似记忆
+  void _scheduleMemoryCompaction() {
+    final capability = memoryCapability;
+    if (capability == null) {
+      return;
+    }
+    unawaited(capability.compact());
+  }
+
+  /// Find similar memories
   List<SummaryEntity> findSimilarMemories(
     SummaryEntity target, {
     double? threshold,
@@ -423,7 +718,7 @@ class SummaryUseCases {
     return candidates;
   }
 
-  /// 手动合并两个记忆
+  /// Manually merge two memories
   Future<void> mergeMemories(String id1, String id2) async {
     await mergeMemoriesWithResolution(
       primaryId: id1,
@@ -441,11 +736,11 @@ class SummaryUseCases {
     final secondarySummary = getSummary(secondaryId);
 
     if (primarySummary == null || secondarySummary == null) {
-      throw ArgumentError('找不到指定的记忆');
+      throw ArgumentError('Requested memory could not be found');
     }
     if (primarySummary.type != MemoryType.fact ||
         secondarySummary.type != MemoryType.fact) {
-      throw StateError('当前仅支持事实记忆手动合并');
+      throw StateError('Manual merge currently supports fact memories only');
     }
 
     final merged = buildMergedSummary(
@@ -462,32 +757,47 @@ class SummaryUseCases {
     SummaryEntity secondary, {
     SummaryMergeResolution resolution = const SummaryMergeResolution(),
   }) {
+    // Handle content according to merge strategy
+    final String mergedContent;
+    if (resolution.content == SummaryMergeFieldChoice.combined &&
+        merger != null) {
+      // Smart merge: use memory runtime compaction logic
+      mergedContent = merger!.compressSummaryForMerge(
+        primary.content,
+        secondary.content,
+      );
+    } else if (resolution.content == SummaryMergeFieldChoice.incoming) {
+      mergedContent = secondary.content;
+    } else {
+      // existing or other cases
+      mergedContent = primary.content;
+    }
+
     return primary.copyWith(
-      title: _resolveTextChoice(
-        existingValue: primary.title,
-        incomingValue: secondary.title,
-        choice: resolution.title,
-        combine: _mergeTitle,
-      ),
-      content: _resolveTextChoice(
-        existingValue: primary.content,
-        incomingValue: secondary.content,
-        choice: resolution.content,
-        combine: _mergeContent,
-      ),
-      tags: _resolveTagChoice(
-        existingTags: primary.tags,
-        incomingTags: secondary.tags,
-        choice: resolution.tags,
-      ),
+      title: resolution.title == SummaryMergeFieldChoice.incoming
+          ? secondary.title
+          : resolution.title == SummaryMergeFieldChoice.existing
+              ? primary.title
+              : resolution.title == SummaryMergeFieldChoice.combined
+                  ? '${primary.title} ${secondary.title}'
+                  : primary.title,
+      content: mergedContent,
+      tags: resolution.tags == SummaryMergeFieldChoice.incoming
+          ? secondary.tags
+          : resolution.tags == SummaryMergeFieldChoice.existing
+              ? primary.tags
+              : resolution.tags == SummaryMergeFieldChoice.combined
+                  ? {...primary.tags, ...secondary.tags}.toList()
+                  : primary.tags,
       createdAt: primary.createdAt.isBefore(secondary.createdAt)
           ? primary.createdAt
           : secondary.createdAt,
       updatedAt: DateTime.now(),
-      lastAccessedAt: _latestDate(
-        primary.lastAccessedAt,
-        secondary.lastAccessedAt,
-      ),
+      lastAccessedAt: primary.lastAccessedAt
+                  ?.isAfter(secondary.lastAccessedAt ?? DateTime(1970)) ??
+              false
+          ? primary.lastAccessedAt
+          : secondary.lastAccessedAt,
       topic: primary.topic ?? secondary.topic,
       importance: (primary.importance + secondary.importance) / 2,
       accessCount: primary.accessCount + secondary.accessCount,
@@ -496,283 +806,100 @@ class SummaryUseCases {
 
   Future<void> _upgradeFactToCoreIfNeeded(String id) async {
     final summary = getSummary(id);
-    if (summary == null ||
-        !summary.shouldUpgradeToCoreWithPolicy(policyConfig)) {
-      return;
-    }
+    if (summary == null) return;
+
+    // ✅ Get metadata from promotion repository
+    final metadata = promotionRepository?.getMetadata(id);
+    if (metadata == null) return;
+
+    // ✅ Score using new PromotionScorer
+    final score = PromotionScorer.scoreForFactToCore(
+      sessionSpan: metadata.sessionSpan,
+      stabilityScore: metadata.stabilityScore,
+      hasImpactOnOutput: metadata.usageInRecommendations >= 5,
+      contentType: summary.contentType,
+      userConfirmedLongTerm: metadata.userConfirmedLongTerm,
+      hasRecentConflict: metadata.lastConflictAt != null &&
+          DateTime.now().difference(metadata.lastConflictAt!).inDays < 30,
+      usageInRecommendations: metadata.usageInRecommendations,
+    );
+
+    // ✅ Check if promotion conditions are met (≥75 points)
+    if (score < 75) return;
+
+    debugPrint(
+        '⬆️ [Promotion] Fact eligible for promotion to Core: ${summary.title}');
+    debugPrint('📊 [Promotion] Score: $score');
+    debugPrint('   - sessionSpan: ${metadata.sessionSpan}');
+    debugPrint('   - stabilityScore: ${metadata.stabilityScore}');
+    debugPrint(
+        '   - usageInRecommendations: ${metadata.usageInRecommendations}');
+    debugPrint('   - userConfirmedLongTerm: ${metadata.userConfirmedLongTerm}');
 
     await repository.updateSummary(
       summary.copyWith(
         type: MemoryType.core,
+        state: MemoryState.core,
         updatedAt: DateTime.now(),
       ),
     );
+
+    debugPrint('✅ [Promotion] Promoted: Fact → Core');
   }
 
-  Future<List<_SessionBatch>> _buildSessionBatches(
-    List<SummaryEntity> sessions,
-  ) async {
-    final batchPolicy = policyConfig.sessionBatching;
-    final sortedSessions = List<SummaryEntity>.from(sessions)
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    final batches = <_SessionBatch>[];
+  /// ✅ NEW: Session → Fact auto-detection
+  Future<void> _upgradeSessionToFactIfNeeded(String id) async {
+    final summary = getSummary(id);
+    if (summary == null) return;
 
-    for (final rawSession in sortedSessions) {
-      final session = await _ensureTopic(rawSession);
-      var assigned = false;
+    // ✅ Get metadata from promotion repository
+    final metadata = promotionRepository?.getMetadata(id);
+    if (metadata == null) return;
 
-      for (final batch in batches) {
-        final anchor = batch.sessions.first;
-        final ruleScore = _calculateRuleScore(anchor, session);
-        if (ruleScore < batchPolicy.minimumRuleScoreForSemanticCheck) {
-          continue;
-        }
-
-        final semanticResponse = await slmService.isSameTopic(anchor, session);
-        final semanticScore = semanticResponse.data ? 1.0 : 0.0;
-        final normalizedBatchTopic = _normalizeTitle(batch.topic);
-        final normalizedSessionTopic = _normalizeTitle(session.topic ?? '');
-        final topicMatches = normalizedBatchTopic.isNotEmpty &&
-            normalizedBatchTopic == normalizedSessionTopic;
-        final combinedScore = topicMatches
-            ? max(batchPolicy.topicMatchScoreFloor, ruleScore)
-            : (ruleScore * batchPolicy.ruleWeight) +
-                (semanticScore * batchPolicy.semanticWeight);
-
-        if (combinedScore >= batchPolicy.combinedScoreThreshold) {
-          batch.sessions.add(session);
-          assigned = true;
-          break;
-        }
-      }
-
-      if (!assigned) {
-        batches.add(
-          _SessionBatch(
-            topic: session.topic ?? _normalizeTitle(session.title),
-            sessions: <SummaryEntity>[session],
-          ),
-        );
-      }
-    }
-
-    return batches;
-  }
-
-  Future<SummaryEntity> _ensureTopic(SummaryEntity session) async {
-    final existingTopic = session.topic?.trim();
-    if (existingTopic != null && existingTopic.isNotEmpty) {
-      return session;
-    }
-
-    final topicResponse = await slmService.extractTopic(
-      session.title,
-      session.content,
+    // ✅ Score using new PromotionScorer
+    final score = PromotionScorer.scoreForSessionToFact(
+      sessionSpan: metadata.sessionSpan,
+      userExplicitSave: metadata.userExplicitSave,
+      referenceCount: metadata.referenceCount,
+      accessCount: summary.accessCount,
+      contentType: summary.contentType,
+      hasConflict: false,
     );
-    final topic = topicResponse.data.trim();
-    final updated = session.copyWith(topic: topic);
-    await repository.updateSummary(updated);
-    return updated;
-  }
 
-  Future<void> _syncSessionProtection(
-    List<SummaryEntity> originalSessions,
-    List<_SessionBatch> batches,
-  ) async {
-    final now = DateTime.now();
-    final candidateIds = <String, _SessionBatch>{};
-    for (final batch in batches.where((batch) => batch.sessions.length >= 2)) {
-      for (final session in batch.sessions) {
-        candidateIds[session.id] = batch;
-      }
-    }
+    // ✅ Check if promotion conditions are met (≥70 points)
+    if (score < 70) return;
 
-    for (final session in originalSessions) {
-      final batch = candidateIds[session.id];
-      final nextTopic = batch?.topic ?? session.topic;
-      final nextProtectedUntil = batch == null
-          ? null
-          : now.add(policyConfig.candidateProtectionWindow);
-      final hasProtectionChanged = batch == null
-          ? session.protectedUntil != null
-          : session.protectedUntil == null ||
-              session.protectedUntil!.isBefore(now) ||
-              session.protectedUntil!
-                      .difference(nextProtectedUntil!)
-                      .inMinutes
-                      .abs() >
-                  1;
-      final hasTopicChanged = nextTopic != null && nextTopic != session.topic;
+    debugPrint(
+        '⬆️ [Promotion] Session eligible for promotion to Fact: ${summary.title}');
+    debugPrint('📊 [Promotion] Score: $score');
+    debugPrint('   - sessionSpan: ${metadata.sessionSpan}');
+    debugPrint('   - userExplicitSave: ${metadata.userExplicitSave}');
+    debugPrint('   - referenceCount: ${metadata.referenceCount}');
+    debugPrint('   - accessCount: ${summary.accessCount}');
+    debugPrint('   - contentType: ${summary.contentType.name}');
 
-      if (!hasProtectionChanged && !hasTopicChanged) {
-        continue;
-      }
-
-      await repository.updateSummary(
-        session.copyWith(
-          topic: nextTopic,
-          clearProtectedUntil: batch == null,
-          protectedUntil: batch == null ? null : nextProtectedUntil,
-        ),
-      );
-    }
-  }
-
-  bool _isEligibleForMerge(List<SummaryEntity> sessions) {
-    return sessions.length >=
-            policyConfig.sessionBatching.minimumMergeBatchSize &&
-        sessions.any((session) => session.content.trim().isNotEmpty);
-  }
-
-  double _calculateRuleScore(SummaryEntity a, SummaryEntity b) {
-    final batchPolicy = policyConfig.sessionBatching;
-    double score = 0.0;
-
-    final titleA = _normalizeTitle(a.title);
-    final titleB = _normalizeTitle(b.title);
-    if (titleA.isNotEmpty && titleA == titleB) {
-      score += batchPolicy.exactTitleMatchWeight;
-    } else if (titleA.isNotEmpty &&
-        titleB.isNotEmpty &&
-        (titleA.contains(titleB) || titleB.contains(titleA))) {
-      score += batchPolicy.partialTitleMatchWeight;
-    }
-
-    final similarity = SimilarityUtils.calculateMemorySimilarity(
-      a.title,
-      a.content,
-      b.title,
-      b.content,
+    await repository.updateSummary(
+      summary.copyWith(
+        type: MemoryType.fact,
+        state: MemoryState.fact,
+        updatedAt: DateTime.now(),
+      ),
     );
-    score += similarity * batchPolicy.semanticSimilarityWeight;
 
-    if (a.tags.isNotEmpty && b.tags.isNotEmpty) {
-      final overlap = a.tags.toSet().intersection(b.tags.toSet()).length;
-      final maxSize = max(a.tags.length, b.tags.length);
-      score += (overlap / max(1, maxSize)) * batchPolicy.tagOverlapWeight;
-    }
-
-    if (_sourceFamily(a.source) == _sourceFamily(b.source)) {
-      score += batchPolicy.sameSourceWeight;
-    }
-
-    final timeDiff = a.createdAt.difference(b.createdAt).abs();
-    if (timeDiff <= policyConfig.timeThresholds.shortTerm) {
-      score += batchPolicy.shortTermTimeWeight;
-    } else if (timeDiff <= policyConfig.timeThresholds.mediumTerm) {
-      score += batchPolicy.mediumTermTimeWeight;
-    }
-
-    return score.clamp(0.0, 1.0);
+    debugPrint('✅ [Promotion] Promoted: Session → Fact');
   }
 
-  String _sourceFamily(String source) {
-    final parts = source.split('_');
-    return parts.isEmpty ? source : parts.first;
+  // === Memory Promotion Metadata Management Methods ===
+
+  /// Get promotion metadata for memory
+  MemoryPromotionMetadata? getPromotionMetadata(String summaryId) {
+    return promotionRepository?.getMetadata(summaryId);
   }
 
-  String _mergeTitle(String title1, String title2) {
-    final normalized1 = _normalizeTitle(title1);
-    final normalized2 = _normalizeTitle(title2);
-    if (normalized1 == normalized2) {
-      return title1.length >= title2.length ? title1 : title2;
-    }
-    if (title1.contains(title2)) {
-      return title1;
-    }
-    if (title2.contains(title1)) {
-      return title2;
-    }
-    return title2.length >= title1.length ? title2 : title1;
-  }
-
-  String _resolveTextChoice({
-    required String existingValue,
-    required String incomingValue,
-    required SummaryMergeFieldChoice choice,
-    required String Function(String existing, String incoming) combine,
-  }) {
-    switch (choice) {
-      case SummaryMergeFieldChoice.existing:
-        return existingValue;
-      case SummaryMergeFieldChoice.incoming:
-        return incomingValue;
-      case SummaryMergeFieldChoice.combined:
-        return combine(existingValue, incomingValue);
-    }
-  }
-
-  List<String> _resolveTagChoice({
-    required List<String> existingTags,
-    required List<String> incomingTags,
-    required SummaryMergeFieldChoice choice,
-  }) {
-    switch (choice) {
-      case SummaryMergeFieldChoice.existing:
-        return existingTags;
-      case SummaryMergeFieldChoice.incoming:
-        return incomingTags;
-      case SummaryMergeFieldChoice.combined:
-        return <String>{...existingTags, ...incomingTags}.toList();
-    }
-  }
-
-  DateTime? _latestDate(DateTime? left, DateTime? right) {
-    if (left == null) {
-      return right;
-    }
-    if (right == null) {
-      return left;
-    }
-    return left.isAfter(right) ? left : right;
-  }
-
-  SummaryEntity _buildFactFromBatch(
-    _SessionBatch batch,
-    MemorySlmMergeResult mergeResult,
-  ) {
-    final accessCount = batch.sessions
-        .fold<int>(0, (sum, session) => sum + session.accessCount);
-    final importance = batch.sessions.fold<double>(
-          0.0,
-          (sum, session) => sum + session.importance,
-        ) /
-        batch.sessions.length;
-
-    DateTime? lastAccessedAt;
-    for (final session in batch.sessions) {
-      final candidate = session.lastAccessedAt;
-      if (candidate == null) {
-        continue;
-      }
-      if (lastAccessedAt == null || candidate.isAfter(lastAccessedAt)) {
-        lastAccessedAt = candidate;
-      }
-    }
-
-    return SummaryEntity.create(
-      title: mergeResult.title,
-      content: mergeResult.content,
-      tags: mergeResult.tags,
-      type: MemoryType.fact,
-      source: 'slm_session_merge',
-      topic: batch.topic,
-      importance: importance,
-    ).copyWith(
-      createdAt: batch.sessions.first.createdAt,
-      accessCount: accessCount,
-      lastAccessedAt: lastAccessedAt,
-      updatedAt: DateTime.now(),
-    );
+  /// Save or update promotion metadata for memory
+  Future<void> savePromotionMetadata(MemoryPromotionMetadata metadata) async {
+    await promotionRepository?.saveMetadata(metadata);
   }
 }
 
-class _SessionBatch {
-  _SessionBatch({
-    required this.topic,
-    required this.sessions,
-  });
 
-  final String topic;
-  final List<SummaryEntity> sessions;
-}

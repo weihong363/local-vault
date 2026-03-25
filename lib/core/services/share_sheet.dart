@@ -35,7 +35,7 @@ class ShareSheetPlatformAndroid extends ShareSheetPlatform {
         'subject': subject,
       });
     } on PlatformException catch (e) {
-      debugPrint('分享失败: ${e.message}');
+      debugPrint('Share failed: ${e.message}');
     }
   }
 }

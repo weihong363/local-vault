@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:local_vault/core/constants/app_storage.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/template_entity.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class DatabaseInspectorPage extends StatefulWidget {
   const DatabaseInspectorPage({super.key});
@@ -18,8 +19,8 @@ class DatabaseInspectorPage extends StatefulWidget {
 class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
   static final String _summaryBoxName = AppStorage.summaryBoxName;
   static final String _templateBoxName = AppStorage.templateBoxName;
+  static final String _promotionBoxName = AppStorage.memoryPromotionBoxName;
   static const JsonEncoder _jsonEncoder = JsonEncoder.withIndent('  ');
-
   late final Future<void> _initFuture = _ensureBoxesOpen();
 
   Future<void> _ensureBoxesOpen() async {
@@ -29,14 +30,20 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
     if (!Hive.isBoxOpen(_templateBoxName)) {
       await Hive.openBox(_templateBoxName);
     }
+    if (!Hive.isBoxOpen(_promotionBoxName)) {
+      await Hive.openBox(_promotionBoxName);
+    }
   }
 
   Box get _summaryBox => Hive.box(_summaryBoxName);
 
   Box get _templateBox => Hive.box(_templateBoxName);
 
+  Box get _promotionBox => Hive.box(_promotionBoxName);
+
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return FutureBuilder<void>(
       future: _initFuture,
       builder: (context, snapshot) {
@@ -48,34 +55,35 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
 
         if (snapshot.hasError) {
           return Scaffold(
-            appBar: AppBar(title: const Text('数据库查询')),
+            appBar: AppBar(title: Text(loc.databaseInspector)),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text('数据库打开失败: ${snapshot.error}'),
+                child: Text(loc.failedToOpenDatabase('${snapshot.error}')),
               ),
             ),
           );
         }
 
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('数据库查询'),
+              title: Text(loc.databaseInspector),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  tooltip: '刷新',
+                  tooltip: loc.refresh,
                   onPressed: () {
                     setState(() {});
                   },
                 ),
               ],
-              bottom: const TabBar(
+              bottom: TabBar(
                 tabs: [
-                  Tab(text: '摘要库'),
-                  Tab(text: '模板库'),
+                  Tab(text: loc.summariesTab),
+                  Tab(text: loc.templatesTab),
+                  const Tab(text: 'Promotion'), // ✅ 新增：晋升元数据 tab
                 ],
               ),
             ),
@@ -83,6 +91,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
               children: [
                 _buildSummaryTab(),
                 _buildTemplateTab(),
+                _buildPromotionTab(), // ✅ 新增：晋升元数据 tab
               ],
             ),
           ),
@@ -92,6 +101,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
   }
 
   Widget _buildSummaryTab() {
+    final loc = AppLocalizations.of(context)!;
     return ValueListenableBuilder(
       valueListenable: _summaryBox.listenable(),
       builder: (context, Box box, _) {
@@ -104,10 +114,11 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
         return _buildRecordList(
           boxName: _summaryBoxName,
           records: records,
-          emptyText: '摘要库暂无记录',
+          emptyText: loc.noSummaryRecordsInBox,
           extraSummary: [
-            '候选异常: ${records.where((record) => record.issues.isNotEmpty).length}',
-            '旧模板遗留: ${records.where((record) => record.hasLegacyTemplateType).length}',
+            loc.recordsWithIssues(
+              '${records.where((record) => record.issues.isNotEmpty).length}',
+            ),
           ],
         );
       },
@@ -115,6 +126,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
   }
 
   Widget _buildTemplateTab() {
+    final loc = AppLocalizations.of(context)!;
     return ValueListenableBuilder(
       valueListenable: _templateBox.listenable(),
       builder: (context, Box box, _) {
@@ -127,10 +139,40 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
         return _buildRecordList(
           boxName: _templateBoxName,
           records: records,
-          emptyText: '模板库暂无记录',
+          emptyText: loc.noTemplateRecordsInBox,
           extraSummary: [
-            '候选异常: ${records.where((record) => record.issues.isNotEmpty).length}',
-            '默认模板: ${records.where((record) => record.isDefaultTemplate).length}',
+            loc.recordsWithIssues(
+              '${records.where((record) => record.issues.isNotEmpty).length}',
+            ),
+            loc.defaultTemplatesCount(
+              '${records.where((record) => record.isDefaultTemplate).length}',
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// ✅ 新增：构建晋升元数据 Tab
+  Widget _buildPromotionTab() {
+    final loc = AppLocalizations.of(context)!;
+    return ValueListenableBuilder(
+      valueListenable: _promotionBox.listenable(),
+      builder: (context, Box box, _) {
+        final records = box.keys
+            .map((key) => _inspectPromotionRecord(key, box.get(key)))
+            .toList()
+            .reversed
+            .toList(growable: false);
+
+        return _buildRecordList(
+          boxName: _promotionBoxName,
+          records: records,
+          emptyText: '暂无晋升元数据记录',
+          extraSummary: [
+            loc.recordsWithIssues(
+              '${records.where((record) => record.issues.isNotEmpty).length}',
+            ),
           ],
         );
       },
@@ -143,6 +185,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
     required String emptyText,
     required List<String> extraSummary,
   }) {
+    final loc = AppLocalizations.of(context)!;
     if (records.isEmpty) {
       return Center(child: Text(emptyText));
     }
@@ -154,8 +197,8 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _buildMetricChip('Box: $boxName'),
-            _buildMetricChip('记录数: ${records.length}'),
+            _buildMetricChip(loc.boxMetricLabel(boxName)),
+            _buildMetricChip(loc.recordsMetricLabel('${records.length}')),
             for (final item in extraSummary) _buildMetricChip(item),
           ],
         ),
@@ -172,6 +215,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
   }
 
   Widget _buildRecordCard(_RecordInspection record) {
+    final loc = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final issueColor = record.issues.isEmpty ? Colors.green : Colors.orange;
 
@@ -195,7 +239,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
               children: [
                 Chip(
                   avatar: Icon(Icons.storage, size: 16, color: issueColor),
-                  label: Text('Key: ${record.keyLabel}'),
+                  label: Text(loc.keyMetricLabel(record.keyLabel)),
                   visualDensity: VisualDensity.compact,
                 ),
                 Chip(
@@ -206,8 +250,8 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
                   ),
                   label: Text(
                     record.issues.isEmpty
-                        ? '未发现明显异常'
-                        : '异常提示 ${record.issues.length}',
+                        ? loc.noObviousIssuesDetected
+                        : loc.issuesMetricLabel('${record.issues.length}'),
                   ),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -261,7 +305,7 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
             child: TextButton.icon(
               onPressed: () => _copyText(record.prettyJson),
               icon: const Icon(Icons.copy),
-              label: const Text('复制 JSON'),
+              label: Text(loc.copyJson),
             ),
           ),
         ],
@@ -270,92 +314,95 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
   }
 
   Future<void> _copyText(String text) async {
+    final loc = AppLocalizations.of(context)!;
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板')),
+      SnackBar(content: Text(loc.copiedToClipboard)),
     );
   }
 
   _RecordInspection _inspectSummaryRecord(dynamic key, dynamic value) {
+    final loc = AppLocalizations.of(context)!;
     final issues = <String>[];
     final map = _safeMap(value);
 
     if (map == null) {
-      issues.add('记录不是 Map 结构，可能是损坏数据');
+      issues.add(loc.recordNotMapCorrupted);
       return _RecordInspection(
         keyLabel: '$key',
-        title: '无法解析的摘要记录',
-        subtitle: '原始类型: ${value.runtimeType}',
+        title: loc.unparseableSummaryRecord,
+        subtitle: loc.rawTypeLabel('${value.runtimeType}'),
         issues: issues,
         prettyJson: _encodeRaw(value),
       );
     }
 
     final rawType = map['type'];
-    final hasLegacyTemplateType = rawType == 2 || rawType == 'template';
-    if (hasLegacyTemplateType) {
-      issues.add('发现旧版 template 类型记录，当前会按 fact 兼容读取');
-    }
+
     if ((map['id'] as String?)?.isEmpty ?? true) {
-      issues.add('缺少 id');
+      issues.add(loc.missingId);
     }
     if ((map['title'] as String?)?.trim().isEmpty ?? true) {
-      issues.add('标题为空');
+      issues.add(loc.titleIsEmpty);
     }
     if ((map['content'] as String?)?.trim().isEmpty ?? true) {
-      issues.add('内容为空');
+      issues.add(loc.contentIsEmpty);
     }
 
     final accessCount = _parseInt(map['accessCount']);
     if (accessCount == null) {
-      issues.add('accessCount 不是有效数字');
+      issues.add(loc.accessCountInvalid);
     } else if (accessCount < 0) {
-      issues.add('accessCount 小于 0');
+      issues.add(loc.accessCountBelowZero);
     }
 
     DateTime? createdAt;
     try {
       createdAt = DateTime.parse(map['createdAt'] as String);
     } catch (_) {
-      issues.add('createdAt 无法解析');
+      issues.add(loc.createdAtCouldNotBeParsed);
     }
 
     try {
       SummaryEntity.fromJson(map);
     } catch (error) {
-      issues.add('SummaryEntity 反序列化失败: $error');
+      issues.add(loc.summaryDeserializationFailed('$error'));
     }
 
     final typeLabel = _summaryTypeLabel(rawType);
     final createdLabel = createdAt == null
-        ? '时间未知'
+        ? loc.unknownTime
         : DateFormat('yyyy-MM-dd HH:mm:ss').format(createdAt);
 
     return _RecordInspection(
       keyLabel: '$key',
       title: (map['title'] as String?)?.trim().isNotEmpty == true
           ? map['title'] as String
-          : '(无标题摘要)',
-      subtitle: '类型: $typeLabel  访问: ${accessCount ?? '-'}  创建: $createdLabel',
+          : loc.untitledSummary,
+      subtitle: loc.summaryRecordSubtitle(
+        typeLabel,
+        '${accessCount ?? '-'}',
+        createdLabel,
+      ),
       issues: issues,
       prettyJson: _encodeRaw(map),
-      hasLegacyTemplateType: hasLegacyTemplateType,
     );
   }
 
   _RecordInspection _inspectTemplateRecord(dynamic key, dynamic value) {
+    final loc = AppLocalizations.of(context)!;
     final issues = <String>[];
     final map = _safeMap(value);
 
     if (map == null) {
-      issues.add('记录不是 Map 结构，可能是损坏数据');
+      issues.add(loc.recordNotMapCorrupted);
       return _RecordInspection(
         keyLabel: '$key',
-        title: '无法解析的模板记录',
-        subtitle: '原始类型: ${value.runtimeType}',
+        title: loc.unparseableTemplateRecord,
+        subtitle: loc.rawTypeLabel('${value.runtimeType}'),
         issues: issues,
         prettyJson: _encodeRaw(value),
       );
@@ -365,13 +412,13 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
     final isDefaultTemplate = id?.startsWith('default_') ?? false;
 
     if (id?.isEmpty ?? true) {
-      issues.add('缺少 id');
+      issues.add(loc.missingId);
     }
     if ((map['title'] as String?)?.trim().isEmpty ?? true) {
-      issues.add('标题为空');
+      issues.add(loc.titleIsEmpty);
     }
     if ((map['content'] as String?)?.trim().isEmpty ?? true) {
-      issues.add('内容为空');
+      issues.add(loc.contentIsEmpty);
     }
 
     try {
@@ -385,20 +432,23 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
             map['updatedAt'] == null ? null : _parseDate(map['updatedAt']),
       );
     } catch (error) {
-      issues.add('TemplateEntity 反序列化失败: $error');
+      issues.add(loc.templateDeserializationFailed('$error'));
     }
 
     final createdAt = _tryParseDate(map['createdAt']);
     final createdLabel = createdAt == null
-        ? '时间未知'
+        ? loc.unknownTime
         : DateFormat('yyyy-MM-dd HH:mm:ss').format(createdAt);
 
     return _RecordInspection(
       keyLabel: '$key',
       title: (map['title'] as String?)?.trim().isNotEmpty == true
           ? map['title'] as String
-          : '(无标题模板)',
-      subtitle: '${isDefaultTemplate ? "默认模板" : "自定义模板"}  创建: $createdLabel',
+          : loc.untitledTemplate,
+      subtitle: loc.templateRecordSubtitle(
+        isDefaultTemplate ? loc.defaultTemplateLabel : loc.customTemplateLabel,
+        createdLabel,
+      ),
       issues: issues,
       prettyJson: _encodeRaw(map),
       isDefaultTemplate: isDefaultTemplate,
@@ -437,10 +487,19 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
   }
 
   String _summaryTypeLabel(dynamic rawType) {
+    final loc = AppLocalizations.of(context)!;
     try {
-      return MemoryTypeX.fromStorage(rawType).name;
+      final type = MemoryTypeX.fromStorage(rawType);
+      switch (type) {
+        case MemoryType.fact:
+          return loc.factMemoryLabel;
+        case MemoryType.core:
+          return loc.coreMemoryLabel;
+        case MemoryType.session:
+          return loc.sessionMemoryLabel;
+      }
     } catch (_) {
-      return 'unknown($rawType)';
+      return '${loc.unknownValue}($rawType)';
     }
   }
 
@@ -460,6 +519,63 @@ class _DatabaseInspectorPageState extends State<DatabaseInspectorPage> {
       return DateTime.parse(value);
     }
     throw ArgumentError('invalid date: $value');
+  }
+
+  /// ✅ 新增：检查晋升元数据记录
+  _RecordInspection _inspectPromotionRecord(dynamic key, dynamic value) {
+    final loc = AppLocalizations.of(context)!;
+    final issues = <String>[];
+    final map = _safeMap(value);
+
+    if (map == null) {
+      issues.add(loc.recordNotMapCorrupted);
+      return _RecordInspection(
+        keyLabel: '$key',
+        title: '无法解析的晋升元数据',
+        subtitle: '原始类型：${value.runtimeType}',
+        issues: issues,
+        prettyJson: _encodeRaw(value),
+      );
+    }
+
+    // 验证必要字段
+    if ((map['summaryId'] as String?)?.isEmpty ?? true) {
+      issues.add('缺少 summaryId');
+    }
+
+    final sessionSpan = _parseInt(map['sessionSpan']);
+    if (sessionSpan == null) {
+      issues.add('sessionSpan 无效');
+    } else if (sessionSpan < 0) {
+      issues.add('sessionSpan 不能为负数');
+    }
+
+    final stabilityScore = map['stabilityScore'];
+    if (stabilityScore != null &&
+        (stabilityScore is! num || stabilityScore < 0 || stabilityScore > 1)) {
+      issues.add('stabilityScore 必须在 0-1 之间');
+    }
+
+    // 构建副标题
+    final summaryId = map['summaryId'] as String? ?? '未知';
+    final summaryTitle = map['summaryTitle'] as String? ?? '';
+    final sessionSpanValue = sessionSpan ?? 0;
+    final userExplicitSave = map['userExplicitSave'] == true;
+
+    final subtitle = summaryTitle.isNotEmpty
+        ? '$summaryTitle | Session: $sessionSpanValue | '
+            '${userExplicitSave ? '用户要求保存' : '自动保存'}'
+        : 'ID: $summaryId | Session: $sessionSpanValue';
+
+    return _RecordInspection(
+      keyLabel: '$key',
+      title: summaryTitle.isNotEmpty
+          ? '晋升元数据 - $summaryTitle'
+          : '晋升元数据 - $summaryId',
+      subtitle: subtitle,
+      issues: issues,
+      prettyJson: _encodeRaw(map),
+    );
   }
 
   List<String> _parseTags(dynamic raw) {
@@ -487,7 +603,6 @@ class _RecordInspection {
     required this.subtitle,
     required this.issues,
     required this.prettyJson,
-    this.hasLegacyTemplateType = false,
     this.isDefaultTemplate = false,
   });
 
@@ -496,6 +611,5 @@ class _RecordInspection {
   final String subtitle;
   final List<String> issues;
   final String prettyJson;
-  final bool hasLegacyTemplateType;
   final bool isDefaultTemplate;
 }

@@ -4,25 +4,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/domain/entities/template_entity.dart';
 import 'package:local_vault/core/providers/template_entities_provider.dart';
 import 'package:local_vault/core/widgets/common_template_card.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class TemplatePage extends ConsumerWidget {
   const TemplatePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context)!;
     final asyncTemplates = ref.watch(templateEntityNotifierProvider);
 
     ref.listen(templateEntityNotifierProvider, (previous, next) {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('错误: ${next.error}')),
+          SnackBar(content: Text(loc.errorWithDetails('${next.error}'))),
         );
       }
     });
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('模板'),
+        title: Text(loc.templates),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -35,7 +37,7 @@ class TemplatePage extends ConsumerWidget {
       body: asyncTemplates.when(
         data: (templates) {
           if (templates.isEmpty) {
-            return const Center(child: Text('暂无模板'));
+            return Center(child: Text(loc.noTemplatesYet));
           }
           return RefreshIndicator(
             onRefresh: () async {
@@ -51,12 +53,15 @@ class TemplatePage extends ConsumerWidget {
                     _copyToClipboard(context, templates[index].content);
                   },
                   onEdit: () {
-                    _showTemplateDialog(context, ref, template: templates[index]);
+                    _showTemplateDialog(context, ref,
+                        template: templates[index]);
                   },
                   onDelete: () {
-                    ref
-                        .read(templateEntityNotifierProvider.notifier)
-                        .deleteTemplate(templates[index].id);
+                    _confirmDeleteTemplate(
+                      context,
+                      ref,
+                      templates[index],
+                    );
                   },
                 );
               },
@@ -64,47 +69,52 @@ class TemplatePage extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('错误: $error')),
+        error: (error, stack) =>
+            Center(child: Text(loc.errorWithDetails('$error'))),
       ),
     );
   }
 
-  void _showTemplateDialog(BuildContext context, WidgetRef ref, {TemplateEntity? template}) {
+  void _showTemplateDialog(BuildContext context, WidgetRef ref,
+      {TemplateEntity? template}) {
+    final loc = AppLocalizations.of(context)!;
     final isEditing = template != null;
     final titleController = TextEditingController(text: template?.title ?? '');
-    final contentController = TextEditingController(text: template?.content ?? '');
-    final tagsController = TextEditingController(text: template?.tags.join(', ') ?? '');
+    final contentController =
+        TextEditingController(text: template?.content ?? '');
+    final tagsController =
+        TextEditingController(text: template?.tags.join(', ') ?? '');
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isEditing ? '编辑模板' : '添加模板'),
+        title: Text(isEditing ? loc.editTemplate : loc.addTemplate),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: '标题',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: loc.title,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: contentController,
-                decoration: const InputDecoration(
-                  labelText: '内容',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: loc.content,
+                  border: const OutlineInputBorder(),
                 ),
                 maxLines: 6,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: tagsController,
-                decoration: const InputDecoration(
-                  labelText: '标签 (用逗号分隔)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: loc.commaSeparatedTagsHint,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
@@ -113,7 +123,7 @@ class TemplatePage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(loc.cancelLabel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -127,7 +137,7 @@ class TemplatePage extends ConsumerWidget {
 
               if (title.isEmpty || content.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('标题和内容不能为空')),
+                  SnackBar(content: Text(loc.titleAndContentRequired)),
                 );
                 return;
               }
@@ -138,18 +148,22 @@ class TemplatePage extends ConsumerWidget {
                   content: content,
                   tags: tags,
                 );
-                ref.read(templateEntityNotifierProvider.notifier).updateTemplate(updatedTemplate);
+                ref
+                    .read(templateEntityNotifierProvider.notifier)
+                    .updateTemplate(updatedTemplate);
               } else {
                 final newTemplate = TemplateEntity.create(
                   title: title,
                   content: content,
                   tags: tags,
                 );
-                ref.read(templateEntityNotifierProvider.notifier).addTemplate(newTemplate);
+                ref
+                    .read(templateEntityNotifierProvider.notifier)
+                    .addTemplate(newTemplate);
               }
               Navigator.pop(context);
             },
-            child: const Text('保存'),
+            child: Text(loc.save),
           ),
         ],
       ),
@@ -157,9 +171,51 @@ class TemplatePage extends ConsumerWidget {
   }
 
   void _copyToClipboard(BuildContext context, String text) {
+    final loc = AppLocalizations.of(context)!;
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制到剪贴板')),
+      SnackBar(content: Text(loc.copiedToClipboard)),
+    );
+  }
+
+  Future<void> _confirmDeleteTemplate(
+    BuildContext context,
+    WidgetRef ref,
+    TemplateEntity template,
+  ) async {
+    final loc = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(loc.deleteTemplate),
+        content: Text(loc.deleteTemplateConfirm(template.title)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.cancelLabel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(loc.deleteLabel),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    await ref
+        .read(templateEntityNotifierProvider.notifier)
+        .deleteTemplate(template.id);
+    final deleteState = ref.read(templateEntityNotifierProvider);
+    if (deleteState.hasError || !context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.templateDeleted)),
     );
   }
 }

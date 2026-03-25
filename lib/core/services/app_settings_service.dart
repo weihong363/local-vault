@@ -6,8 +6,7 @@ class AppSettingsService {
   }) : _preferences = preferences ?? SharedPreferences.getInstance();
 
   static const String _floatingWindowEnabledKey = 'floating_window_enabled';
-  static const String _slmSummaryMetadataEnabledKey =
-      'slm_summary_metadata_enabled';
+  static const String _slmInferenceEnabledKey = 'slm_inference_enabled';
   static const String _summaryMetadataPreviewEnabledKey =
       'summary_metadata_preview_enabled';
 
@@ -23,14 +22,14 @@ class AppSettingsService {
     await prefs.setBool(_floatingWindowEnabledKey, enabled);
   }
 
-  Future<bool> isSlmSummaryMetadataEnabled() async {
+  Future<bool> isSlmInferenceEnabled() async {
     final prefs = await _preferences;
-    return prefs.getBool(_slmSummaryMetadataEnabledKey) ?? false;
+    return prefs.getBool(_slmInferenceEnabledKey) ?? false;
   }
 
-  Future<void> setSlmSummaryMetadataEnabled(bool enabled) async {
+  Future<void> setSlmInferenceEnabled(bool enabled) async {
     final prefs = await _preferences;
-    await prefs.setBool(_slmSummaryMetadataEnabledKey, enabled);
+    await prefs.setBool(_slmInferenceEnabledKey, enabled);
   }
 
   Future<bool> isSummaryMetadataPreviewEnabled() async {

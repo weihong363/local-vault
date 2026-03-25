@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:local_vault/core/utils/json_utils.dart';
 import 'package:path_provider/path_provider.dart';
 
 class MemoryTimeThresholds {
@@ -182,20 +183,38 @@ class MemoryPolicyConfig {
         defaultValue: const Duration(hours: 24),
       ),
       timeThresholds: MemoryTimeThresholds.fromJson(
-        _asMap(json['timeThresholds']),
+        JsonUtils.asMap(json['timeThresholds']),
       ),
       forgettingCurve: ForgettingCurveConfig.fromJson(
-        _asMap(json['forgettingCurve']),
+        JsonUtils.asMap(json['forgettingCurve']),
       ),
       coreUpgrade: CoreUpgradePolicy.fromJson(
-        _asMap(json['coreUpgrade']),
+        JsonUtils.asMap(json['coreUpgrade']),
       ),
       similarity: SimilarityPolicy.fromJson(
-        _asMap(json['similarity']),
+        JsonUtils.asMap(json['similarity']),
       ),
       sessionBatching: SessionBatchingPolicy.fromJson(
-        _asMap(json['sessionBatching']),
+        JsonUtils.asMap(json['sessionBatching']),
       ),
+    );
+  }
+
+  static Duration durationFromJson(
+    Object? raw, {
+    required Duration defaultValue,
+  }) {
+    final value = JsonUtils.asMap(raw);
+    if (value.isEmpty) {
+      return defaultValue;
+    }
+
+    return Duration(
+      days: value['days'] as int? ?? 0,
+      hours: value['hours'] as int? ?? 0,
+      minutes: value['minutes'] as int? ?? 0,
+      seconds: value['seconds'] as int? ?? 0,
+      milliseconds: value['milliseconds'] as int? ?? 0,
     );
   }
 
@@ -206,9 +225,10 @@ class MemoryPolicyConfig {
 
     try {
       final bundledRaw = await rootBundle.loadString(bundledConfigAssetPath);
-      merged = _asMap(jsonDecode(bundledRaw));
+      merged = JsonUtils.asMap(jsonDecode(bundledRaw));
     } catch (error, stackTrace) {
-      debugPrint('⚠️ [MemoryPolicyConfig] 读取内置配置失败，回退到默认配置: $error');
+      debugPrint(
+          '⚠️ [MemoryPolicyConfig] Failed to read bundled config, falling back to defaults: $error');
       debugPrintStack(stackTrace: stackTrace);
       return defaults;
     }
@@ -218,12 +238,12 @@ class MemoryPolicyConfig {
       final overrideFile = await resolveFile();
       if (await overrideFile.exists()) {
         final overrideRaw = await overrideFile.readAsString();
-        final overrideJson = _asMap(jsonDecode(overrideRaw));
+        final overrideJson = JsonUtils.asMap(jsonDecode(overrideRaw));
         merged = _deepMerge(merged, overrideJson);
       }
     } catch (error, stackTrace) {
       debugPrint(
-        '⚠️ [MemoryPolicyConfig] 读取覆盖配置失败，将继续使用内置配置: $error',
+        '⚠️ [MemoryPolicyConfig] Failed to read override config, continuing with bundled config: $error',
       );
       debugPrintStack(stackTrace: stackTrace);
     }
@@ -242,36 +262,6 @@ class MemoryPolicyConfig {
     return File('${configDirectory.path}/$overrideFileName');
   }
 
-  static Duration durationFromJson(
-    Object? raw, {
-    required Duration defaultValue,
-  }) {
-    final value = _asMap(raw);
-    if (value.isEmpty) {
-      return defaultValue;
-    }
-
-    return Duration(
-      days: value['days'] as int? ?? 0,
-      hours: value['hours'] as int? ?? 0,
-      minutes: value['minutes'] as int? ?? 0,
-      seconds: value['seconds'] as int? ?? 0,
-      milliseconds: value['milliseconds'] as int? ?? 0,
-    );
-  }
-
-  static Map<String, dynamic> _asMap(Object? raw) {
-    if (raw is Map<String, dynamic>) {
-      return raw;
-    }
-    if (raw is Map) {
-      return raw.map((key, value) {
-        return MapEntry(key.toString(), value);
-      });
-    }
-    return <String, dynamic>{};
-  }
-
   static Map<String, dynamic> _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> override,
@@ -281,12 +271,12 @@ class MemoryPolicyConfig {
       final current = merged[key];
       if (current is Map && value is Map) {
         if (_isDurationMap(current) || _isDurationMap(value)) {
-          merged[key] = _asMap(value);
+          merged[key] = JsonUtils.asMap(value);
           return;
         }
         merged[key] = _deepMerge(
-          _asMap(current),
-          _asMap(value),
+          JsonUtils.asMap(current),
+          JsonUtils.asMap(value),
         );
       } else {
         merged[key] = value;
@@ -296,7 +286,7 @@ class MemoryPolicyConfig {
   }
 
   static bool _isDurationMap(Object? raw) {
-    final value = _asMap(raw);
+    final value = JsonUtils.asMap(raw);
     if (value.isEmpty) {
       return false;
     }

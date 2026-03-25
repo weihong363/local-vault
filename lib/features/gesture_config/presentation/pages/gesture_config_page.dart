@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/features/gesture_config/domain/providers/gesture_config_provider.dart';
 import 'package:local_vault/features/gesture_config/models/gesture_config.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class GestureConfigPage extends ConsumerStatefulWidget {
   const GestureConfigPage({super.key});
@@ -16,11 +17,12 @@ class _GestureConfigPageState extends ConsumerState<GestureConfigPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final asyncConfigs = ref.watch(gestureConfigProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('手势配置'),
+        title: Text(loc.gestureConfiguration),
         actions: [
           if (_hasChanges)
             TextButton(
@@ -30,7 +32,7 @@ class _GestureConfigPageState extends ConsumerState<GestureConfigPage> {
                   _hasChanges = false;
                 });
               },
-              child: const Text('取消'),
+              child: Text(loc.cancelLabel),
             ),
           if (_hasChanges)
             ElevatedButton(
@@ -48,11 +50,11 @@ class _GestureConfigPageState extends ConsumerState<GestureConfigPage> {
                     _hasChanges = false;
                   });
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('已保存配置')),
+                    SnackBar(content: Text(loc.gestureConfigurationSaved)),
                   );
                 }
               },
-              child: const Text('保存'),
+              child: Text(loc.save),
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -98,21 +100,23 @@ class _GestureConfigPageState extends ConsumerState<GestureConfigPage> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('错误: $error')),
+        error: (error, stack) =>
+            Center(child: Text(loc.gestureConfigurationLoadFailed('$error'))),
       ),
     );
   }
 
   void _showResetDialog(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('重置为默认'),
-        content: const Text('确定要将所有手势重置为默认设置吗？'),
+        title: Text(loc.resetToDefaults),
+        content: Text(loc.resetGesturesToDefaultsMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(loc.cancelLabel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -125,10 +129,10 @@ class _GestureConfigPageState extends ConsumerState<GestureConfigPage> {
               });
               Navigator.pop(context);
               messenger.showSnackBar(
-                const SnackBar(content: Text('已重置为默认设置')),
+                SnackBar(content: Text(loc.restoredDefaultSettings)),
               );
             },
-            child: const Text('确定'),
+            child: Text(loc.confirmLabel),
           ),
         ],
       ),
@@ -150,6 +154,7 @@ class GestureConfigCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -183,12 +188,12 @@ class GestureConfigCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        config.name,
+                        _gestureLabel(loc, config.gestureType),
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _getActionDescription(config.action),
+                        _getActionDescription(context, config.action),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.grey[600],
                             ),
@@ -206,7 +211,7 @@ class GestureConfigCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '仅分享',
+                      loc.gestureShareOnly,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[700],
@@ -245,14 +250,24 @@ class GestureConfigCard extends StatelessWidget {
     }
   }
 
-  String _getActionDescription(GestureAction action) {
+  String _getActionDescription(BuildContext context, GestureAction action) {
+    final loc = AppLocalizations.of(context)!;
     switch (action) {
       case GestureAction.openTemplates:
-        return '打开提示词模板';
+        return loc.gestureActionOpenTemplates;
       case GestureAction.saveSummary:
-        return '通过分享保存摘要';
+        return loc.gestureActionSaveSummary;
       case GestureAction.openSummaries:
-        return '打开已保存的上下文';
+        return loc.gestureActionOpenSavedContext;
+    }
+  }
+
+  String _gestureLabel(AppLocalizations loc, GestureType type) {
+    switch (type) {
+      case GestureType.tap2:
+        return loc.gestureDoubleTap;
+      case GestureType.tap3:
+        return loc.gestureTripleTap;
     }
   }
 }
@@ -272,6 +287,7 @@ class _ActionSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final usedActions = allConfigs
         .where((c) => !c.readOnly && c.id != currentConfigId)
         .map((c) => c.action)
@@ -281,7 +297,7 @@ class _ActionSelector extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '触发动作',
+          loc.triggerAction,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -306,14 +322,14 @@ class _ActionSelector extends StatelessWidget {
                     value: action,
                     enabled: !isUsed && onChanged != null,
                     title: Text(
-                      _getActionLabel(action),
+                      _getActionLabel(context, action),
                       style: TextStyle(
                         color: isUsed ? Colors.grey[400] : null,
                       ),
                     ),
                     subtitle: isUsed
                         ? Text(
-                            '已被其他手势使用',
+                            loc.alreadyUsedByAnotherGesture,
                             style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 12,
@@ -338,14 +354,15 @@ class _ActionSelector extends StatelessWidget {
     );
   }
 
-  String _getActionLabel(GestureAction action) {
+  String _getActionLabel(BuildContext context, GestureAction action) {
+    final loc = AppLocalizations.of(context)!;
     switch (action) {
       case GestureAction.openTemplates:
-        return '打开提示词模板';
+        return loc.gestureActionOpenTemplates;
       case GestureAction.saveSummary:
-        return '通过分享保存摘要';
+        return loc.gestureActionSaveSummary;
       case GestureAction.openSummaries:
-        return '打开已保存的上下文';
+        return loc.gestureActionOpenSavedContext;
     }
   }
 }

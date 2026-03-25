@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/features/app_whitelist/domain/providers/app_whitelist_provider.dart';
 import 'package:local_vault/features/app_whitelist/models/app_info.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 enum _AppVisibilityFilter {
   all,
@@ -29,12 +30,13 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final asyncWhitelist = ref.watch(appWhitelistProvider);
     final asyncInstalledApps = ref.watch(installedAppsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('应用白名单'),
+        title: Text(loc.appAllowlist),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -48,7 +50,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: '搜索应用...',
+                hintText: loc.searchAppsHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -86,7 +88,9 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
             child: asyncInstalledApps.when(
               data: (apps) => _buildAppList(context, ref, apps, asyncWhitelist),
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(child: Text('加载失败: $error')),
+              error: (error, stack) => Center(
+                child: Text(loc.appWhitelistLoadFailed('$error')),
+              ),
             ),
           ),
         ],
@@ -98,6 +102,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
     AsyncValue<List<AppInfo>> asyncWhitelist,
     WidgetRef ref,
   ) {
+    final loc = AppLocalizations.of(context)!;
     return asyncWhitelist.when(
       data: (whitelist) {
         return Container(
@@ -109,7 +114,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
               Row(
                 children: [
                   Text(
-                    '已选择 ${whitelist.length} 个应用',
+                    loc.selectedAppsCount('${whitelist.length}'),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -120,7 +125,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
                     IconButton(
                       icon: const Icon(Icons.delete_sweep_outlined, size: 20),
                       onPressed: () => _showClearDialog(context, ref),
-                      tooltip: '清空白名单',
+                      tooltip: loc.clearAllowlistTooltip,
                     ),
                   ],
                 ],
@@ -156,7 +161,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '手势将在所有应用中生效',
+                          loc.gesturesActiveInAllApps,
                           style: TextStyle(
                             color: Colors.blue[700],
                             fontSize: 14,
@@ -172,15 +177,15 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
                 runSpacing: 8,
                 children: [
                   _buildFilterChip(
-                    label: '全部',
+                    label: loc.filterAll,
                     filter: _AppVisibilityFilter.all,
                   ),
                   _buildFilterChip(
-                    label: '已选择',
+                    label: loc.filterSelected,
                     filter: _AppVisibilityFilter.selected,
                   ),
                   _buildFilterChip(
-                    label: '未选择',
+                    label: loc.filterUnselected,
                     filter: _AppVisibilityFilter.unselected,
                   ),
                 ],
@@ -200,6 +205,7 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
     List<AppInfo> apps,
     AsyncValue<List<AppInfo>> asyncWhitelist,
   ) {
+    final loc = AppLocalizations.of(context)!;
     final whitelist = asyncWhitelist.when(
       data: (list) => list,
       loading: () => <AppInfo>[],
@@ -236,9 +242,9 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
     if (visibleApps.isEmpty) {
       final emptyTitle = switch (_visibilityFilter) {
         _AppVisibilityFilter.all =>
-          _searchQuery.isEmpty ? '没有找到应用' : '没有找到匹配的应用',
-        _AppVisibilityFilter.selected => '还没有已选择的应用',
-        _AppVisibilityFilter.unselected => '没有未选择的应用',
+          _searchQuery.isEmpty ? loc.noAppsFound : loc.noMatchingAppsFound,
+        _AppVisibilityFilter.selected => loc.noSelectedAppsYet,
+        _AppVisibilityFilter.unselected => loc.noUnselectedApps,
       };
 
       return Center(
@@ -340,15 +346,16 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
   }
 
   void _showClearDialog(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清空白名单'),
-        content: const Text('确定要清空应用白名单吗？手势将在所有应用中生效。'),
+        title: Text(loc.clearAllowlistTitle),
+        content: Text(loc.clearAllowlistMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(loc.cancelLabel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -359,10 +366,10 @@ class _AppWhitelistPageState extends ConsumerState<AppWhitelistPage> {
               ref.read(appWhitelistProvider.notifier).clearWhitelist();
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已清空白名单')),
+                SnackBar(content: Text(loc.allowlistCleared)),
               );
             },
-            child: const Text('清空'),
+            child: Text(loc.clearLabel),
           ),
         ],
       ),

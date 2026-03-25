@@ -10,6 +10,9 @@ enum GestureAction {
 }
 
 class GestureConfig {
+  static const String _defaultTap2Name = 'tap_2';
+  static const String _defaultTap3Name = 'tap_3';
+
   final int id;
   final String name;
   final GestureType gestureType;
@@ -71,7 +74,7 @@ class GestureConfig {
 
     return GestureConfig(
       id: json['id'] as int,
-      name: json['name'] as String,
+      name: _normalizeName(json['name'] as String?, gestureType),
       gestureType: gestureType,
       fingerCount: json['fingerCount'] as int,
       action: action,
@@ -83,18 +86,35 @@ class GestureConfig {
     return [
       GestureConfig(
         id: 1,
-        name: '轻点 2 下',
+        name: _defaultNameForGestureType(GestureType.tap2),
         gestureType: GestureType.tap2,
         fingerCount: 2,
         action: GestureAction.openTemplates,
       ),
       GestureConfig(
         id: 2,
-        name: '轻点 3 下',
+        name: _defaultNameForGestureType(GestureType.tap3),
         gestureType: GestureType.tap3,
         fingerCount: 3,
         action: GestureAction.openSummaries,
       ),
     ];
+  }
+
+  static String _normalizeName(String? name, GestureType gestureType) {
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+    return _defaultNameForGestureType(gestureType);
+  }
+
+  static String _defaultNameForGestureType(GestureType type) {
+    switch (type) {
+      case GestureType.tap2:
+        return _defaultTap2Name;
+      case GestureType.tap3:
+        return _defaultTap3Name;
+    }
   }
 }

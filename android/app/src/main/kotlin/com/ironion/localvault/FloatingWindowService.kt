@@ -46,18 +46,18 @@ class FloatingWindowService : Service(), SensorEventListener {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "========== FloatingWindowService 正在启动 ==========")
+        Log.d(TAG, "========== FloatingWindowService is starting ==========")
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
         
         handler = Handler(Looper.getMainLooper())
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        
-        Log.d(TAG, "正在注册加速度传感器...")
+
+        Log.d(TAG, "Registering accelerometer sensor...")
         registerTapSensor()
         
         isServiceRunning = true
-        Log.d(TAG, "========== FloatingWindowService 启动完成 ==========")
+        Log.d(TAG, "========== FloatingWindowService started ==========")
     }
 
     private fun registerTapSensor() {
@@ -103,14 +103,14 @@ class FloatingWindowService : Service(), SensorEventListener {
         // 阈值，用于检测敲击（根据设备调整）
         val tapThreshold = 2.0
 
-        Log.d(TAG, "加速度: magnitude=$magnitude, delta=$delta")
+        Log.d(TAG, "Acceleration: magnitude=$magnitude, delta=$delta")
 
         if (delta > tapThreshold) {
             val currentTime = System.currentTimeMillis()
             
             if (currentTime - lastTapTime < tapTimeout) {
                 tapCount++
-                Log.d(TAG, "检测到敲击，当前次数：$tapCount")
+                Log.d(TAG, "Tap detected, current count: $tapCount")
                 
                 if (tapCount == 2) {
                     handleTapGesture(2)
@@ -121,7 +121,7 @@ class FloatingWindowService : Service(), SensorEventListener {
                 }
             } else {
                 tapCount = 1
-                Log.d(TAG, "检测到第一次敲击，重置计数")
+                Log.d(TAG, "First tap detected, resetting counter")
             }
             
             lastTapTime = currentTime
@@ -148,7 +148,7 @@ class FloatingWindowService : Service(), SensorEventListener {
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "获取前台应用失败", e)
+            Log.e(TAG, "Failed to get foreground app", e)
             null
         }
     }
@@ -160,33 +160,33 @@ class FloatingWindowService : Service(), SensorEventListener {
     private fun isAppInWhitelist(): Boolean {
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         val whitelistJson = prefs.getStringSet(PREF_APP_WHITELIST, emptySet())
-        
-        // 如果白名单为空，允许所有应用
+
+        // 如果Whitelist is empty, allowing all apps
         if (whitelistJson.isNullOrEmpty()) {
-            Log.d(TAG, "白名单为空，允许所有应用")
+            Log.d(TAG, "Whitelist is empty, allowing all apps")
             return true
         }
         
         val foregroundPackage = getForegroundAppPackage() ?: return false
-        Log.d(TAG, "当前前台应用：$foregroundPackage")
+        Log.d(TAG, "Current foreground app: $foregroundPackage")
         
         // 直接使用包名集合
        val whitelistPackages = whitelistJson
-        
-        Log.d(TAG, "白名单应用：$whitelistPackages")
+
+        Log.d(TAG, "Whitelisted apps: $whitelistPackages")
         
         val isAllowed = whitelistPackages.contains(foregroundPackage)
-        Log.d(TAG, "应用 $foregroundPackage ${if (isAllowed) "在白名单中" else "不在白名单中"}")
+        Log.d(TAG, "App $foregroundPackage ${if (isAllowed) "is in the whitelist" else "is not in the whitelist"}")
         
         return isAllowed
     }
     
     private fun handleTapGesture(tapCount: Int) {
-        Log.d(TAG, "处理 $tapCount 次敲击手势")
+        Log.d(TAG, "Handling $tapCount-tap gesture")
         
         // 检查应用白名单
         if (!isAppInWhitelist()) {
-            Log.d(TAG, "当前应用不在白名单中，忽略手势")
+            Log.d(TAG, "Current app is not in the whitelist, ignoring gesture")
             return
         }
         
@@ -198,7 +198,7 @@ class FloatingWindowService : Service(), SensorEventListener {
         }
 
         val actionIndex = prefs.getInt(actionKey, if (tapCount == 2) 0 else 2)
-        Log.d(TAG, "配置的动作索引：$actionIndex")
+        Log.d(TAG, "Configured action index: $actionIndex")
 
         val launchIntent = when (actionIndex) {
             0 -> QuickActionActivity.createIntent(
@@ -209,7 +209,7 @@ class FloatingWindowService : Service(), SensorEventListener {
             }
 
             1 -> {
-                Log.d(TAG, "触发快速保存摘要功能")
+                Log.d(TAG, "Triggering quick summary save")
                 Intent(this, QuickSaveActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     action = "QUICK_SAVE_FROM_NOTIFICATION"
@@ -227,7 +227,7 @@ class FloatingWindowService : Service(), SensorEventListener {
         }
 
         if (launchIntent == null) {
-            Log.w(TAG, "未识别的动作索引：$actionIndex")
+            Log.w(TAG, "Unrecognized action index: $actionIndex")
             return
         }
 
@@ -248,6 +248,6 @@ class FloatingWindowService : Service(), SensorEventListener {
         super.onDestroy()
         sensorManager.unregisterListener(this)
         isServiceRunning = false
-        Log.d(TAG, "========== FloatingWindowService 已停止 ==========")
+        Log.d(TAG, "========== FloatingWindowService stopped ==========")
     }
 }

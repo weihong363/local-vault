@@ -7,6 +7,7 @@ import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/features/summary/presentation/widgets/empty_state.dart';
 import 'package:local_vault/features/summary/presentation/widgets/summary_card.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -23,7 +24,7 @@ class _HomePageState extends ConsumerState<HomePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    debugPrint('🏠 [HomePage] 初始化完成');
+    debugPrint('🏠 [HomePage] Initialized');
   }
 
   @override
@@ -36,7 +37,7 @@ class _HomePageState extends ConsumerState<HomePage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint('🏠 [HomePage] 应用恢复，执行刷新');
+      debugPrint('🏠 [HomePage] App resumed, refreshing data');
       _refreshData();
     }
   }
@@ -57,57 +58,49 @@ class _HomePageState extends ConsumerState<HomePage>
     notifier.searchSummaries(query);
   }
 
-  /// 显示确认删除对话框
+  /// Show a confirmation dialog before deleting a summary.
   Future<void> _showDeleteConfirmationDialog(
       BuildContext context, SummaryEntity summary) async {
+    final loc = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除 "${summary.title}" 吗？'),
+        title: Text(loc.deleteSummary),
+        content: Text(loc.deleteSummaryConfirm(summary.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(loc.cancelLabel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),
-            child: const Text('删除'),
+            child: Text(loc.deleteLabel),
           ),
         ],
       ),
     );
 
     if (confirmed == true && context.mounted) {
-      try {
-        await ref
-            .read(summaryEntityNotifierProvider.notifier)
-            .deleteSummary(summary.id);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('已删除'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('删除失败：$e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+      await ref
+          .read(summaryEntityNotifierProvider.notifier)
+          .deleteSummary(summary.id);
+      final deleteState = ref.read(summaryEntityNotifierProvider);
+      if (deleteState.hasError || !context.mounted) {
+        return;
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.deletedLabel),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 
-  /// 处理拖拽排序完成
+  /// Persist the new order after drag-and-drop sorting.
   Future<void> _handleReorder(int oldIndex, int newIndex) async {
     final currentState = ref.read(summaryEntityNotifierProvider);
     if (currentState is! AsyncData<List<SummaryEntity>>) return;
@@ -127,19 +120,20 @@ class _HomePageState extends ConsumerState<HomePage>
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final asyncSummaries = ref.watch(summaryEntityNotifierProvider);
 
     ref.listen(summaryEntityNotifierProvider, (previous, next) {
       if (next.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('错误: ${next.error}')),
+          SnackBar(content: Text(loc.errorWithDetails('${next.error}'))),
         );
       }
     });
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('本地记忆库'),
+        title: Text(loc.appTitle),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(
@@ -147,7 +141,7 @@ class _HomePageState extends ConsumerState<HomePage>
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: '搜索标题、内容或标签...',
+                hintText: loc.searchHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -181,7 +175,7 @@ class _HomePageState extends ConsumerState<HomePage>
       ),
       body: asyncSummaries.when(
         data: (summaries) {
-          debugPrint('🏠 [HomePage] 显示 ${summaries.length} 条摘要');
+          debugPrint('🏠 [HomePage] Rendering ${summaries.length} summaries');
           if (summaries.isEmpty) {
             return const EmptyState();
           }
@@ -218,7 +212,7 @@ class _HomePageState extends ConsumerState<HomePage>
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) {
-          debugPrint('❌ [HomePage] 显示错误: $error');
+          debugPrint('❌ [HomePage] Rendering error state: $error');
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -232,12 +226,12 @@ class _HomePageState extends ConsumerState<HomePage>
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '加载失败',
+                    loc.loadFailedLabel,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '错误: $error',
+                    loc.errorWithDetails('$error'),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey[600],
                         ),
@@ -250,7 +244,7 @@ class _HomePageState extends ConsumerState<HomePage>
                           .read(summaryEntityNotifierProvider.notifier)
                           .refresh();
                     },
-                    child: const Text('重试'),
+                    child: Text(loc.retryLabel),
                   ),
                 ],
               ),

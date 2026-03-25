@@ -1,4 +1,4 @@
-/// 模板实体 - 领域模型
+/// Template entity - domain model
 class TemplateEntity {
   final String id;
   final String title;

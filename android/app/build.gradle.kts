@@ -57,7 +57,9 @@ android {
     }
 
     sourceSets {
-        getByName("main").assets.setSrcDirs(listOf(generatedModelAssetsDir))
+        getByName("main") {
+            assets.setSrcDirs(listOf(generatedModelAssetsDir))
+        }
     }
 }
 

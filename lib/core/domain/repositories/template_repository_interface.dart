@@ -1,6 +1,6 @@
 import '../entities/template_entity.dart';
 
-/// 模板仓库接口
+/// Template repository interface
 abstract class TemplateRepositoryInterface {
   Future<void> init();
   Future<void> addTemplate(TemplateEntity template);

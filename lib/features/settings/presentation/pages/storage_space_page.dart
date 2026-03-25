@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/services/storage_management_service.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class StorageSpacePage extends StatefulWidget {
   const StorageSpacePage({super.key});
@@ -23,9 +24,10 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
   }
 
   Future<void> _clearModelCache() async {
+    final loc = AppLocalizations.of(context)!;
     final confirmed = await _confirmAction(
-      title: '清理模型缓存',
-      message: '这会删除本地模型推理缓存，不会删除摘要、模板或模型文件本身。',
+      title: loc.clearModelCache,
+      message: loc.clearModelCacheMessage,
     );
     if (confirmed != true) {
       return;
@@ -39,8 +41,11 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
       SnackBar(
         content: Text(
           result.deletedFileCount == 0
-              ? '没有可清理的模型缓存'
-              : '已清理 ${result.deletedFileCount} 个缓存文件，释放 ${StorageManagementService.formatBytes(result.releasedBytes)}',
+              ? loc.noModelCacheFilesToClear
+              : loc.clearedModelCacheResult(
+                  '${result.deletedFileCount}',
+                  StorageManagementService.formatBytes(result.releasedBytes),
+                ),
         ),
       ),
     );
@@ -48,9 +53,10 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
   }
 
   Future<void> _clearBackups() async {
+    final loc = AppLocalizations.of(context)!;
     final confirmed = await _confirmAction(
-      title: '清理备份文件',
-      message: '这会删除本地生成的备份文件，但不会影响当前数据库中的摘要和模板。',
+      title: loc.clearBackupFiles,
+      message: loc.clearBackupFilesMessage,
     );
     if (confirmed != true) {
       return;
@@ -64,8 +70,11 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
       SnackBar(
         content: Text(
           result.deletedFileCount == 0
-              ? '没有可清理的备份文件'
-              : '已删除 ${result.deletedFileCount} 个备份文件，释放 ${StorageManagementService.formatBytes(result.releasedBytes)}',
+              ? loc.noBackupFilesToClear
+              : loc.deletedBackupFilesResult(
+                  '${result.deletedFileCount}',
+                  StorageManagementService.formatBytes(result.releasedBytes),
+                ),
         ),
       ),
     );
@@ -76,6 +85,7 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
     required String title,
     required String message,
   }) {
+    final loc = AppLocalizations.of(context)!;
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -84,11 +94,11 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(loc.cancelLabel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('继续'),
+            child: Text(loc.continueLabel),
           ),
         ],
       ),
@@ -97,14 +107,15 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('存储空间'),
+        title: Text(loc.storageSpace),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refresh,
-            tooltip: '刷新',
+            tooltip: loc.refresh,
           ),
         ],
       ),
@@ -119,7 +130,7 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('读取存储信息失败：${snapshot.error}'),
+                child: Text(loc.failedToReadStorageUsage('${snapshot.error}')),
               ),
             );
           }
@@ -134,9 +145,9 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '当前总占用',
-                        style: TextStyle(
+                      Text(
+                        loc.totalStorageUsed,
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -151,7 +162,11 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${usage.summaryCount} 条摘要 · ${usage.templateCount} 个模板 · ${usage.backupFileCount} 个备份',
+                        loc.storageOverviewCounts(
+                          '${usage.summaryCount}',
+                          '${usage.templateCount}',
+                          '${usage.backupFileCount}',
+                        ),
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -162,39 +177,40 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
               ),
               const SizedBox(height: 16),
               _buildUsageTile(
-                title: '摘要数据库',
-                subtitle: '${usage.summaryCount} 条摘要',
+                title: loc.summaryDatabase,
+                subtitle: loc.summaryDatabaseSubtitle('${usage.summaryCount}'),
                 bytes: usage.summaryBytes,
                 icon: Icons.article_outlined,
               ),
               _buildUsageTile(
-                title: '模板数据库',
-                subtitle: '${usage.templateCount} 个模板',
+                title: loc.templateDatabase,
+                subtitle:
+                    loc.templateDatabaseSubtitle('${usage.templateCount}'),
                 bytes: usage.templateBytes,
                 icon: Icons.description_outlined,
               ),
               _buildUsageTile(
-                title: '备份文件',
-                subtitle: '${usage.backupFileCount} 个备份',
+                title: loc.backupFiles,
+                subtitle: loc.backupFilesSubtitle('${usage.backupFileCount}'),
                 bytes: usage.backupBytes,
                 icon: Icons.backup_outlined,
               ),
               _buildUsageTile(
-                title: '模型文件',
-                subtitle: '内置模型占用',
+                title: loc.modelFile,
+                subtitle: loc.bundledModelFootprint,
                 bytes: usage.modelBytes,
                 icon: Icons.memory_outlined,
               ),
               _buildUsageTile(
-                title: '模型缓存',
-                subtitle: '推理缓存与中间文件',
+                title: loc.modelCache,
+                subtitle: loc.inferenceCacheAndIntermediateFiles,
                 bytes: usage.modelCacheBytes,
                 icon: Icons.auto_delete_outlined,
               ),
               const SizedBox(height: 24),
-              const Text(
-                '清理工具',
-                style: TextStyle(
+              Text(
+                loc.cleanupTools,
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -203,13 +219,13 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
               FilledButton.icon(
                 onPressed: _clearModelCache,
                 icon: const Icon(Icons.cleaning_services_outlined),
-                label: const Text('清理模型缓存'),
+                label: Text(loc.clearModelCache),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _clearBackups,
                 icon: const Icon(Icons.delete_sweep_outlined),
-                label: const Text('清理本地备份文件'),
+                label: Text(loc.clearLocalBackupFiles),
               ),
             ],
           );

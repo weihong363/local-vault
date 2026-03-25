@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/l10n/app_localizations.dart';
 
 class SummaryCard extends StatelessWidget {
   final SummaryEntity summary;
@@ -17,6 +18,7 @@ class SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final loc = AppLocalizations.of(context)!;
     final avatarPalette = _buildAvatarPalette(summary);
 
     return Container(
@@ -75,7 +77,7 @@ class SummaryCard extends StatelessWidget {
             const SizedBox(width: 12),
             if (summary.updatedAt != null)
               Text(
-                _formatDate(summary.updatedAt!),
+                _formatDate(summary.updatedAt!, loc),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: isDark ? AppColors.darkTextMuted : null,
                     ),
@@ -222,7 +224,8 @@ class SummaryCard extends StatelessWidget {
       }
     }
 
-    for (final match in RegExp(r'[\u4e00-\u9fff]+').allMatches(normalized)) {
+    for (final match in RegExp(r'[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+')
+        .allMatches(normalized)) {
       final segment = match.group(0);
       if (segment == null || segment.isEmpty) {
         continue;
@@ -251,21 +254,22 @@ class SummaryCard extends StatelessWidget {
   String _normalizeSemanticKey(String value) {
     return value
         .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\u4e00-\u9fff]+'), ' ')
+        .replaceAll(
+            RegExp(r'[^\w\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime date, AppLocalizations loc) {
     final now = DateTime.now();
     final diff = now.difference(date);
 
     if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}分钟前';
+      return loc.relativeMinutesAgo('${diff.inMinutes.clamp(1, 59)}');
     } else if (diff.inHours < 24) {
-      return '${diff.inHours}小时前';
+      return loc.relativeHoursAgo('${diff.inHours}');
     } else {
-      return '${diff.inDays}天前';
+      return loc.relativeDaysAgo('${diff.inDays}');
     }
   }
 }

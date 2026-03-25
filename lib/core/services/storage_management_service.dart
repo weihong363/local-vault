@@ -8,6 +8,7 @@ import 'package:local_vault/core/domain/entities/template_entity.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 import 'package:local_vault/core/domain/repositories/template_repository_interface.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
+import 'package:local_vault/core/utils/json_utils.dart';
 import 'package:path_provider/path_provider.dart';
 
 class StorageUsageSnapshot {
@@ -149,8 +150,10 @@ class StorageManagementService {
     final payload = <String, dynamic>{
       'schemaVersion': 1,
       'exportedAt': now.toIso8601String(),
-      'summaries': summaries.map((item) => item.toJson()).toList(),
-      'templates': templates.map((item) => item.toJson()).toList(),
+      'summaries':
+          summaries.map((item) => item.toJson()).toList(growable: false),
+      'templates':
+          templates.map((item) => item.toJson()).toList(growable: false),
     };
 
     await file.writeAsString(_prettyJson.convert(payload));
@@ -352,7 +355,7 @@ class StorageManagementService {
 
   _ParsedBackupPayload _parseBackupContent(String content) {
     final decoded = jsonDecode(content);
-    final payload = _asMap(decoded);
+    final payload = JsonUtils.asMap(decoded);
     final schemaVersion = _parseSchemaVersion(payload['schemaVersion']);
     final exportedAt = _parseExportedAt(payload['exportedAt']);
     final summaries = _parseSummaries(payload['summaries']);
@@ -373,7 +376,7 @@ class StorageManagementService {
     if (raw is num) {
       return raw.toInt();
     }
-    throw const FormatException('备份文件格式无效');
+    throw const FormatException('Invalid backup file format');
   }
 
   DateTime? _parseExportedAt(Object? raw) {
@@ -381,28 +384,32 @@ class StorageManagementService {
       return null;
     }
     if (raw is! String) {
-      throw const FormatException('备份文件格式无效');
+      throw const FormatException('Invalid backup file format');
     }
 
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) {
-      throw const FormatException('备份文件格式无效');
+      throw const FormatException('Invalid backup file format');
     }
     return parsed;
   }
 
   List<SummaryEntity> _parseSummaries(Object? raw) {
     if (raw is! List) {
-      throw const FormatException('备份文件格式无效');
+      throw const FormatException('Invalid backup file format');
     }
-    return raw.map((item) => SummaryEntity.fromJson(_asMap(item))).toList();
+    return raw
+        .map((item) => SummaryEntity.fromJson(JsonUtils.asMap(item)))
+        .toList(growable: false);
   }
 
   List<TemplateEntity> _parseTemplates(Object? raw) {
     if (raw is! List) {
-      throw const FormatException('备份文件格式无效');
+      throw const FormatException('Invalid backup file format');
     }
-    return raw.map((item) => TemplateEntity.fromJson(_asMap(item))).toList();
+    return raw
+        .map((item) => TemplateEntity.fromJson(JsonUtils.asMap(item)))
+        .toList(growable: false);
   }
 
   static String _formatTimestamp(DateTime value) {
@@ -413,18 +420,6 @@ class StorageManagementService {
     final minute = value.minute.toString().padLeft(2, '0');
     final second = value.second.toString().padLeft(2, '0');
     return '$year$month${day}_$hour$minute$second';
-  }
-
-  static Map<String, dynamic> _asMap(Object? raw) {
-    if (raw is Map<String, dynamic>) {
-      return raw;
-    }
-    if (raw is Map) {
-      return raw.map((key, value) {
-        return MapEntry(key.toString(), value);
-      });
-    }
-    throw const FormatException('备份文件格式无效');
   }
 
   static String? _defaultHiveBoxPathResolver(String boxName) {

@@ -8,8 +8,12 @@ import 'package:local_vault/core/domain/repositories/template_repository_interfa
 import 'package:local_vault/core/services/memory_slm_config.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/services/storage_management_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues(const <String, Object>{});
+
   group('StorageManagementService', () {
     late _InMemorySummaryRepository summaryRepository;
     late _InMemoryTemplateRepository templateRepository;
@@ -42,14 +46,14 @@ void main() {
     test('createBackup writes backup file and lists it', () async {
       await summaryRepository.addSummary(
         SummaryEntity.create(
-          title: '会议纪要',
-          content: '确认发布节奏',
+          title: 'Meeting Minutes',
+          content: 'Confirm release rhythm',
         ),
       );
       await templateRepository.addTemplate(
         TemplateEntity.create(
-          title: '快速摘要',
-          content: '请总结：{{content}}',
+          title: 'Quick Summary',
+          content: 'Please summarize: {{content}}',
         ),
       );
 
@@ -67,14 +71,14 @@ void main() {
         () async {
       await summaryRepository.addSummary(
         SummaryEntity.create(
-          title: '旧数据',
-          content: '需要被覆盖',
+          title: 'Old Data',
+          content: 'Need to be overwritten',
         ),
       );
       await templateRepository.addTemplate(
         TemplateEntity.create(
-          title: '旧模板',
-          content: '需要被覆盖',
+          title: 'Old Template',
+          content: 'Need to be overwritten',
         ),
       );
 
@@ -85,9 +89,9 @@ void main() {
   "summaries": [
     {
       "id": "summary_1",
-      "title": "恢复后的摘要",
-      "content": "新的内容",
-      "tags": ["恢复"],
+      "title": "Restored Summary",
+      "content": "New content",
+      "tags": ["Restore"],
       "type": 0,
       "createdAt": "2026-03-18T10:00:00.000Z",
       "source": "manual",
@@ -101,9 +105,9 @@ void main() {
   "templates": [
     {
       "id": "template_1",
-      "title": "恢复后的模板",
-      "content": "模板内容",
-      "tags": ["恢复"],
+      "title": "Restored Template",
+      "content": "Template content",
+      "tags": ["Restore"],
       "createdAt": "2026-03-18T10:00:00.000Z",
       "updatedAt": null
     }
@@ -116,9 +120,11 @@ void main() {
       expect(result.summaryCount, 1);
       expect(result.templateCount, 1);
       expect(summaryRepository.getAllSummaries(), hasLength(1));
-      expect(summaryRepository.getAllSummaries().single.title, '恢复后的摘要');
+      expect(
+          summaryRepository.getAllSummaries().single.title, 'Restored Summary');
       expect(templateRepository.getAllTemplates(), hasLength(1));
-      expect(templateRepository.getAllTemplates().single.title, '恢复后的模板');
+      expect(templateRepository.getAllTemplates().single.title,
+          'Restored Template');
     });
 
     test('previewBackupContent returns counts before restore', () async {
@@ -129,8 +135,8 @@ void main() {
   "summaries": [
     {
       "id": "summary_1",
-      "title": "恢复后的摘要",
-      "content": "新的内容",
+      "title": "Restored Summary",
+      "content": "New content",
       "tags": [],
       "type": 0,
       "createdAt": "2026-03-18T10:00:00.000Z",
@@ -190,7 +196,7 @@ void main() {
       await File(
         '${modelDirectory.path}/qwen2.5-0.5b-instruct-q4_k_m.gguf',
       ).writeAsBytes(List<int>.filled(200, 1));
-      final cacheDirectory = Directory('${tempDirectory.path}/mediapipe_cache');
+      final cacheDirectory = Directory('${tempDirectory.path}/slm_cache');
       await cacheDirectory.create(recursive: true);
       await File('${cacheDirectory.path}/cache.bin')
           .writeAsBytes(List<int>.filled(50, 1));

@@ -1,29 +1,33 @@
 |NEW_FILE
-# LocalVault - 核心思想与能力摘要
 
-> 为 Flutter 移动端版本提供的核心上下文  
-> **版本**: v1.0 | **日期**: 2026-03-08
+# LocalVault - Core Concepts and Capabilities Summary
 
----
-
-## 🎯 核心理念
-
-**LocalVault = AI 聊天的本地记忆库**
-
-解决痛点：所有 AI（豆包、Grok、DeepSeek、ChatGPT）都是**单对话隔离、无长期记忆**
-
-核心价值：
-- ✅ **跨对话**：上次的重要结论，下次聊天可直接引用
-- ✅ **跨平台**：在豆包保存的摘要，可在 DeepSeek 中注入
-- ✅ **100% 本地**：零上传，隐私优先，用户完全控制
-- ✅ **极简设计**：只做存储 + 存取，不做智能生成
+> Core context for Flutter mobile version  
+> **Version**: v1.0 | **Date**: 2026-03-08
 
 ---
 
-## 🔑 三大核心功能
+## 🎯 Core Concept
 
-### 1. 保存（Save）
-**触发**：悬浮球唤醒、者语音指令或者手势唤醒
+**LocalVault = Local Memory Bank for AI**
 
-**流程**：
-AI 回复 → 检测关键字 → 弹出确认框 → 填写标题/标签 → 保存到本地
+Solves the pain point: All AIs (Doubao, Grok, DeepSeek, ChatGPT) are **isolated per conversation with no long-term
+memory**
+
+Core values:
+
+- ✅ **Cross-conversation**: Important conclusions from last time can be directly referenced next time
+- ✅ **Cross-platform**: Summaries saved in Doubao can be injected into DeepSeek
+- ✅ **100% local**: Zero uploads, privacy-first, full user control
+- ✅ **Minimal design**: Only storage + access, no intelligent generation
+
+---
+
+## 🔑 Three Core Features
+
+### 1. Save
+
+**Triggers**: Floating ball wake-up, voice command, or gesture wake-up
+
+**Process**:
+AI reply → Detect keywords → Pop up confirmation → Fill in title/tags → Save locally

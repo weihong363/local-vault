@@ -33,7 +33,7 @@ abstract class BaseTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        android.util.Log.d(getTileLabel(), "控制中心快捷开关被点击")
+        android.util.Log.d(getTileLabel(), "Quick Settings tile tapped")
         launchActivity()
     }
 
@@ -42,7 +42,7 @@ abstract class BaseTileService : TileService() {
      */
     private fun launchActivity() {
         try {
-            android.util.Log.d(getTileLabel(), "尝试启动 Activity...")
+            android.util.Log.d(getTileLabel(), "Attempting to launch activity...")
 
             val intent = getLaunchIntent()
             val pendingIntent = PendingIntent.getActivity(
@@ -53,10 +53,10 @@ abstract class BaseTileService : TileService() {
             )
 
             startActivityAndCollapse(pendingIntent)
-            android.util.Log.i(getTileLabel(), "成功启动 Activity")
+            android.util.Log.i(getTileLabel(), "Activity launched successfully")
 
         } catch (e: Exception) {
-            android.util.Log.e(getTileLabel(), "启动失败，使用通知栏回退方案", e)
+            android.util.Log.e(getTileLabel(), "Launch failed, falling back to a notification", e)
             sendFallbackNotification()
         }
     }
@@ -88,9 +88,9 @@ abstract class BaseTileService : TileService() {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.notify(NOTIFICATION_ID_BASE + this.javaClass.simpleName.hashCode(), notification)
 
-            android.util.Log.i(getTileLabel(), "已发送回退通知")
+            android.util.Log.i(getTileLabel(), "Fallback notification sent")
         } catch (e: Exception) {
-            android.util.Log.e(getTileLabel(), "发送通知失败", e)
+            android.util.Log.e(getTileLabel(), "Failed to send notification", e)
         }
     }
 
