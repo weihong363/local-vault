@@ -23,16 +23,15 @@ import 'package:local_vault/infrastructure/repositories/hive_memory_sidecar_repo
 import 'package:local_vault/infrastructure/repositories/hive_summary_repository.dart';
 import 'package:local_vault/infrastructure/repositories/hive_template_repository.dart';
 
-/// 服务定位器实例
 final GetIt sl = GetIt.instance;
 
-/// 初始化依赖注入
+/// Init DI
 Future<void> initializeDependencies() async {
   debugPrint('🚀 [DI] Starting dependency injection initialization');
   final memoryPolicyConfig = await MemoryPolicyConfig.load();
   final memoryThemeConfig = await MemoryThemeConfig.load();
 
-  // 1. Infrastructure 层注册
+  // 1. Infrastructure layer registration
   sl.registerLazySingleton<SummaryRepositoryInterface>(
     () => HiveSummaryRepository(),
   );
@@ -130,7 +129,7 @@ Future<void> initializeDependencies() async {
     ),
   );
 
-  // 2. Domain 层注册
+  // 2. Domain layer registration
   sl.registerLazySingleton<SummaryUseCases>(
     () => SummaryUseCases(
       sl<SummaryRepositoryInterface>(),
@@ -145,7 +144,7 @@ Future<void> initializeDependencies() async {
     () => TemplateUseCases(sl<TemplateRepositoryInterface>()),
   );
 
-  // 3. 初始化仓库
+  // 3. Initialize repository
   await sl<SummaryRepositoryInterface>().init();
   await sl<TemplateRepositoryInterface>().init();
   await sl<MemorySidecarRepository>().init();

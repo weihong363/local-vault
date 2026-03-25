@@ -2,11 +2,11 @@ import 'dart:math';
 
 import 'package:local_vault/core/memory_promotion/memory_promotion.dart';
 
-/// 记忆类型
+/// Memory types
 enum MemoryType {
-  session, // 会话记忆（临时）
-  fact, // 普通事实（持久化）
-  core, // 核心记忆（持久化，免受遗忘曲线影响）
+  session, // Session memory (temporary)
+  fact, // Fact memory (persistent)
+  core, // Core memory (persistent, exempt from forgetting curve)
 }
 
 extension MemoryTypeX on MemoryType {
@@ -31,7 +31,7 @@ extension MemoryTypeX on MemoryType {
         case 'core':
           return MemoryType.core;
         case 'template':
-          // 兼容旧版本遗留的模板记忆，统一按 fact 读取。
+          // Handle legacy template memories left over from previous versions by treating them as facts.
           return MemoryType.fact;
       }
     }
@@ -48,7 +48,7 @@ extension MemoryTypeX on MemoryType {
       case 3:
         return MemoryType.core;
       case 2:
-      // 旧版 template 存储值，继续兼容读取。
+      // Legacy template storage value, continue to support reading.
       case 0:
       default:
         return MemoryType.fact;
@@ -56,8 +56,8 @@ extension MemoryTypeX on MemoryType {
   }
 }
 
-/// 摘要实体 - 领域模型（增强版）
-/// 纯 Dart 类，不依赖外部库
+/// Summary entity - domain model (enhanced version)
+/// Pure Dart class, no external dependencies
 class SummaryEntity {
   final String id;
   final String title;
@@ -141,17 +141,17 @@ class SummaryEntity {
     }
   }
 
-  /// 计算时效性分数（遗忘曲线）
+  /// Calculate recency score (forgetting curve)
   double get recencyScore {
     if (type == MemoryType.core) return 1.0;
     if (lastAccessedAt == null) return 0.5;
 
     final daysSinceAccess = DateTime.now().difference(lastAccessedAt!).inDays;
-    // 每天衰减 5%
+    // Decay 5% per day
     return pow(0.95, daysSinceAccess).toDouble();
   }
 
-  /// 综合评分 = 重要性 * 时效性 * 访问频率
+  /// Combined score = importance * recency * access frequency
   double get combinedScore {
     if (type == MemoryType.core) return 1.0;
     final frequencyScore =

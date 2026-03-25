@@ -1,50 +1,50 @@
-/// 记忆晋升元数据 - 用于存储记忆晋升相关的辅助信息
+/// Memory Promotion Metadata - used for storing auxiliary information related to memory promotion
 ///
-/// 💡 **设计目的**：
-/// - 将晋升相关的动态指标与核心业务数据 (SummaryEntity) 分离
-/// - 支持独立的版本迭代，避免影响已有记忆数据
-/// - 减少主 Box 的数据量，提升查询性能
+/// 💡 **Design Purpose**:
+/// - Separate promotion-related dynamic metrics from core business data (SummaryEntity)
+/// - Support independent version iteration without affecting existing memory data
+/// - Reduce main Box data volume and improve query performance
 class MemoryPromotionMetadata {
-  /// 关联的 SummaryEntity.id
+  /// Associated SummaryEntity.id
   final String summaryId;
 
-  /// 关联的 SummaryEntity.title（方便查看）
+  /// Associated SummaryEntity.title (for easy viewing)
   final String summaryTitle;
 
-  /// 跨越的 session 数量（用于 Session → Fact 判断）
+  /// Number of sessions spanned (for Session → Fact determination)
   final int sessionSpan;
 
-  /// 用户明确要求记住（关键词触发）
+  /// User explicitly requested save (keyword trigger)
   final bool userExplicitSave;
 
-  /// 被引用次数（用于复用价值判断）
+  /// Number of references (for reuse value determination)
   final int referenceCount;
 
-  /// 稳定性分数 (0-1)
+  /// Stability score (0-1)
   final double stabilityScore;
 
-  /// 内容哈希（用于检测一致性）
+  /// Content hash (for consistency detection)
   final String? contentHash;
 
-  /// 版本数量
+  /// Number of versions
   final int versionCount;
 
-  /// 最后冲突时间
+  /// Last conflict time
   final DateTime? lastConflictAt;
 
-  /// 观察期开始时间（Fact → Core 用）
+  /// Observation period start time (for Fact → Core)
   final DateTime? observationStartedAt;
 
-  /// 用户确认长期有效
+  /// User confirmed long-term validity
   final bool userConfirmedLongTerm;
 
-  /// 用户修改过
+  /// User modified
   final bool userModified;
 
-  /// 用户撤销
+  /// User revoked
   final bool userRevoked;
 
-  /// 在推荐中使用次数（影响力指标）
+  /// Usage count in recommendations (influence metric)
   final int usageInRecommendations;
 
   MemoryPromotionMetadata({
@@ -64,7 +64,7 @@ class MemoryPromotionMetadata {
     this.usageInRecommendations = 0,
   });
 
-  /// 复制并修改
+  /// Copy and modify
   MemoryPromotionMetadata copyWith({
     String? summaryId,
     String? summaryTitle,
@@ -101,7 +101,7 @@ class MemoryPromotionMetadata {
     );
   }
 
-  /// 转换为 JSON
+  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       'summaryId': summaryId,
@@ -121,7 +121,7 @@ class MemoryPromotionMetadata {
     };
   }
 
-  /// 从 JSON 解析
+  /// Parse from JSON
   factory MemoryPromotionMetadata.fromJson(Map<String, dynamic> json) {
     return MemoryPromotionMetadata(
       summaryId: json['summaryId'] as String,

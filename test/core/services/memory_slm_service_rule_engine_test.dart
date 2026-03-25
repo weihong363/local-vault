@@ -13,11 +13,11 @@ void main() {
       addTearDown(service.dispose);
 
       final response = await service.extractTopic(
-        '登录页改版讨论',
-        '今天确认登录页改版计划和埋点补齐范围，并补充灰度发布安排。',
+        'Login Page Redesign Discussion',
+        'Today confirmed login page redesign plan and analytics completion scope, and supplemented gray release arrangements.',
       );
 
-      expect(response.data, '登录页改版');
+      expect(response.data, 'Login Page Redesign');
     });
 
     test('mergeSessions deduplicates repeated details and keeps structure',
@@ -29,44 +29,51 @@ void main() {
       final response = await service.mergeSessions(<SummaryEntity>[
         SummaryEntity(
           id: 'session_merge_1',
-          title: '发布安排',
-          content: '确认周三上线窗口。补充回滚预案。',
-          tags: const <String>['发布'],
+          title: 'Release Arrangements',
+          content:
+              'Confirm Wednesday go-live window. Supplement rollback plan.',
+          tags: const <String>['Release'],
           type: MemoryType.session,
           createdAt: now,
           source: 'quick_action',
         ),
         SummaryEntity(
           id: 'session_merge_2',
-          title: '发布安排',
-          content: '确认周三上线窗口。整理灰度策略。',
-          tags: const <String>['灰度'],
+          title: 'Release Arrangements',
+          content: 'Confirm Wednesday go-live window. Organize gray strategy.',
+          tags: const <String>['Gray'],
           type: MemoryType.session,
           createdAt: now.add(const Duration(minutes: 1)),
           source: 'quick_action',
         ),
         SummaryEntity(
           id: 'session_merge_3',
-          title: '发布安排',
-          content: '补充回滚预案。同步负责人。',
-          tags: const <String>['回滚'],
+          title: 'Release Arrangements',
+          content:
+              'Supplement rollback plan. Synchronize with person in charge.',
+          tags: const <String>['Rollback'],
           type: MemoryType.session,
           createdAt: now.add(const Duration(minutes: 2)),
           source: 'quick_action',
         ),
       ]);
 
-      expect(response.data.title, '发布安排');
+      expect(response.data.title, 'Release Arrangements');
       expect(
-        RegExp('确认周三上线窗口').allMatches(response.data.content).length,
+        RegExp('Confirm Wednesday go-live window')
+            .allMatches(response.data.content)
+            .length,
         1,
       );
       expect(
-        RegExp('补充回滚预案').allMatches(response.data.content).length,
+        RegExp('Supplement rollback plan')
+            .allMatches(response.data.content)
+            .length,
         1,
       );
-      expect(response.data.content, contains('整理灰度策略'));
-      expect(response.data.tags, containsAll(const <String>['发布', '灰度', '回滚']));
+      expect(response.data.content, contains('Organize gray strategy'));
+      expect(response.data.tags,
+          containsAll(const <String>['Release', 'Gray', 'Rollback']));
     });
   });
 }

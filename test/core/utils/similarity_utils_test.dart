@@ -3,7 +3,7 @@ import 'package:local_vault/core/utils/similarity_utils.dart';
 
 void main() {
   group('SimilarityUtils', () {
-    test('recognizes related Chinese RAG texts as more similar', () {
+    test('Recognizes related Chinese RAG texts as more similar', () {
       final related = SimilarityUtils.calculateMemorySimilarity(
         'RAG 检索方案',
         'RAG 召回策略需要优化，重点看向量检索和重排。',
@@ -21,7 +21,7 @@ void main() {
       expect(related, greaterThan(0.2));
     });
 
-    test('keeps identical Chinese text at full similarity', () {
+    test('Keeps identical Chinese text at full similarity', () {
       final score = SimilarityUtils.calculateMemorySimilarity(
         'RAG 方案',
         'RAG 检索增强生成方案',

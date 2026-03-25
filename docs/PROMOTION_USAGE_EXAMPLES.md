@@ -1,385 +1,462 @@
-# 记忆晋升机制使用示例
+# Memory Promotion Mechanism Usage Examples
 
-## 📖 快速开始
+---
 
-### 1. 基础使用 - 无需修改现有代码
+## 📖 Quick Start
 
-新的晋升机制已经集成到现有的保存流程中，**不需要修改现有调用代码**。
+### 1. Basic Usage - No Need to Modify Existing Code
+
+The new promotion mechanism has been integrated into the existing save process, **no need to modify existing calling
+code**.
 
 ```dart
-// 原有的保存方式保持不变
+// The original saving method remains unchanged
 await
 useCases.addSessionMemory
 (
-summary); // ✅ 自动触发 Session → Fact 检测
-await useCases.recordAccess(id); // ✅ 自动触发两级检测
-await useCases.updateImportance(id, 0.8); // ✅ 自动触发两级检测
+summary); // ✅ Automatically triggers Session → Fact detection
+await useCases.recordAccess(id); // ✅ Automatically triggers two-level detection
+await useCases.updateImportance(id, 0.8); // ✅ Automatically triggers two-level detection
 ```
 
-### 2. 查看晋升状态
+### 2. View Promotion Status
 
 ```dart
-
 final summary = useCases.getSummary(id);
 
-// 查看当前状态
+// View current state
 print
 ('Type: 
 ${summary.type}'); // session/fact/core
 print('State: ${summary.state}'); // session/fact/core/observing/archived
-print('Content Type: ${summary.contentType}'); // 自动分类结果
+print('Content Type: ${summary.contentType}'); // Automatic classification result
 
-// 查看晋升指标
-print('Session Span: ${summary.sessionSpan}'); // 跨 session 数
-print('User Explicit Save: ${summary.userExplicitSave}'); // 用户明确要求
-print('Reference Count: ${summary.referenceCount}'); // 被引用次数
+// View promotion indicators
+print('Session Span: ${summary.sessionSpan}'); // Number of cross sessions
+print('User Explicit Save: ${summary.userExplicitSave}'); // User explicitly requested
+print('Reference Count: ${summary.referenceCount}'); // Number of references
 print('Usage in Recommendations: ${
 summary
 .
 usageInRecommendations
 }
 '
-); // 影响力
+); // Influence
 ```
 
-## 🎯 触发晋升的场景
+---
 
-### Session → Fact 自动晋升
+## 🔍 Promotion Scenarios
 
-#### 场景 1：重复提及（sessionSpan ≥ 2）
+### Scenario 1: User Explicitly Asks to Remember
 
-```dart
-// 第 1 次保存
-await useCases.addSessionMemory(SummaryEntity.create(
-  title: 'Flutter 状态管理',
-  content: '我喜欢用 Riverpod',
-));
-// 日志：无晋升（sessionSpan = 1）
-
-// 第 2 次保存相似内容（被识别为重复）
-await useCases.addSessionMemory(SummaryEntity.create(
-  title: 'Flutter 状态管理',
-  content: '再次提到 Riverpod 很好用',
-));
-// ↓ 自动累加 sessionSpan = 2
-// ↓ 自动触发 _upgradeSessionToFactIfNeeded()
-// 日志：⬆️ [Promotion] Session eligible for promotion to Fact: Flutter 状态管理
-// 日志：✅ [Promotion] Promoted: Session → Fact
-```
-
-#### 场景 2：用户明确说"记住"（userExplicitSave = true）
+**Input**:
 
 ```dart
-// 内容包含"记住"关键词，自动推断
-final summary = SummaryEntity.create(
-  title: '记住这个配置',
-  content: '我喜欢暗黑模式',
+// User says: "Remember this: I prefer dark mode"
+final summary = SummaryEntity(
+  id: 'uuid-123',
+  title: 'Preference: Dark Mode',
+  content: 'I prefer dark mode for all applications',
+  tags: ['preference', 'display'],
+  userExplicitSave: true,
+  // Key flag
+  contentType: MemoryContentType.userPreference,
+  // ... other fields
 );
-// contentType 自动推断为 identityLevel
-// userExplicitSave 可以通过规则引擎自动设置
 
 await
 useCases.addSessionMemory
 (
 summary
 );
-// ↓ +40 分（用户明确要求）
-// ↓ 如果其他条件也满足，总分≥70，自动晋升
 ```
 
-#### 场景 3：频繁访问（accessCount > 0）
+**Expected Behavior**:
+
+- ✅ Automatically detected as Session → Fact promotion candidate
+- ✅ Score calculation: 40 (user explicit) + 30 (preference type) = 70 points
+- ✅ No conflicts → promotion successful
+- ✅ Log: "✅ [Promotion] Promoted: Session → Fact"
+
+### Scenario 2: Memory Referenced Across Sessions
+
+**Input**:
 
 ```dart
-// 保存 Session 记忆
-await useCases.addSessionMemory(summary);
-
-// 多次访问
-await useCases.recordAccess(id);  // accessCount = 1
-await useCases.recordAccess(id);  // accessCount = 2
-await useCases.recordAccess(id);  // accessCount = 3
-
-// ↓ 每次访问都触发检测
-// ↓ accessCount > 0 贡献 +30 分
-// ↓ 达到阈值自动晋升
-```
-
-### Fact → Core 自动晋升
-
-#### 场景 1：长期稳定使用（sessionSpan ≥ 3 && stability ≥ 0.8）
-
-```dart
-// 一个 Fact 记忆在多个 session 中被反复提及
-// sessionSpan = 5, stabilityScore = 0.9
-
-await useCases.recordAccess(id);
-// ↓ 触发 Fact → Core 检测
-// ↓ scoreForFactToCore() 计算：+25 分（sessionSpan≥3）
-// ↓ 如果其他条件也满足，总分≥75，进入观察期或直接晋升
-```
-
-#### 场景 2：对输出有影响力（usageInRecommendations ≥ 5）
-
-```dart
-// Fact 记忆被系统用于推荐/建议 5 次以上
-// usageInRecommendations = 7
-
-await useCases.updateImportance(id, 0.75);
-// ↓ 触发检测
-// ↓ +25 分（hasImpactOnOutput = true）
-// ↓ 容易达到晋升阈值
-```
-
-#### 场景 3：用户确认长期有效（userConfirmedLongTerm = true）
-
-```dart
-// 用户通过 UI 明确标记为"长期偏好"
-final updated = summary.copyWith(
-  userConfirmedLongTerm: true,
+// First session
+final summary1 = SummaryEntity(
+  id: 'uuid-456',
+  title: 'Project: LocalVault',
+  content: 'Working on LocalVault memory app',
+  tags: ['project', 'work'],
+  contentType: MemoryContentType.projectContext,
+  sessionSpan: 1,
+  // ... other fields
 );
-await useCases.updateSummary(updated);
+await
+useCases.addSessionMemory
+(
+summary1);
 
-// ↓ +25 分（用户确认）
-// ↓ 显著增加晋升概率
-```
-
-## 📊 计分示例
-
-### 示例 1：典型的用户偏好晋升
-
-```dart
-// 用户多次提到喜欢暗黑模式
-final summary = SummaryEntity(
-  title: '暗黑模式偏好',
-  content: '我喜欢暗黑模式',
-  type: MemoryType.session,
-  contentType: MemoryContentType.userPreference,  // 自动推断
-  
-  // 晋升指标
-  sessionSpan: 2,              // 提到 2 次
-  userExplicitSave: false,     // 没有明确说"记住"
-  referenceCount: 1,           // 被引用 1 次
-  accessCount: 3,              // 访问 3 次
-  
-  // 权重计算
-  // 基础分：40 (sessionSpan≥2) + 30 (referenceCount>0) + 30 (accessCount>0) = 100
-  // 类型加权：100 × 1.2 (userPreference) = 120
-  // 最终分数：min(120, 100) = 100 ✅ 晋升！
+// Second session (later)
+final summary2 = SummaryEntity(
+id: 'uuid-456', // Same ID
+title: 'Project: LocalVault',
+content: 'Working on LocalVault memory app (continued)',
+tags: ['project', 'work'],
+contentType: MemoryContentType.projectContext,
+sessionSpan: 2, // Key: cross session
+// ... other fields
 );
-```
-
-### 示例 2：临时任务不晋升
-
-```dart
-// 一次性待办事项
-final summary = SummaryEntity(
-  title: '买咖啡',
-  content: '记得买咖啡',
-  type: MemoryType.session,
-  contentType: MemoryContentType.temporaryTask,  // 临时任务
-  
-  // 晋升指标
-  sessionSpan: 1,              // 只提到 1 次
-  userExplicitSave: false,
-  referenceCount: 0,
-  accessCount: 0,
-  
-  // 权重计算
-  // 基础分：0（没有任何条件满足）
-  // 类型加权：0 × 0.3 (temporaryTask) = 0
-  // 最终分数：0 ❌ 不晋升
-);
-```
-
-### 示例 3：项目上下文快速晋升
-
-```dart
-// 核心项目信息
-final summary = SummaryEntity(
-  title: 'LocalVault 项目',
-  content: '这是一个本地优先的记忆管理应用',
-  type: MemoryType.session,
-  contentType: MemoryContentType.coreProject,
-
-  // 晋升指标
-  sessionSpan: 3,
-  // 提到 3 次
-  userExplicitSave: true,
-  // 用户说"这是重要项目"
-  referenceCount: 5,
-  // 频繁引用
-  accessCount: 10, // 经常访问
-
-  // 权重计算
-  // 基础分：40 (sessionSpan≥2) + 40 (userExplicitSave) + 30 (referenceCount>0) + 30 (accessCount>0) = 140
-  // 但最多只能 100 分，所以先 clamp 到 100
-  // 类型加权：100 × 1.5 (coreProject) = 150
-  // 最终分数：min(150, 100) = 100 ✅ 快速晋升！
-);
-```
-
-## 🔍 调试技巧
-
-### 查看详细日志
-
-所有晋升操作都会输出详细日志：
-
-```bash
-# Session → Fact 成功
-flutter logs | grep "\[Promotion\]"
-
-# 预期输出:
-# I/flutter: ⬆️ [Promotion] Session eligible for promotion to Fact: GraphRAG 设计
-# I/flutter: 📊 [Promotion] Score details:
-# I/flutter:    - sessionSpan: 2
-# I/flutter:    - userExplicitSave: false
-# I/flutter:    - referenceCount: 1
-# I/flutter:    - accessCount: 3
-# I/flutter:    - contentType: projectContext
-# I/flutter: ✅ [Promotion] Promoted: Session → Fact
-```
-
-### 手动检查晋升条件
-
-```dart
-
-final summary = useCases.getSummary(id);
-
-// 检查 Session → Fact 条件
-if (
-summary.type == MemoryType.session) {
-final score = PromotionScorer.scoreForSessionToFact(
-sessionSpan: summary.sessionSpan,
-userExplicitSave: summary.userExplicitSave,
-referenceCount: summary.referenceCount,
-accessCount: summary.accessCount,
-contentType: summary.contentType,
-hasConflict: summary.lastConflictAt != null &&
-DateTime.now().difference(summary.lastConflictAt!).inDays < 7,
-);
-
-print('Session→Fact Score: $score / 100');
-print('Should upgrade: ${score >= 70}');
-}
-
-// 检查 Fact → Core 条件
-if (summary.type == MemoryType.fact) {
-final score = PromotionScorer.scoreForFactToCore(
-sessionSpan: summary.sessionSpan,
-stabilityScore: summary.stabilityScore,
-hasImpactOnOutput: summary.usageInRecommendations >= 5,
-contentType: summary.contentType,
-userConfirmedLongTerm: summary.userConfirmedLongTerm,
-hasRecentConflict: summary.lastConflictAt != null &&
-DateTime.now().difference(summary.lastConflictAt!).inDays < 30,
-usageInRecommendations: summary.usageInRecommendations,
-);
-
-print('Fact→Core Score: $score / 100');
-print('Should upgrade: ${score >= 75}');
-}
-```
-
-## ⚙️ 自定义策略
-
-### 调整晋升阈值
-
-虽然默认配置已经经过优化，但你可以通过 `MemoryPolicyConfig` 调整：
-
-```dart
-// TODO: 未来支持
-final customConfig = MemoryPolicyConfig(
-  sessionToFact: SessionToFactPolicy(
-    minScore: 60,  // 降低阈值（默认 70）
-    minSessionSpan: 2,
-  ),
-  factToCore: FactToCorePolicy(
-    minScore: 70,  // 降低阈值（默认 75）
-    observationPeriod: Duration(days: 14),  // 缩短观察期（默认 30 天）
-  ),
-);
-
-final useCases = SummaryUseCases(repository, slmService, policyConfig: customConfig);
-```
-
-### 添加自定义内容类型
-
-```dart
-// TODO: 未来扩展示例
-enum CustomMemoryContentType {
-  // ... 现有类型
-  customType,  // 新增
-}
-
-// 在 TypeWeights 中添加对应权重
-static const customType = TypeWeights(1.0, 1.0);  // 中等速度
-```
-
-## 🐛 常见问题
-
-### Q1: 为什么我的 Session 没有晋升？
-
-**检查清单**:
-
-- [ ] sessionSpan 是否 ≥ 2？
-- [ ] 是否有冲突（lastConflictAt 在 7 天内）？
-- [ ] 分数是否 ≥ 70？
-
-**调试方法**:
-
-```dart
-print
-('sessionSpan: 
-${summary.sessionSpan}');
-print('lastConflictAt: ${summary.lastConflictAt}');
-final score = PromotionScorer.scoreForSessionToFact(...);
-print('
-Score: 
-$
-score
+await useCases.updateSummary(summary2);
+await useCases.recordAccess
+(
+'
+uuid
+-
+456
 '
 );
 ```
 
-### Q2: 如何手动触发晋升？
+**Expected Behavior**:
 
-目前晋升是自动的，但如果想手动触发：
+- ✅ Automatically detected as Session → Fact promotion candidate
+- ✅ Score calculation: 40 (session span) + 30 (project type) = 70 points
+- ✅ No conflicts → promotion successful
+- ✅ Log: "✅ [Promotion] Promoted: Session → Fact"
+
+### Scenario 3: Fact → Core Promotion
+
+**Input**:
 
 ```dart
-// 方式 1：模拟访问
-await
-useCases.recordAccess
-(
-id);
-
-// 方式 2：更新重要性
-await useCases.updateImportance(id, 0.8);
-
-// 方式 3：直接修改（不推荐）
-final updated = summary.copyWith(
-type: MemoryType.fact,
-state: MemoryState.fact,
+// Fact memory that's been consistent across sessions
+final factSummary = SummaryEntity(
+  id: 'uuid-789',
+  title: 'Career: Flutter Developer',
+  content: 'I work as a Flutter developer',
+  tags: ['career', 'skill'],
+  contentType: MemoryContentType.identityLevel,
+  state: MemoryState.fact,
+  sessionSpan: 3,
+  // Key: 3+ sessions
+  stabilityScore: 0.9,
+  // Key: stable
+  usageInRecommendations: 5, // Key: impacts output
+  // ... other fields
 );
-await useCases.updateSummary(updated);
+
+await
+useCases.updateSummary
+(
+factSummary);
+await useCases.recordAccess('uuid-789');
 ```
 
-### Q3: 晋升失败会影响性能吗？
+**Expected Behavior**:
 
-不会。计分计算是 O(1) 的轻量级操作，不会造成性能瓶颈。
-
-如果有大量记忆同时保存，可以考虑：
-
-- 添加防抖机制（TODO）
-- 批量处理（TODO）
-- 异步处理（已经是）
-
-## 📝 最佳实践
-
-1. **让系统自动工作** - 不需要手动干预，系统会自动检测并晋升
-2. **关注日志输出** - `[Promotion]` 标签会告诉你发生了什么
-3. **理解内容类型** - 不同类型有不同的晋升速度
-4. **避免频繁修改** - 会降低 stabilityScore，影响晋升
-5. **合理设置冲突** - 有冲突时优先解决冲突，而不是晋升
+- ✅ Automatically detected as Fact → Core promotion candidate
+- ✅ Score calculation: 25 (session span) + 25 (impacts output) + 25 (identity type) = 75 points
+- ✅ Observation period completed → promotion successful
+- ✅ Log: "✅ [Promotion] Fact promoted to Core after 30d observation"
 
 ---
 
-*更多详细信息请参考：[MEMORY_PROMOTION_MECHANISM.md](MEMORY_PROMOTION_MECHANISM.md)*
+## 📊 Scoring Examples
+
+### Example 1: Session → Fact Scoring
+
+| Rule                              | Condition                      | Points                              |
+|-----------------------------------|--------------------------------|-------------------------------------|
+| Repeated across 2 sessions        | `sessionSpan = 2`              | +40                                 |
+| User explicitly asks to remember  | `userExplicitSave = false`     | 0                                   |
+| Subsequently retrieved/referenced | `referenceCount = 1`           | +30                                 |
+| Stable preference or project fact | `contentType = projectContext` | +30                                 |
+| Type weighting                    | `projectContext = 1.5`         | ×1.5                                |
+| **Total**                         |                                | **150 × 1.5 = 150 → capped at 100** |
+
+**Result**: ✅ Promoted to Fact
+
+### Example 2: Fact → Core Scoring
+
+| Rule                          | Condition                               | Points                  |
+|-------------------------------|-----------------------------------------|-------------------------|
+| Consistent across 3+ sessions | `sessionSpan = 3, stabilityScore = 0.9` | +25                     |
+| Continuously impacts output   | `usageInRecommendations = 6`            | +25                     |
+| Long-term content type        | `contentType = identityLevel`           | +25                     |
+| User confirmed long-term      | `userConfirmedLongTerm = true`          | +25                     |
+| No conflict updates           | `daysSinceLastUpdate = 45`              | +20                     |
+| Type weighting                | `identityLevel = 1.0`                   | ×1.0                    |
+| **Total**                     |                                         | **120 → capped at 100** |
+
+**Result**: ✅ Promoted to Core
+
+### Example 3: Conflict Prevention
+
+| Rule                              | Condition                      | Points |
+|-----------------------------------|--------------------------------|--------|
+| Repeated across 2 sessions        | `sessionSpan = 2`              | +40    |
+| User explicitly asks to remember  | `userExplicitSave = true`      | +40    |
+| Subsequently retrieved/referenced | `referenceCount = 0`           | 0      |
+| Stable preference or project fact | `contentType = userPreference` | +30    |
+| Type weighting                    | `userPreference = 1.2`         | ×1.2   |
+| Conflict penalty                  | `conflictsWithId != null`      | **0**  |
+| **Total**                         |                                | **0**  |
+
+**Result**: ❌ Not promoted (conflict detected)
+
+---
+
+## 🛠️ Advanced Usage
+
+### 1. Manually Trigger Promotion Check
+
+```dart
+// Force promotion check for a specific memory
+await
+useCases.checkPromotionStatus
+(
+id);
+
+// Check promotion eligibility
+final summary = useCases.getSummary(id);
+final canPromoteToFact = summary.shouldUpgradeToFactWithPolicy();
+final canPromoteToCore = summary.shouldUpgradeToCoreWithPolicy();
+
+print('Can promote to Fact: $canPromoteToFact');
+print(
+'
+Can promote to Core:
+$
+canPromoteToCore
+'
+);
+```
+
+### 2. Custom Promotion Policy
+
+```dart
+// Example: Adjust promotion thresholds
+class CustomPromotionPolicy {
+  static const sessionToFact = PromotionThreshold(
+    minMainRules: 1,
+    minScore: 65, // Lower threshold
+    requireNoConflict: true,
+  );
+
+  static const factToCore = PromotionThreshold(
+    minMainRules: 2,
+    minScore: 70,
+    // Lower threshold
+    requireObservation: true,
+    observationPeriod: Duration(days: 15),
+    // Shorter period
+    requireNoConflict: true,
+  );
+}
+
+// Use custom policy
+final scorer = PromotionScorer(policy: CustomPromotionPolicy);
+final score = scorer.scoreForSessionToFact(summary);
+```
+
+### 3. Monitor Promotion Events
+
+```dart
+// Listen for promotion events
+useCases.promotionEvents.listen
+(
+(event) {
+switch (event.type) {
+case PromotionEventType.promoted:
+print('✅ Memory promoted: ${event.memoryId} from ${event.fromState} to ${event.toState}');
+break;
+case PromotionEventType.demoted:
+print('⚠️ Memory demoted: ${event.memoryId} from ${event.fromState} to ${event.toState}');
+break;
+case PromotionEventType.observation:
+print('⏳ Memory entered observation: ${event.memoryId}');
+break;
+}
+});
+```
+
+---
+
+## 📈 Performance Tips
+
+### 1. Optimize for Promotion
+
+- **Explicit saves**: Use `userExplicitSave: true` for important information
+- **Consistent tagging**: Use consistent tags across sessions
+- **Regular access**: Access important memories to increase reference count
+- **Clear content**: Write clear, concise memory content
+
+### 2. Avoid Unnecessary Promotions
+
+- **Temporary tasks**: Mark as `temporaryTask` content type
+- **One-time details**: Let them auto-cleanup
+- **Conflicting information**: Resolve conflicts before promotion
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+| Issue                        | Cause                     | Solution                                                     |
+|------------------------------|---------------------------|--------------------------------------------------------------|
+| Memory not promoting to Fact | Low score or conflict     | Check session span, user explicit save, or resolve conflicts |
+| Memory not promoting to Core | Short observation period  | Wait for 30 days or check stability score                    |
+| Promotion score too low      | Insufficient criteria     | Increase session span or reference count                     |
+| Conflict detected            | Contradictory information | Resolve conflict or archive old memory                       |
+
+### Debug Commands
+
+```dart
+// Check promotion score
+final scorer = PromotionScorer();
+final factScore = scorer.scoreForSessionToFact(summary);
+final coreScore = scorer.scoreForFactToCore(summary);
+print
+('Fact score: $factScore, Core score: $coreScore');
+
+// Check conflict status
+final hasConflict = !summary.hasNoConflict();
+print('Has conflict: $hasConflict');
+
+// Check observation period
+final inObservation = summary.state == MemoryState.observing;
+print('In observation: 
+$
+inObservation
+'
+);
+```
+
+---
+
+## 🎯 Best Practices
+
+### 1. Content Organization
+
+- **Use clear titles**: Help with automatic classification
+- **Consistent tagging**: Improve cross-session detection
+- **Separate concerns**: One memory per topic
+- **Update existing memories**: Instead of creating new ones
+
+### 2. User Intent Signaling
+
+- **Explicit saves**: Use "remember this" keywords
+- **Regular access**: Revisit important memories
+- **Feedback loop**: Provide feedback on promotion decisions
+- **Manual adjustments**: Use UI controls to adjust promotion status
+
+### 3. System Integration
+
+- **Batch operations**: Group memory updates
+- **Background processing**: Use isolates for heavy promotion checks
+- **Caching**: Cache promotion scores for frequently accessed memories
+- **Logging**: Monitor promotion events for system health
+
+---
+
+## 📋 Use Case Examples
+
+### Example 1: Project Management
+
+**Scenario**: Tracking project information across multiple sessions
+
+```dart
+// First session
+await
+useCases.addSessionMemory
+(
+SummaryEntity(
+title: 'Project: LocalVault',
+content: 'Starting LocalVault memory app project',
+tags: ['project', 'Flutter'],
+contentType: MemoryContentType.projectContext,
+userExplicitSave: true,
+));
+
+// Second session (next day)
+await useCases.addSessionMemory(SummaryEntity(
+title: 'Project: LocalVault',
+content: 'Implemented memory storage with Hive',
+tags: ['project', 'Flutter', 'Hive'],
+contentType: MemoryContentType.projectContext,
+userExplicitSave: true,
+));
+
+// Third session (next week)
+await useCases.addSessionMemory(SummaryEntity(
+title: 'Project: LocalVault',
+content: 'Added memory promotion mechanism',
+tags: ['project', 'Flutter', 'promotion'],
+contentType: MemoryContentType.projectContext,
+userExplicitSave: true,
+)
+);
+```
+
+**Expected Behavior**:
+
+- After 2 sessions: Promoted to Fact
+- After 3 sessions + observation: Promoted to Core
+- Core memory retained for long-term project tracking
+
+### Example 2: Personal Preferences
+
+**Scenario**: Storing personal preferences that should be retained
+
+```dart
+await
+useCases.addSessionMemory
+(
+SummaryEntity(
+title: 'Preference: Coffee',
+content: 'I prefer black coffee without sugar',
+tags: ['preference', 'food'],
+contentType: MemoryContentType.userPreference,
+userExplicitSave: true,
+));
+
+// Later access
+await useCases.recordAccess(id);
+await useCases.recordAccess(
+id
+); // Multiple accesses
+```
+
+**Expected Behavior**:
+
+- User explicit save + preference type → promoted to Fact
+- Multiple accesses → increases reference count
+- Stable preference → may promote to Core after observation
+
+---
+
+## ✅ Conclusion
+
+The memory promotion mechanism provides an intelligent way to manage memory importance without manual intervention. By
+following the examples and best practices outlined in this document, you can ensure that your important memories are
+properly retained while temporary information is automatically cleaned up.
+
+Key takeaways:
+
+- **No code changes needed** for basic usage
+- **Automatic promotion** based on usage patterns
+- **Conflict detection** prevents incorrect information from being promoted
+- **Observation period** ensures long-term stability for Core memories
+- **Type-specific strategies** handle different types of information appropriately
+
+The system is designed to be intuitive and low-maintenance, allowing users to focus on creating and using memories
+without worrying about manual organization.
+
+---
+
+*Last updated: 2026-03-23*
+*Version: v1.0.0*

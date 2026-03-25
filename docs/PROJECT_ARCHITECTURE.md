@@ -1,316 +1,540 @@
-# Local Vault 项目架构图
+# Local Vault Project Architecture Diagram
 
-> 更新时间：2026-03-18  
-> 本文档基于当前本地工作区的实际代码结构整理，反映最新的记忆模块抽离、SLM 配置外置、手势诊断、备份导入和数据库查询能力。
+> Update time: 2026-03-18  
+> This document is organized based on the actual code structure of the current local workspace, reflecting the latest
+> memory module extraction, SLM configuration externalization, gesture diagnosis, backup import, and database query
+> capabilities.
 
-## 项目定位
+---
 
-Local Vault 当前定位为一个 100% 本地、离线优先的记忆库应用，而不是通用聊天壳。
+## Project Positioning
 
-当前一级模块为：
+Local Vault is currently positioned as a 100% local, offline-first memory bank application, not a general chat shell.
 
-- 首页
-- 模板
-- 记忆
-- 设置
+Current first-level modules:
 
-其中“记忆管理”已经从设置页抽离，成为底部导航中的一级模块。
+- Home
+- Templates
+- Memory
+- Settings
 
-## 当前系统分层
+Among them, "Memory Management" has been extracted from the settings page to become a first-level module in the bottom
+navigation.
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│ Presentation                                                │
-│ - Flutter Pages / Widgets                                   │
-│ - Riverpod Providers / Notifiers                            │
-│ - GoRouter + BottomNavigation                               │
-└──────────────────────────────────────────────────────────────┘
-                            ↓
-┌──────────────────────────────────────────────────────────────┐
-│ Application / Services                                      │
-│ - SummaryUseCases / TemplateUseCases                        │
-│ - SummarySaveService / SaveCoordinator                      │
-│ - SummaryMetadataService                                    │
-│ - MemorySLMService                                          │
-│ - StorageManagementService                                  │
-│ - GestureDiagnosticsService                                 │
-└──────────────────────────────────────────────────────────────┘
-                            ↓
-┌──────────────────────────────────────────────────────────────┐
-│ Domain                                                      │
-│ - SummaryEntity / TemplateEntity                            │
-│ - SummaryMergeModels                                        │
-│ - Repository Interfaces                                     │
-│ - MemoryPolicyConfig / MemoryThemeConfig                    │
-└──────────────────────────────────────────────────────────────┘
-                            ↓
-┌──────────────────────────────────────────────────────────────┐
-│ Infrastructure                                              │
-│ - HiveSummaryRepository  -> summaries_v3                    │
-│ - HiveTemplateRepository -> templates_v2                    │
-│ - SharedPreferences / App Support Directory                 │
-└──────────────────────────────────────────────────────────────┘
-                            ↕
-┌──────────────────────────────────────────────────────────────┐
-│ Native Android                                              │
-│ - MainActivity MethodChannels                               │
-│ - FloatingWindowService                                     │
-│ - QuickActionActivity / QuickSaveActivity                   │
-│ - TileService 快捷入口                                       │
-└──────────────────────────────────────────────────────────────┘
+---
+
+## Core Architecture Diagram
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│                             APP                                 │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│  │    Home     │  │  Templates  │  │   Memory   │  │  Settings   │
+│  └─────┬───────┘  └─────┬───────┘  └─────┬───────┘  └─────┬───────┘
+│        │                │                │                │
+│        ▼                ▼                ▼                ▼
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│  │ Home Logic  │  │  Template   │  │  Memory    │  │  Settings   │
+│  │ & UI        │  │  Management │  │  Management │  │  Management │
+│  └─────┬───────┘  └─────┬───────┘  └─────┬───────┘  └─────┬───────┘
+│        │                │                │                │
+│        └────────────────┼────────────────┼────────────────┘
+│                         │                │
+│                         ▼                ▼
+│                  ┌─────────────┐  ┌─────────────┐
+│                  │  Use Cases  │  │   SLM      │
+│                  │  (Domain)   │  │  Service   │
+│                  └─────┬───────┘  └─────┬───────┘
+│                        │                │
+│                        ▼                │
+│                 ┌─────────────┐         │
+│                 │ Repositories│         │
+│                 │ (Data)      │◄────────┘
+│                 └─────┬───────┘
+│                       │
+│                       ▼
+│                ┌─────────────┐
+│                │   Storage   │
+│                │  (Hive)     │
+│                └─────────────┘
+│                                                                 │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-## 核心运行链路
+---
 
-### 1. 保存与分享链路
+## Layered Architecture
 
-```text
-系统分享 / 磁贴 / 手势 / 剪贴板
-        ↓
-main.dart / ShareService / QuickSaveActivity
-        ↓
-SaveCoordinator / SavePage
-        ↓
-SummaryMetadataService
-  - 规则生成标题与标签
-  - 或调用 MemorySLMService 生成标题与标签
-        ↓
-SummarySaveService / SummaryUseCases
-        ↓
-HiveSummaryRepository -> summaries_v3
+### 1. Presentation Layer (UI)
+
+**Responsibilities**:
+
+- User interface rendering
+- User interaction handling
+- Navigation and routing
+- State management (Riverpod)
+
+**Key Files**:
+
+```
+lib/features/
+├── home/presentation/
+│   ├── home_screen.dart
+│   └── home_controller.dart
+├── memory/presentation/
+│   ├── memory_list_screen.dart
+│   ├── memory_detail_screen.dart
+│   └── memory_controller.dart
+├── templates/presentation/
+│   ├── template_list_screen.dart
+│   ├── template_detail_screen.dart
+│   └── template_controller.dart
+└── settings/presentation/
+    ├── settings_screen.dart
+    └── settings_controller.dart
 ```
 
-关键点：
+### 2. Application/Services Layer
 
-- 保存前会统一走 `SummaryMetadataService`，做标题压缩、标签清洗、备注合并，以及 SLM 或规则回退。
-- 保存页支持“推荐标题和标签”的预览，再决定是否应用到表单。
-- 新增事实记忆时不再直接粗暴合并，而是返回合并候选，交由 `MemoryMergeDiffPage` 让用户确认。
+**Responsibilities**:
 
-### 2. 记忆生命周期链路
+- Business logic orchestration
+- Use case implementation
+- Service coordination
+- Transaction management
 
-```text
-Session
-  - 快捷操作 / 手势 / 静默保存
-  - 2 小时会话时效
-  - 24 小时候选保护窗口
-        ↓
-Session 批次构建 + 规则分 + SLM 语义判断
-        ↓
-自动合并为 Fact
-        ↓
-访问次数 / 重要性达到阈值
-        ↓
-自动升级为 Core
+**Key Files**:
+
+```
+lib/core/domain/usecases/
+├── summary_usecases.dart          # Memory-related use cases
+├── template_usecases.dart         # Template-related use cases
+└── backup_usecases.dart           # Backup-related use cases
+
+lib/core/domain/services/
+├── memory_slm_service.dart        # SLM service
+├── topic_extractor.dart           # Topic extraction service
+└── memory_merger.dart             # Memory merging service
 ```
 
-当前三层记忆：
+### 3. Domain Layer
 
-- `session`: 临时工作记忆，可被清理或批量合并。
-- `fact`: 持久化事实记忆，受遗忘曲线影响。
-- `core`: 核心记忆，不受遗忘曲线衰减影响。
+**Responsibilities**:
 
-当前策略由 `assets/config/memory_policy_config.json` 驱动，启动时通过 `MemoryPolicyConfig.load()` 注入。
+- Core business rules
+- Entity definitions
+- Value objects
+- Domain services
 
-### 3. 手势唤醒与白名单链路
+**Key Files**:
 
-```text
-SettingsPage
-  ├─ 手势配置
-  ├─ 应用白名单
-  └─ 诊断
-        ↓
-Riverpod Provider
-  ├─ gesture_config_provider
-  └─ app_whitelist_provider
-        ↓
-MethodChannel 同步到原生 SharedPreferences
-        ↓
-FloatingWindowService
-  - 加速度传感器监听
-  - 使用情况统计权限判断前台应用
-  - 白名单过滤
-        ↓
-QuickActionActivity / QuickSaveActivity
+```
+lib/core/domain/entities/
+├── summary_entity.dart            # Memory summary entity
+├── template_entity.dart           # Template entity
+└── backup_entity.dart             # Backup entity
+
+lib/core/domain/value_objects/
+├── memory_content_type.dart       # Memory content type
+└── memory_state.dart              # Memory state
 ```
 
-关键点：
+### 4. Data Layer (Infrastructure)
 
-- Flutter 侧手势配置与白名单会在加载和更新时同步到原生层。
-- `FloatingWindowService` 当前直接拉起原生活动页，不再依赖未消费的 `pendingAction` 作为主触发路径。
-- `GestureDiagnosticsService` 会汇总权限、服务状态、原生动作配置和白名单同步状态。
+**Responsibilities**:
 
-### 4. 存储、备份与诊断链路
+- Data persistence
+- External service integration
+- Repository pattern implementation
+- Data access optimization
 
-```text
-StorageManagementService
-  ├─ inspectStorage()
-  ├─ createBackup()
-  ├─ previewBackup()
-  ├─ restoreBackup()
-  ├─ clearBackupFiles()
-  └─ clearModelCache()
+**Key Files**:
+
+```
+lib/core/data/repositories/
+├── summary_repository.dart        # Memory repository
+├── template_repository.dart       # Template repository
+└── backup_repository.dart         # Backup repository
+
+lib/core/data/datasources/
+├── local/hive_datasource.dart     # Hive local storage
+└── remote/api_datasource.dart     # API datasource (future)
 ```
 
-对应 UI：
+---
 
-- `StorageSpacePage`: 查看摘要、模板、备份、模型、缓存占用。
-- `BackupDataPage`: 创建、分享、删除、导入、恢复备份。
-- `DatabaseInspectorPage`: 直接查看 `summaries_v3` / `templates_v2` 原始记录，并提示候选异常。
-- `DiagnosticsPage`: 展示手势权限、服务状态、动作同步、白名单同步状态。
+## Core Modules
 
-## 当前目录结构
+### 1. Memory Management Module
 
-```text
-lib/
-├── main.dart
-├── core/
-│   ├── config/
-│   │   └── memory_policy_config.dart
-│   ├── constants/
-│   │   ├── app_routes.dart
-│   │   ├── app_storage.dart
-│   │   └── app_theme.dart
-│   ├── di/
-│   │   └── service_locator.dart
-│   ├── domain/
-│   │   ├── entities/
-│   │   │   ├── summary_entity.dart
-│   │   │   ├── summary_merge_models.dart
-│   │   │   └── template_entity.dart
-│   │   ├── repositories/
-│   │   │   ├── summary_repository_interface.dart
-│   │   │   └── template_repository_interface.dart
-│   │   └── usecases/
-│   │       ├── summary_usecases.dart
-│   │       └── template_usecases.dart
-│   ├── providers/
-│   │   ├── summary_entities_provider.dart
-│   │   ├── template_entities_provider.dart
-│   │   ├── locale_provider.dart
-│   │   └── theme_provider.dart
-│   ├── services/
-│   │   ├── app_settings_service.dart
-│   │   ├── floating_window_service.dart
-│   │   ├── gesture_diagnostics_service.dart
-│   │   ├── memory_slm_config.dart
-│   │   ├── memory_slm_service.dart
-│   │   ├── save_coordinator.dart
-│   │   ├── share_service.dart
-│   │   ├── storage_management_service.dart
-│   │   ├── summary_metadata_service.dart
-│   │   └── summary_save_service.dart
-│   ├── theme/
-│   │   ├── memory_theme.dart
-│   │   └── memory_theme_config.dart
-│   ├── utils/
-│   │   ├── architecture_verifier.dart
-│   │   ├── similarity_utils.dart
-│   │   ├── storage_initializer.dart
-│   │   ├── summary_adapter.dart
-│   │   └── summary_text_utils.dart
-│   └── widgets/
-│       ├── bottom_navigation.dart
-│       └── quick_action_activity_page.dart
-├── features/
-│   ├── app_whitelist/
-│   ├── gesture_config/
-│   ├── home/
-│   ├── inject/
-│   ├── memory/
-│   │   ├── presentation/pages/memory_management_page.dart
-│   │   └── presentation/pages/memory_merge_diff_page.dart
-│   ├── quick_action/
-│   ├── save/
-│   ├── search/
-│   ├── settings/
-│   │   └── presentation/pages/
-│   │       ├── settings_page.dart
-│   │       ├── storage_space_page.dart
-│   │       ├── backup_data_page.dart
-│   │       ├── database_inspector_page.dart
-│   │       ├── diagnostics_page.dart
-│   │       └── feedback_page.dart
-│   ├── summary/
-│   └── template/
-├── infrastructure/
-│   └── repositories/
-│       ├── hive_summary_repository.dart
-│       └── hive_template_repository.dart
-└── ...
+**Key Components**:
 
-assets/
-└── config/
-    ├── memory_policy_config.json
-    ├── memory_theme_config.json
-    └── slm_config.json
+- **Memory List**: Paginated display, search, filter
+- **Memory Detail**: View, edit, tag, share
+- **Memory Promotion**: Three-tier promotion mechanism
+- **Memory Merging**: Smart merging of similar memories
+- **Memory Search**: Full-text and similarity search (in progress)
 
-android/app/src/main/kotlin/com/ironion/localvault/
-├── MainActivity.kt
-├── FloatingWindowService.kt
-├── QuickActionActivity.kt
-├── QuickSaveActivity.kt
-├── BaseTileService.kt
-├── TemplateTileService.kt
-├── SummariesTileService.kt
-├── SaveSummaryTileService.kt
-└── InjectSummaryTileService.kt
+**Key Files**:
 
-test/
-├── core/
-│   ├── config/
-│   ├── domain/
-│   ├── services/
-│   └── theme/
-├── features/
-│   ├── app_whitelist/
-│   └── gesture_config/
-└── ocr_chinese_integration_placeholder_test.dart
+```
+lib/features/memory/
+├── presentation/
+│   ├── memory_list_screen.dart
+│   ├── memory_detail_screen.dart
+│   └── memory_controller.dart
+├── domain/
+│   ├── entities/memory_entity.dart
+│   └── usecases/memory_usecases.dart
+└── data/
+    ├── repositories/memory_repository.dart
+    └── datasources/memory_datasource.dart
 ```
 
-## 数据与配置
+### 2. Template Management Module
 
-| 类型     | 当前实现                                      | 说明                                            |
-|--------|-------------------------------------------|-----------------------------------------------|
-| 摘要库    | `summaries_v3`                            | 保存 `SummaryEntity`，支持 `session / fact / core` |
-| 模板库    | `templates_v2`                            | 独立模板数据，仓库首次初始化会补 9 个默认模板                      |
-| 备份目录   | `backups/`                                | JSON 备份文件，当前 `schemaVersion = 1`              |
-| 记忆策略   | `assets/config/memory_policy_config.json` | 控制清理、保护窗口、批量合并、升级阈值、遗忘曲线                      |
-| 记忆主题   | `assets/config/memory_theme_config.json`  | 控制不同重要性档位的浅色视觉规则                              |
-| SLM 配置 | `assets/config/slm_config.json`           | 控制模型路径、提示词、超时、缓存、启发式阈值                        |
-| 覆盖文件   | `*.override.json`                         | 三套配置都支持 App Support Directory 下的覆盖文件          |
+**Key Components**:
 
-## SLM 与本地规则的协作方式
+- **Template List**: Categorized display, quick use
+- **Template Editor**: Create and edit templates
+- **Template Usage**: Apply templates to memories
 
-`MemorySLMService` 当前不是单点依赖，而是“能用则用、不能用立即回退”的增强层：
+**Key Files**:
 
-- 可调用能力：
-  - `extractTopic`
-  - `isSameTopic`
-  - `mergeSessions`
-  - `generateUpgradeReason`
-  - `generateSummaryMetadata`
-- 运行约束：
-  - 推理请求串行排队
-  - 命中缓存优先返回
-  - 超时、缺模型、缺原生符号、插件异常时直接切规则回退
-- 启用方式：
-  - 默认保持安全降级
-  - 需要在支持环境下通过 `--dart-define=ENABLE_MEDIAPIPE_SLM=true` 尝试原生推理
+```
+lib/features/templates/
+├── presentation/
+│   ├── template_list_screen.dart
+│   ├── template_detail_screen.dart
+│   └── template_controller.dart
+├── domain/
+│   ├── entities/template_entity.dart
+│   └── usecases/template_usecases.dart
+└── data/
+    ├── repositories/template_repository.dart
+    └── datasources/template_datasource.dart
+```
 
-## 兼容性说明
+### 3. SLM Integration Module
 
-- `MemoryType.template` 已从摘要域模型中移除，模板模块现在完全独立于记忆库。
-- 旧数据里若仍存在 `template` 或存储值 `2`，`SummaryEntity.fromJson` 会兼容读取为 `fact`。
-- `StorageInitializer` 仍保留旧 `SummaryAdapter` 注册，用于兼容历史 Hive 结构。
-- `DatabaseInspectorPage` 会专门标记旧模板遗留记录和候选脏数据。
+**Key Components**:
 
-## 当前架构结论
+- **MemorySLMService**: SLM service implementation
+- **External Configuration**: Strategies and prompts in JSON
+- **Fallback Mechanism**: Automatically fallback to rules
 
-当前项目已经从“摘要列表 + 模板 + 快捷入口”的早期形态，演进为一个以本地记忆生命周期为核心的应用：
+**Key Files**:
 
-- 首页负责浏览和访问。
-- 模板模块负责复用提示词内容。
-- 记忆模块负责查看、筛选、合并和维护三层记忆。
-- 设置模块负责权限、手势、存储、备份、诊断和调试工具。
+```
+lib/core/domain/services/
+├── memory_slm_service.dart        # SLM service
+└── slm_strategy.dart              # SLM strategy
 
-SLM 现阶段被设计为增强层，而不是单点依赖，因此即使模型不可用，保存、搜索、展示、合并建议和记忆清理仍然可以继续工作。
+assets/configs/
+└── slm_strategies.json            # SLM configuration
+```
+
+### 4. Backup & Restore Module
+
+**Key Components**:
+
+- **Export**: Export memories to JSON
+- **Import**: Import memories from JSON
+- **Multi-platform Support**: Cross-device compatibility
+
+**Key Files**:
+
+```
+lib/features/settings/
+├── presentation/
+│   └── backup_screen.dart
+├── domain/
+│   └── usecases/backup_usecases.dart
+└── data/
+    ├── repositories/backup_repository.dart
+    └── datasources/backup_datasource.dart
+```
+
+---
+
+## Navigation Architecture
+
+### Bottom Navigation
+
+| Tab       | Route        | Screen               | Description                     |
+|-----------|--------------|----------------------|---------------------------------|
+| Home      | `/`          | `HomeScreen`         | Main dashboard, recent memories |
+| Templates | `/templates` | `TemplateListScreen` | Template management             |
+| Memory    | `/memory`    | `MemoryListScreen`   | Memory management               |
+| Settings  | `/settings`  | `SettingsScreen`     | App settings                    |
+
+### Nested Routes
+
+```
+/
+├── templates
+│   ├── create
+│   └── detail/:id
+├── memory
+│   ├── create
+│   ├── detail/:id
+│   └── search
+└── settings
+    ├── backup
+    ├── storage
+    └── about
+```
+
+**Key Files**:
+
+```
+lib/core/presentation/
+├── app_router.dart                # Navigation routes
+└── app.dart                       # App entry point
+```
+
+---
+
+## State Management
+
+### Riverpod Providers
+
+| Provider                     | Type                    | Purpose               |
+|------------------------------|-------------------------|-----------------------|
+| `summaryRepositoryProvider`  | `Provider`              | Memory repository     |
+| `templateRepositoryProvider` | `Provider`              | Template repository   |
+| `backupRepositoryProvider`   | `Provider`              | Backup repository     |
+| `summaryUseCasesProvider`    | `Provider`              | Memory use cases      |
+| `templateUseCasesProvider`   | `Provider`              | Template use cases    |
+| `backupUseCasesProvider`     | `Provider`              | Backup use cases      |
+| `memorySLMServiceProvider`   | `Provider`              | SLM service           |
+| `memoryControllerProvider`   | `StateNotifierProvider` | Memory screen state   |
+| `templateControllerProvider` | `StateNotifierProvider` | Template screen state |
+| `settingsControllerProvider` | `StateNotifierProvider` | Settings screen state |
+
+**Key Files**:
+
+```
+lib/core/presentation/providers/
+├── repository_providers.dart      # Repository providers
+├── usecase_providers.dart         # Use case providers
+├── service_providers.dart         # Service providers
+└── controller_providers.dart      # Controller providers
+```
+
+---
+
+## Data Storage
+
+### Hive Boxes
+
+| Box Name         | Purpose          | Key Type        | Value Type       |
+|------------------|------------------|-----------------|------------------|
+| `summaries`      | Memory storage   | `String` (UUID) | `SummaryEntity`  |
+| `templates`      | Template storage | `String` (UUID) | `TemplateEntity` |
+| `settings`       | App settings     | `String`        | `dynamic`        |
+| `backupMetadata` | Backup metadata  | `String`        | `BackupMetadata` |
+
+### Data Models
+
+**SummaryEntity**:
+
+```dart
+class SummaryEntity {
+  final String id;
+  final String title;
+  final String content;
+  final List<String> tags;
+  final MemoryContentType contentType;
+  final MemoryState state;
+  final double importance;
+  final int sessionSpan;
+  final bool userExplicitSave;
+  final int accessCount;
+  final int referenceCount;
+  final int usageInRecommendations;
+  final double stabilityScore;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? lastAccessedAt;
+  final String? conflictsWithId;
+  final bool hasNewerVersion;
+
+// ... methods
+}
+```
+
+**TemplateEntity**:
+
+```dart
+class TemplateEntity {
+  final String id;
+  final String name;
+  final String content;
+  final List<String> tags;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+// ... methods
+}
+```
+
+---
+
+## SLM Integration Architecture
+
+### Core Flow
+
+```
+┌─────────────┐
+│  User Input │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│ MemorySLM   │
+│ Service     │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐     No     ┌─────────────┐
+│ Model       │──────────►│ Rule Engine │
+│ Available?  │            └──────┬──────┘
+└──────┬──────┘                  │
+       │ Yes                     │
+       ▼                         │
+┌─────────────┐                  │
+│ SLM         │                  │
+│ Processing  │◄─────────────────┘
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│ Result      │
+│ Processing  │
+└─────────────┘
+```
+
+### External Configuration
+
+**`slm_strategies.json`**:
+
+```json
+{
+  "strategies": {
+    "topic_extraction": {
+      "prompt": "Extract a concise topic from this content: {content}",
+      "max_length": 50
+    },
+    "memory_merging": {
+      "prompt": "Merge these two memories into one coherent memory: {memory1}\n{memory2}",
+      "max_length": 500
+    },
+    "title_generation": {
+      "prompt": "Generate a concise title for this memory: {content}",
+      "max_length": 100
+    }
+  }
+}
+```
+
+---
+
+## Performance Optimization
+
+### Key Strategies
+
+1. **Lazy Loading**: Only load data when needed
+2. **Isolates**: Use isolates for heavy processing
+3. **Caching**: Cache frequently accessed data
+4. **Batch Operations**: Group database operations
+5. **Pagination**: Limit data retrieval
+
+### Memory Management
+
+- **Memory Pooling**: Reuse memory objects
+- **Garbage Collection**: Properly dispose resources
+- **Memory Limits**: Enforce memory usage limits
+
+---
+
+## Security Considerations
+
+### Data Protection
+
+- **Local Storage**: Encrypt sensitive data
+- **Backup**: Encrypt backup files
+- **No Network**: No unintended network requests
+- **Data Minimization**: Only store necessary data
+
+### Code Security
+
+- **Input Validation**: Validate all user inputs
+- **Error Handling**: Proper error handling
+- **Logging**: No sensitive data in logs
+- **Dependency Security**: Regular dependency updates
+
+---
+
+## Cross-Platform Support
+
+### Target Platforms
+
+- **Android**: API 21+
+- **iOS**: iOS 13+
+- **Web**: Chrome, Safari, Firefox
+- **Desktop**: Windows, macOS, Linux (future)
+
+### Platform-Specific Considerations
+
+| Platform | Considerations              | Mitigation                           |
+|----------|-----------------------------|--------------------------------------|
+| Android  | Varying device capabilities | Feature gating, adaptive layouts     |
+| iOS      | Stricter memory limits      | More aggressive memory management    |
+| Web      | Limited local storage       | IndexedDB, cloud sync option         |
+| Desktop  | Larger screen sizes         | Adaptive layouts, keyboard shortcuts |
+
+---
+
+## Development Workflow
+
+### Git Branch Strategy
+
+- **main**: Production-ready code
+- **develop**: Development branch
+- **feature/**: Feature branches
+- **bugfix/**: Bug fix branches
+
+### CI/CD Pipeline
+
+1. **Code Linting**: `flutter analyze`
+2. **Tests**: `flutter test`
+3. **Build**: `flutter build`
+4. **Deployment**: App Store, Play Store
+
+---
+
+## Future Architecture Enhancements
+
+### Planned Improvements
+
+1. **Cloud Sync**: Optional encrypted cloud backup
+2. **Advanced Search**: Vector similarity search
+3. **Voice Integration**: Voice commands and dictation
+4. **Gesture Control**: Custom gestures for quick actions
+5. **Plugin System**: Extensible architecture
+
+### Technical Debt
+
+| Item                  | Impact | Plan                |
+|-----------------------|--------|---------------------|
+| **Memory Search**     | Medium | Implement in v1.1.0 |
+| **UI Tests**          | Low    | Add in v1.2.0       |
+| **Performance Tests** | Medium | Add in v1.1.0       |
+
+---
+
+*Last updated: 2026-03-18*
+*Version: v1.0.0*

@@ -1,98 +1,104 @@
-# 记忆模块迁移指南
+# Memory Module Migration Guide
 
-## 📋 概述
+## 📋 Overview
 
-本文档指导如何将当前项目的记忆模块从基础架构升级为基于 **mem0** 和 **ToolNeuron** 设计理念的增强版记忆系统。
+This document guides how to upgrade the current project's memory module from the basic architecture to an enhanced
+memory system based on **mem0** and **ToolNeuron** design concepts.
 
-**参考项目**：
-- [mem0](https://github.com/mem0ai/mem0) - 智能记忆层
-- [ToolNeuron](https://github.com/Siddhesh2377/ToolNeuron) - 离线 AI 助手
+**Reference Projects**:
 
----
-
-## 🎯 迁移目标
-
-### 当前状态
-- ✅ 基础 DDD 架构
-- ✅ SummaryEntity 领域模型
-- ✅ Hive 本地存储
-- ✅ 基本搜索功能
-- ⚠️ 单级记忆（无分类）
-- ❌ 无记忆权重管理
-- ❌ 无时效性管理
-- ❌ 无去重机制
-- ❌ 无遗忘曲线
-
-### 目标状态
-- ✅ 多级记忆架构（用户事实、会话、模板）
-- ✅ 记忆权重和重要性评分
-- ✅ 时效性管理和遗忘曲线
-- ✅ Jaccard 相似度去重
-- ✅ 智能搜索和排序
-- ✅ 独立的记忆管理界面
+- [mem0](https://github.com/mem0ai/mem0) - Intelligent memory layer
+- [ToolNeuron](https://github.com/Siddhesh2377/ToolNeuron) - Offline AI assistant
 
 ---
 
-## 🚀 迁移阶段
+## 🎯 Migration Goals
 
-### 第一阶段：基础扩展（低风险，立即实施）
+### Current Status
 
-**目标**：扩展现有的 SummaryEntity，添加核心字段
+- ✅ Basic DDD architecture
+- ✅ SummaryEntity domain model
+- ✅ Hive local storage
+- ✅ Basic search functionality
+- ⚠️ Single-level memory (no classification)
+- ❌ No memory weight management
+- ❌ No timeliness management
+- ❌ No deduplication mechanism
+- ❌ No forgetting curve
 
-#### 1.1 扩展 SummaryEntity
+### Target Status
 
-**文件**：`lib/core/domain/entities/summary_entity.dart`
+- ✅ Multi-level memory architecture (user facts, sessions, templates)
+- ✅ Memory weight and importance scoring
+- ✅ Timeliness management and forgetting curve
+- ✅ Jaccard similarity deduplication
+- ✅ Intelligent search and sorting
+- ✅ Independent memory management interface
 
-**添加字段**：
+---
+
+## 🚀 Migration Phases
+
+### Phase 1: Basic Extension (Low Risk, Immediate Implementation)
+
+**Goal**: Extend the existing SummaryEntity, add core fields
+
+#### 1.1 Extend SummaryEntity
+
+**File**: `lib/core/domain/entities/summary_entity.dart`
+
+**Add Fields**:
 ```dart
-/// 记忆类型
+/// Memory type
 enum MemoryType {
-  fact,        // 用户事实（持久化）
-  session,     // 会话记忆（临时）
-  template,    // 模板记忆
+  fact, // User facts (persistent)
+  session, // Session memory (temporary)
+  template, // Template memory
 }
 
 class SummaryEntity {
-  // ... 现有字段 ...
-  
-  /// 新增字段
+  // ... existing fields ...
+
+  /// New fields
   final MemoryType type;
-  final DateTime? lastAccessedAt;  // 最后访问时间
-  final double importance;         // 重要性 (0.0-1.0)
-  final int accessCount;           // 访问次数
-  final bool isAutoExtracted;     // 是否自动提取
-  
-  // ... 更新构造函数和方法 ...
+  final DateTime? lastAccessedAt; // Last access time
+  final double importance; // Importance (0.0-1.0)
+  final int accessCount; // Access count
+  final bool isAutoExtracted; // Whether auto-extracted
+
+// ... update constructor and methods ...
 }
 ```
 
-**向后兼容**：
-- 现有数据默认 `type = MemoryType.fact`
-- `importance` 默认 0.5
-- `accessCount` 默认 0
+**Backward Compatibility**:
 
-#### 1.2 更新 Hive 存储
+- Existing data defaults to `type = MemoryType.fact`
+- `importance` defaults to 0.5
+- `accessCount` defaults to 0
 
-**文件**：`lib/infrastructure/repositories/hive_summary_repository.dart`
+#### 1.2 Update Hive Storage
 
-**更新内容**：
-- 支持新字段的序列化/反序列化
-- 数据迁移脚本（将现有数据升级）
+**File**: `lib/infrastructure/repositories/hive_summary_repository.dart`
 
-#### 1.3 优化搜索排序
+**Update Content**:
 
-**文件**：`lib/core/domain/usecases/summary_usecases.dart`
+- Support serialization/deserialization of new fields
+- Data migration script (upgrade existing data)
 
-**新增方法**：
+#### 1.3 Optimize Search Sorting
+
+**File**: `lib/core/domain/usecases/summary_usecases.dart`
+
+**New Methods**:
 ```dart
-/// 计算时效性分数
+/// Calculate recency score
 double _calculateRecencyScore(SummaryEntity summary) {
   if (summary.lastAccessedAt == null) return 0.5;
   final daysSinceAccess = DateTime.now().difference(summary.lastAccessedAt!).inDays;
-  return 1.0 * (0.95 ^ daysSinceAccess); // 每天衰减 5%
+  return 1.0 * (0.95 ^ daysSinceAccess); // 5% decay per day
 }
 
-/// 综合评分排序
+/// Comprehensive score sorting
 List<SummaryEntity> _sortByRelevance(List<SummaryEntity> summaries) {
   return summaries..sort((a, b) {
     final scoreA = a.importance * 0.5 + _calculateRecencyScore(a) * 0.3 + (a.accessCount > 0 ? 1.0 - (1.0 / (a.accessCount + 1)) : 0.0) * 0.2;
@@ -102,43 +108,44 @@ List<SummaryEntity> _sortByRelevance(List<SummaryEntity> summaries) {
 }
 ```
 
-#### 1.4 更新 Provider
+#### 1.4 Update Provider
 
-**文件**：`lib/core/providers/summary_entities_provider.dart`
+**File**: `lib/core/providers/summary_entities_provider.dart`
 
-**新增方法**：
+**New Methods**:
 ```dart
-/// 记录访问
+/// Record access
 Future<void> recordAccess(String id) async {
-  // 更新 lastAccessedAt 和 accessCount
+  // Update lastAccessedAt and accessCount
 }
 
-/// 按类型筛选
+/// Filter by type
 List<SummaryEntity> getByType(MemoryType type) {
-  // 实现筛选逻辑
+  // Implement filtering logic
 }
 ```
 
-**验收标准**：
-- [ ] 现有数据正常加载
-- [ ] 搜索结果按综合评分排序
-- [ ] 可以按记忆类型筛选
-- [ ] `flutter analyze` 通过
+**Acceptance Criteria**:
+
+- [ ] Existing data loads normally
+- [ ] Search results sorted by comprehensive score
+- [ ] Can filter by memory type
+- [ ] `flutter analyze` passes
 
 ---
 
-### 第二阶段：智能增强（中期优化）
+### Phase 2: Intelligent Enhancement (Mid-term Optimization)
 
-**目标**：实现去重、遗忘曲线、记忆管理界面
+**Goal**: Implement deduplication, forgetting curve, memory management interface
 
-#### 2.1 实现 Jaccard 相似度去重
+#### 2.1 Implement Jaccard Similarity Deduplication
 
-**新增文件**：`lib/core/utils/similarity_utils.dart`
+**New File**: `lib/core/utils/similarity_utils.dart`
 
 ```dart
-/// Jaccard 相似度计算
+/// Jaccard similarity calculation
 class SimilarityUtils {
-  /// 计算两个文本的 Jaccard 相似度
+  /// Calculate Jaccard similarity between two texts
   static double jaccardSimilarity(String text1, String text2) {
     final words1 = _tokenize(text1);
     final words2 = _tokenize(text2);
@@ -159,9 +166,9 @@ class SimilarityUtils {
 }
 ```
 
-**更新 UseCase**：
+**Update UseCase**:
 ```dart
-/// 添加记忆（带去重）
+/// Add memory (with deduplication)
 Future<void> addWithDeduplication(SummaryEntity summary) async {
   const threshold = 0.7;
   final existing = getAllSummaries();
@@ -173,7 +180,7 @@ Future<void> addWithDeduplication(SummaryEntity summary) async {
     );
     
     if (similarity >= threshold) {
-      // 合并记忆
+      // Merge memories
       final merged = _mergeMemories(item, summary);
       await updateSummary(merged);
       return;
@@ -183,7 +190,7 @@ Future<void> addWithDeduplication(SummaryEntity summary) async {
   await addSummary(summary);
 }
 
-/// 合并相似记忆
+/// Merge similar memories
 SummaryEntity _mergeMemories(SummaryEntity existing, SummaryEntity newOne) {
   final mergedTags = {...existing.tags, ...newOne.tags}.toList();
   return existing.copyWith(
@@ -195,19 +202,19 @@ SummaryEntity _mergeMemories(SummaryEntity existing, SummaryEntity newOne) {
 }
 ```
 
-#### 2.2 实现遗忘曲线
+#### 2.2 Implement Forgetting Curve
 
-**新增方法**：
+**New Methods**:
 ```dart
-/// 应用遗忘曲线
+/// Apply forgetting curve
 Future<void> applyForgettingCurve() async {
   final all = getAllSummaries();
   final now = DateTime.now();
   
   for (final summary in all) {
     final daysOld = now.difference(summary.createdAt).inDays;
-    
-    // 30天后开始衰减
+
+    // Start decaying after 30 days
     if (daysOld > 30) {
       final decayFactor = 1.0 - ((daysOld - 30) / 60) * 0.9;
       final newImportance = (summary.importance * decayFactor).clamp(0.1, 1.0);
@@ -219,7 +226,7 @@ Future<void> applyForgettingCurve() async {
   }
 }
 
-/// 清理过期会话记忆
+/// Clean up expired session memories
 Future<void> cleanupSessionMemories() async {
   const maxAge = Duration(hours: 24);
   final sessions = getByType(MemoryType.session);
@@ -233,92 +240,97 @@ Future<void> cleanupSessionMemories() async {
 }
 ```
 
-#### 2.3 创建记忆管理界面
+#### 2.3 Create Memory Management Interface
 
-**新增文件**：`lib/features/memory/presentation/pages/memory_management_page.dart`
+**New File**: `lib/features/memory/presentation/pages/memory_management_page.dart`
 
-**功能**：
-- 查看所有记忆
-- 按类型筛选
-- 编辑记忆重要性
-- 手动删除/合并记忆
-- 查看记忆统计（访问次数、最后访问时间）
+**Features**:
 
-#### 2.4 定时任务集成
+- View all memories
+- Filter by type
+- Edit memory importance
+- Manually delete/merge memories
+- View memory statistics (access count, last access time)
 
-**更新**：`lib/main.dart`
+#### 2.4 Scheduled Task Integration
 
-**添加**：应用启动时和恢复时执行清理任务
+**Update**: `lib/main.dart`
+
+**Add**: Execute cleanup tasks on app start and resume
 ```dart
 @override
 void didChangeAppLifecycleState(AppLifecycleState state) {
   if (state == AppLifecycleState.resumed) {
-    // 应用恢复时执行
+    // Execute when app resumes
     _memoryUseCases.applyForgettingCurve();
     _memoryUseCases.cleanupSessionMemories();
   }
 }
 ```
 
-**验收标准**：
+**Acceptance Criteria**:
 
-- [x] 添加记忆时自动去重
-- [x] 遗忘曲线正常工作
-- [x] 会话记忆自动清理
-- [x] 记忆管理界面可用
-- [x] `flutter analyze` 通过（待运行验证）
-
----
-
-### 第三阶段：高级功能（长期规划）
-
-**目标**：向量检索、自动提取、智能合并
-
-#### 3.1 集成本地向量检索
-
-**选项**：
-- SQLite + 向量扩展
-- 集成 ONNX Runtime 进行本地嵌入
-- 使用简单的余弦相似度
-
-**新增文件**：`lib/core/services/vector_search_service.dart`
-
-#### 3.2 自动记忆提取
-
-**功能**：
-- 从对话中自动识别用户事实
-- 使用本地 LLM 提取关键信息
-- 标记为 `isAutoExtracted`
-
-#### 3.3 智能记忆合并
-
-**功能**：
-- 定期检查相似记忆
-- 智能合并相关内容
-- 保持记忆的时效性
-
-**验收标准**：
-- [ ] 向量检索可用
-- [ ] 自动提取功能正常
-- [ ] 智能合并工作
-- [ ] 性能优化完成
+- [x] Automatic deduplication when adding memory
+- [x] Forgetting curve works normally
+- [x] Session memories automatically cleaned up
+- [x] Memory management interface usable
+- [x] `flutter analyze` passes (to be verified)
 
 ---
 
-## 📁 文件结构变化
+### Phase 3: Advanced Features (Long-term Planning)
 
-### 新增文件
+**Goal**: Vector retrieval, auto-extraction, intelligent merging
+
+#### 3.1 Integrate Local Vector Retrieval
+
+**Options**:
+
+- SQLite + vector extension
+- Integrate ONNX Runtime for local embedding
+- Use simple cosine similarity
+
+**New File**: `lib/core/services/vector_search_service.dart`
+
+#### 3.2 Automatic Memory Extraction
+
+**Features**:
+
+- Automatically identify user facts from conversations
+- Use local LLM to extract key information
+- Mark as `isAutoExtracted`
+
+#### 3.3 Intelligent Memory Merging
+
+**Features**:
+
+- Regularly check for similar memories
+- Intelligently merge related content
+- Maintain memory timeliness
+
+**Acceptance Criteria**:
+
+- [ ] Vector retrieval available
+- [ ] Auto-extraction feature works
+- [ ] Intelligent merging works
+- [ ] Performance optimization completed
+
+---
+
+## 📁 File Structure Changes
+
+### New Files
 
 ```
 lib/
 ├── core/
 │   ├── domain/
 │   │   └── entities/
-│   │       └── memory_entity.dart          (可选：独立的增强版)
+│   │       └── memory_entity.dart          (optional: standalone enhanced version)
 │   ├── usecases/
-│   │   └── memory_usecases.dart           (可选：独立)
+│   │   └── memory_usecases.dart           (optional: standalone)
 │   └── utils/
-│       └── similarity_utils.dart           (新增)
+│       └── similarity_utils.dart           (new)
 └── features/
     └── memory/
         ├── domain/
@@ -336,32 +348,32 @@ lib/
                 └── memory_card.dart
 ```
 
-### 修改文件
+### Modified Files
 
 ```
 lib/
 ├── core/
 │   ├── domain/
 │   │   └── entities/
-│   │       └── summary_entity.dart          (扩展)
+│   │       └── summary_entity.dart          (extended)
 │   ├── usecases/
-│   │   └── summary_usecases.dart           (扩展)
+│   │   └── summary_usecases.dart           (extended)
 │   └── providers/
-│       └── summary_entities_provider.dart  (扩展)
+│       └── summary_entities_provider.dart  (extended)
 ├── infrastructure/
 │   └── repositories/
-│       └── hive_summary_repository.dart     (更新)
-└── main.dart                                  (添加生命周期钩子)
+│       └── hive_summary_repository.dart     (updated)
+└── main.dart                                  (add lifecycle hooks)
 ```
 
 ---
 
-## 🔄 数据迁移策略
+## 🔄 Data Migration Strategy
 
-### 现有数据升级
+### Existing Data Upgrade
 
 ```dart
-/// 数据迁移脚本
+/// Data migration script
 class DataMigrationService {
   static Future<void> migrateToV2() async {
     final oldSummaries = await getOldSummaries();
@@ -372,13 +384,14 @@ class DataMigrationService {
         title: old.title,
         content: old.content,
         tags: old.tags,
-        type: MemoryType.fact,  // 默认用户事实
+        type: MemoryType.fact,
+        // Default to user fact
         createdAt: old.createdAt,
         updatedAt: old.updatedAt,
         source: old.source,
         embedding: old.embedding,
         sortOrder: old.sortOrder,
-        // 新字段默认值
+        // New field default values
         importance: 0.5,
         accessCount: 0,
         lastAccessedAt: null,
@@ -393,63 +406,65 @@ class DataMigrationService {
 
 ---
 
-## ✅ 检查清单
+## ✅ Checklist
 
-### 第一阶段
-- [ ] 扩展 SummaryEntity 添加新字段
-- [ ] 更新 Hive 序列化
-- [ ] 实现数据迁移
-- [ ] 优化搜索排序
-- [ ] 添加访问记录功能
-- [ ] 测试现有功能
-- [ ] `flutter analyze` 通过
+### Phase 1
 
-### 第二阶段
+- [ ] Extend SummaryEntity with new fields
+- [ ] Update Hive serialization
+- [ ] Implement data migration
+- [ ] Optimize search sorting
+- [ ] Add access recording functionality
+- [ ] Test existing functionality
+- [ ] `flutter analyze` passes
 
-- [x] 实现 Jaccard 相似度
-- [x] 添加去重逻辑
-- [x] 实现遗忘曲线
-- [x] 会话记忆自动清理
-- [x] 创建记忆管理界面
-- [x] 集成定时任务
-- [ ] 完整测试
-- [ ] `flutter analyze` 通过
+### Phase 2
 
-### 第三阶段
-- [ ] 向量检索集成
-- [ ] 自动记忆提取
-- [ ] 智能合并
-- [ ] 性能优化
-- [ ] 完整测试
+- [x] Implement Jaccard similarity
+- [x] Add deduplication logic
+- [x] Implement forgetting curve
+- [x] Session memory auto-cleanup
+- [x] Create memory management interface
+- [x] Integrate scheduled tasks
+- [ ] Complete testing
+- [ ] `flutter analyze` passes
 
----
+### Phase 3
 
-## 📊 与参考项目的对应关系
-
-| 特性 | mem0 | ToolNeuron | 本项目 |
-|-----|------|-----------|--------|
-| 多级记忆 | ✅ | ✅ | 第一阶段 |
-| 记忆权重 | ✅ | ✅ | 第一阶段 |
-| 时效性 | ✅ | ✅ | 第一阶段 |
-| Jaccard 去重 | ❌ | ✅ | 第二阶段 |
-| 遗忘曲线 | ❌ | ✅ | 第二阶段 |
-| 向量检索 | ✅ | ✅ | 第三阶段 |
-| 自动提取 | ✅ | ✅ | 第三阶段 |
+- [ ] Vector retrieval integration
+- [ ] Automatic memory extraction
+- [ ] Intelligent merging
+- [ ] Performance optimization
+- [ ] Complete testing
 
 ---
 
-## 🎯 下一步行动
+## 📊 Correspondence with Reference Projects
 
-1. **立即开始**：实施第一阶段
-2. **测试验证**：确保第一阶段稳定
-3. **逐步推进**：根据反馈调整后续阶段
-4. **持续优化**：基于实际使用情况迭代
+| Feature               | mem0 | ToolNeuron | This Project |
+|-----------------------|------|------------|--------------|
+| Multi-level memory    | ✅    | ✅          | Phase 1      |
+| Memory weight         | ✅    | ✅          | Phase 1      |
+| Timeliness            | ✅    | ✅          | Phase 1      |
+| Jaccard deduplication | ❌    | ✅          | Phase 2      |
+| Forgetting curve      | ❌    | ✅          | Phase 2      |
+| Vector retrieval      | ✅    | ✅          | Phase 3      |
+| Auto-extraction       | ✅    | ✅          | Phase 3      |
 
 ---
 
-## 📚 参考资源
+## 🎯 Next Steps
+
+1. **Start immediately**: Implement Phase 1
+2. **Test and verify**: Ensure Phase 1 is stable
+3. **Gradually advance**: Adjust subsequent phases based on feedback
+4. **Continuous optimization**: Iterate based on actual usage
+
+---
+
+## 📚 Reference Resources
 
 - [mem0 GitHub](https://github.com/mem0ai/mem0)
-- [mem0 文档](https://docs.mem0.ai)
+- [mem0 Documentation](https://docs.mem0.ai)
 - [ToolNeuron GitHub](https://github.com/Siddhesh2377/ToolNeuron)
-- [ToolNeuron 记忆设计](https://github.com/Siddhesh2377/ToolNeuron)
+- [ToolNeuron Memory Design](https://github.com/Siddhesh2377/ToolNeuron)

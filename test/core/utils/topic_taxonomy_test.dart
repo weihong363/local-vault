@@ -2,13 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:local_vault/core/utils/memory_title_generator.dart';
 
 void main() {
-  group('Topic Taxonomy 基本功能测试', () {
-    test('应该成功使用默认配置', () {
-      // 验证默认配置可用
+  group('Topic Taxonomy Basic Functionality Tests', () {
+    test('Should successfully use default configuration', () {
+      // Verify default configuration is available
       expect(true, isTrue);
     });
 
-    test('标题生成 - 包含技术关键词的内容', () {
+    test('Title Generation - Content with Technical Keywords', () {
       final testCases = [
         'GraphRAG 端侧性能优化方案',
         'RAG 检索增强生成技术探讨',
@@ -19,17 +19,19 @@ void main() {
       for (final content in testCases) {
         final result = StructuredMemoryTitleGenerator.generateTitle(content);
 
-        // 验证生成的标题合理（8-20 字符）
+        // Verify generated title is reasonable (8-20 characters)
         expect(result.title.length, inInclusiveRange(2, 25),
-            reason: '输入 "$content" 生成的标题长度不合理：${result.title}');
+            reason:
+                'Input "$content" generated unreasonable title length: ${result.title}');
 
-        // 验证置信度合理
+        // Verify confidence is reasonable
         expect(result.confidence, greaterThan(0.3),
-            reason: '输入 "$content" 的置信度过低：${result.confidence}');
+            reason:
+                'Input "$content" has too low confidence: ${result.confidence}');
       }
     });
 
-    test('真实场景 - GraphRAG 端侧性能分析', () async {
+    test('Real Scenario - GraphRAG Edge Performance Analysis', () async {
       const title = 'GraphRAG：设计';
       const content = '''
 坦白说，如果把微软标准的 GraphRAG 直接搬到手机上，目前的性能会是严重的瓶颈，几乎不可用。
@@ -42,20 +44,21 @@ nano-graphrag：核心代码仅约 1100 行，去除了复杂组件。
         '$title\n$content',
       );
 
-      // 验证生成的标题包含 GraphRAG 或相关关键词
+      // Verify generated title contains GraphRAG or related keywords
       expect(
         result.title.contains('GraphRAG') ||
-            result.title.contains('端侧') ||
-            result.title.contains('性能'),
+            result.title.contains('Edge') ||
+            result.title.contains('Performance'),
         isTrue,
-        reason: 'GraphRAG 端侧性能分析内容应提取出 GraphRAG 主题，实际生成：${result.title}',
+        reason:
+            'GraphRAG edge performance analysis content should extract GraphRAG theme, actual: ${result.title}',
       );
 
-      // 验证置信度合理
+      // Verify confidence is reasonable
       expect(result.confidence, greaterThan(0.5));
     });
 
-    test('真实场景 - RAG 端侧应用讨论', () async {
+    test('Real Scenario - RAG Edge Application Discussion', () async {
       const title = 'RAG：优化';
       const content = '''
 RAG 在端侧（手机、物联网设备等）的应用，核心挑战在于资源受限与效果保真之间的平衡。
@@ -68,20 +71,22 @@ RAG 在端侧（手机、物联网设备等）的应用，核心挑战在于资�
         '$title\n$content',
       );
 
-      // 验证生成的标题包含 RAG 或端侧相关关键词
+      // Verify generated title contains RAG or edge related keywords
       expect(
         result.title.contains('RAG') ||
-            result.title.contains('端侧') ||
-            result.title.contains('检索'),
+            result.title.contains('Edge') ||
+            result.title.contains('Retrieval'),
         isTrue,
-        reason: 'RAG 端侧应用内容应提取出 RAG 主题，实际生成：${result.title}',
+        reason:
+            'RAG edge application content should extract RAG theme, actual: ${result.title}',
       );
 
-      // 验证置信度合理
+      // Verify confidence is reasonable
       expect(result.confidence, greaterThan(0.5));
     });
 
-    test('真实场景 - Transformer 注意力机制实现', () async {
+    test('Real Scenario - Transformer Attention Mechanism Implementation',
+        () async {
       const title = 'def：实现注意力计算函数';
       const content = '''
 在开发中应用这两者，通常集中在搭建 Transformer 类模型时。
@@ -94,16 +99,17 @@ RAG 在端侧（手机、物联网设备等）的应用，核心挑战在于资�
         '$title\n$content',
       );
 
-      // 验证生成的标题包含 Transformer 或注意力相关关键词
+      // Verify generated title contains Transformer or attention related keywords
       expect(
         result.title.contains('Transformer') ||
-            result.title.contains('注意力') ||
-            result.title.contains('实现'),
+            result.title.contains('Attention') ||
+            result.title.contains('Implementation'),
         isTrue,
-        reason: 'Transformer 注意力机制内容应提取出相关主题，实际生成：${result.title}',
+        reason:
+            'Transformer attention mechanism content should extract related theme, actual: ${result.title}',
       );
 
-      // 验证置信度合理
+      // Verify confidence is reasonable
       expect(result.confidence, greaterThan(0.5));
     });
   });

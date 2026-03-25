@@ -1,21 +1,22 @@
-# 状态压缩层增强实现总结
+# State Compression Layer Enhancement Implementation Summary
 
-## 概述
+## Overview
 
-完成了 Hybrid Memory 架构中状态压缩层的增强工作，实现了从 session → summary → state 的三层压缩管道。
+Completed the enhancement work for the state compression layer in the Hybrid Memory architecture, implementing a
+three-tier compression pipeline from session → summary → state.
 
-## 实现内容
+## Implementation Details
 
-### 1. StateRecord Schema 扩展 ✅
+### 1. StateRecord Schema Extension ✅
 
-StateRecord 通过 `namespace` 字段已支持四种状态类型：
+StateRecord now supports four state types through the `namespace` field:
 
-- **task_state**: 任务、待办、跟进事项
-- **project_state**: 项目、发布、里程碑
-- **user_preference_state**: 用户偏好、习惯
-- **topic_state**: 通用主题状态
+- **task_state**: tasks, todos, follow-ups
+- **project_state**: projects, releases, milestones
+- **user_preference_state**: user preferences, habits
+- **topic_state**: general topic states
 
-**文件**: `lib/core/memory_runtime/entities/memory_runtime_models.dart`
+**File**: `lib/core/memory_runtime/entities/memory_runtime_models.dart`
 
 ```dart
 class StateRecord {
@@ -29,32 +30,32 @@ class StateRecord {
     required this.version,
     required this.updatedAt,
   });
-  
-  final String namespace; // 支持多类型状态
+
+  final String namespace; // Supports multiple state types
   final String key;
   final String summary;
   final String topic;
   final List<String> keywords;
   final double importance;
-  final int version; // 版本号控制
+  final int version; // Version control
   final DateTime updatedAt;
   
   String get storageKey => '$namespace::$key';
 }
 ```
 
-### 2. compressToState 方法实现 ✅
+### 2. compressToState Method Implementation ✅
 
-在 `RuleBasedMemoryCompressor` 中实现了从 SummaryEntity 到 StateRecord 的压缩方法。
+Implemented the compression method from SummaryEntity to StateRecord in `RuleBasedMemoryCompressor`.
 
-**文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
-**核心方法**:
+**Core Method**:
 
 ```dart
 Future<StateRecord?> compressToState(SummaryEntity summary) async {
   final profile = _slmService.describeSummarySemantics(summary);
-  final unit = MemoryUnit(...); // 构建临时记忆单元
+  final unit = MemoryUnit(...); // Build temporary memory unit
   final patch = _deriveStatePatchWithProfile(unit, profile);
   
   if (patch == null || patch.confidence < _policyConfig.stateConfidenceThreshold) {
@@ -74,15 +75,15 @@ Future<StateRecord?> compressToState(SummaryEntity summary) async {
 }
 ```
 
-**辅助方法**:
+**Helper Method**:
 
-- `_deriveStatePatchWithProfile`: 使用已有语义画像推导状态补丁，避免重复调用 SLM
+- `_deriveStatePatchWithProfile`: Derive state patch using existing semantic profile to avoid repeated SLM calls
 
-### 3. SessionCompactionResult 扩展 ✅
+### 3. SessionCompactionResult Extension ✅
 
-添加了 `stateUpdates` 字段，支持在会话压缩时直接生成状态记录。
+Added `stateUpdates` field to support directly generating state records during session compaction.
 
-**文件**: `lib/core/memory_runtime/entities/memory_runtime_models.dart`
+**File**: `lib/core/memory_runtime/entities/memory_runtime_models.dart`
 
 ```dart
 class SessionCompactionResult {
@@ -91,27 +92,27 @@ class SessionCompactionResult {
     this.updatedSessions = const <SummaryEntity>[],
     this.consumedSessionIds = const <String>{},
     this.archiveRecords = const <ArchiveRecord>[],
-    this.stateUpdates = const <StateRecord>[], // 新增字段
+    this.stateUpdates = const <StateRecord>[], // New field
   });
 
   final List<SummaryEntity> mergedFacts;
   final List<SummaryEntity> updatedSessions;
   final Set<String> consumedSessionIds;
   final List<ArchiveRecord> archiveRecords;
-  final List<StateRecord> stateUpdates; // 新增字段
+  final List<StateRecord> stateUpdates; // New field
 
   int get mergedCount => mergedFacts.length;
 }
 ```
 
-### 4. 状态覆盖式更新与版本控制 ✅
+### 4. State Overwrite Updates and Version Control ✅
 
-在 `compact()` 方法中实现了状态记录的合并与版本控制逻辑：
+Implemented state record merging and version control logic in the `compact()` method:
 
-**文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
 ```dart
-// 处理直接生成的状态记录
+// Handle directly generated state records
 if (compressionResult.stateUpdates.isNotEmpty) {
   final previousRecords = _sidecarRepository.getAllStateRecords();
   final allStates = <StateRecord>[
@@ -121,8 +122,8 @@ if (compressionResult.stateUpdates.isNotEmpty) {
       previousRecords: previousRecords,
     ),
   ];
-  
-  // 去重（按 storageKey）
+
+// Deduplication (by storageKey)
   final uniqueStates = <String, StateRecord>{};
   for (final state in allStates) {
     uniqueStates[state.storageKey] = state;
@@ -135,33 +136,33 @@ if (compressionResult.stateUpdates.isNotEmpty) {
 }
 ```
 
-**版本号控制规则**:
+**Version Control Rules**:
 
-- 首次创建：version = 1
-- 内容发生变化：version = previous.version + 1
-- 内容未变化：version = previous.version（保持不变）
+- First creation: version = 1
+- Content changes: version = previous.version + 1
+- No content changes: version = previous.version (保持不变)
 
-### 5. _rebuildStateRecords 优化 ✅
+### 5. _rebuildStateRecords Optimization ✅
 
-增强了状态重建方法，支持多类型状态推导：
+Enhanced the state rebuilding method to support multi-type state derivation:
 
-**文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
-**增强的推导逻辑**:
+**Enhanced Derivation Logic**:
 
 ```dart
-/// 重建状态记录，支持多类型状态推导
+/// Rebuild state records, support multi-type state derivation
 /// 
-/// 增强的状态推导逻辑：
-/// - task_state: 任务、待办、跟进事项
-/// - project_state: 项目、发布、里程碑
-/// - user_preference_state: 用户偏好、习惯
-/// - topic_state: 通用主题状态
+/// Enhanced state derivation logic:
+/// - task_state: tasks, todos, follow-ups
+/// - project_state: projects, releases, milestones
+/// - user_preference_state: user preferences, habits
+/// - topic_state: general topic states
 List<StateRecord> _rebuildStateRecords(
   List<MemoryUnit> units, {
   required List<StateRecord> previousRecords,
 }) {
-  // 第一轮：收集所有状态补丁
+  // First round: collect all state patches
   for (final unit in units) {
     final patch = _deriveStatePatch(unit);
     if (patch == null ||
@@ -171,20 +172,20 @@ List<StateRecord> _rebuildStateRecords(
     groupedPatches.putIfAbsent(patch.storageKey, () => <StatePatch>[]).add(patch);
   }
 
-  // 第二轮：合并同 key 的补丁并构建记录
+  // Second round: merge patches with the same key and build records
   final records = <StateRecord>[];
   for (final entry in groupedPatches.entries) {
     final mergedPatch = _mergeStatePatches(entry.value);
     final previous = previousByKey[entry.key];
-    
-    // 检查是否发生变化
+
+    // Check if changes occurred
     final changed = previous == null ||
         previous.summary != mergedPatch.summary ||
         previous.topic != mergedPatch.topic ||
         !_sameStrings(previous.keywords, mergedPatch.keywords) ||
         (previous.importance - mergedPatch.importance).abs() > 0.001;
 
-    // 版本号控制：首次创建为 v1，变化时递增，否则保持不变
+    // Version control: first creation as v1, increment on change, otherwise keep unchanged
     records.add(StateRecord(
       namespace: mergedPatch.namespace,
       key: mergedPatch.key,
@@ -201,30 +202,30 @@ List<StateRecord> _rebuildStateRecords(
     ));
   }
 
-  // 按重要性降序排序
+  // Sort by importance descending
   records.sort((a, b) => b.importance.compareTo(a.importance));
   return records;
 }
 ```
 
-### 6. 辅助工具方法 ✅
+### 6. Helper Utility Methods ✅
 
-添加了多个辅助方法以支持多类型状态推导：
+Added multiple helper methods to support multi-type state derivation:
 
-**文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
 ```dart
-/// 标准化文本用于模式匹配
+/// Normalize text for pattern matching
 String _normalize(String text) {
   return text.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
-/// 检查文本是否包含任意关键词
+/// Check if text contains any keywords
 bool _containsAny(String normalized, Set<String> signals) {
   return signals.any((signal) => normalized.contains(signal));
 }
 
-/// 标准化键名
+/// Normalize key name
 String _normalizeKey(String key) {
   return key
       .toLowerCase()
@@ -234,7 +235,7 @@ String _normalizeKey(String key) {
 }
 ```
 
-**状态信号词库**:
+**State Signal Word Banks**:
 
 ```dart
 static const Set<String> _taskSignals = <String>{
@@ -253,47 +254,47 @@ static const Set<String> _preferenceSignals = <String>{
 };
 ```
 
-## 数据流程
+## Data Flow
 
 ```
-session (原始对话)
+session (original conversation)
   ↓
-compressSessions (会话压缩)
+compressSessions (session compression)
   ↓
-summary/fact (合并后的摘要)
+summary/fact (merged summary)
   ↓
-compressToState (状态压缩) ← 新增
+compressToState (state compression) ← New
   ↓
-state_record (KV 状态记录)
+state_record (KV state record)
   ↓
-_rebuildStateRecords (状态重建与版本控制)
+_rebuildStateRecords (state rebuilding and version control)
   ↓
-storage (持久化存储)
+storage (persistent storage)
 ```
 
-## 关键特性
+## Key Features
 
-1. **三层架构**: session → summary → state 的清晰分层
-2. **覆盖式更新**: KV 存储的状态覆盖而非 append-only
-3. **版本控制**: 自动追踪状态变更历史
-4. **多类型支持**: 统一支持 task/project/preference/topic 四种状态
-5. **智能推导**: 基于规则引擎自动识别状态类型
-6. **性能优化**: 避免重复调用 SLM，使用缓存的语义画像
+1. **Three-tier Architecture**: Clear layering from session → summary → state
+2. **Overwrite Updates**: State overwrite in KV storage instead of append-only
+3. **Version Control**: Automatic tracking of state change history
+4. **Multi-type Support**: Unified support for task/project/preference/topic states
+5. **Intelligent Derivation**: Automatic state type identification based on rule engine
+6. **Performance Optimization**: Avoid repeated SLM calls, use cached semantic profiles
 
-## 测试建议
+## Testing Recommendations
 
-由于需要真实 SLM 服务，建议使用集成测试方式验证：
+Since real SLM service is required, integration testing is recommended:
 
-1. 创建任务类型的 session
-2. 触发 compact 操作
-3. 验证生成了对应 namespace 的 StateRecord
-4. 修改 session 内容再次 compact
-5. 验证版本号递增
+1. Create task-type session
+2. Trigger compact operation
+3. Verify StateRecord with corresponding namespace is generated
+4. Modify session content and compact again
+5. Verify version number increments
 
-## 下一步
+## Next Steps
 
-第二阶段：标题生成结构化增强
+Phase 2: Title Generation Structured Enhancement
 
-- Topic Taxonomy 白名单
-- 同义词归一化映射
-- 候选打分优化
+- Topic Taxonomy whitelist
+- Synonym normalization mapping
+- Candidate scoring optimization

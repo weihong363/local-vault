@@ -1,13 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('第三阶段优化改进 - 单元测试', () {
+  group('Phase 3 Optimization Improvements - Unit Tests', () {
     // =========================================================================
-    // 问题 4: Keywords 合并策略不合理 - 测试
+    // Issue 4: Keywords Merge Strategy - Test
     // =========================================================================
-    group('问题 4: 关键词智能合并', () {
-      test('应该过滤掉包含完整句子标点的 tags', () {
-        // 模拟用户输入的 tags，包含完整句子
+    group('Issue 4: Intelligent Keyword Merging', () {
+      test('Should filter out tags containing complete sentence punctuation',
+          () {
+        // Simulate user input tags, including complete sentences
         final userTags = [
           'This is a complete sentence, with comma',
           'RAG',
@@ -19,21 +20,21 @@ void main() {
           'ending with bracket)',
         ];
 
-        // 过滤后的结果应该只保留有效的关键词
+        // Filtered result should only contain valid keywords
         final filtered = userTags.where((tag) {
           final trimmed = tag.trim();
 
-          // 太短或太长都不是好关键词
+          // Keywords that are too short or too long are not good
           if (trimmed.length < 2 || trimmed.length > 30) {
             return false;
           }
 
-          // 包含完整句子标点（英文）的不是关键词
+          // Contains complete sentence punctuation (English) is not a keyword
           if (RegExp(r'[,!?;:]').hasMatch(trimmed)) {
             return false;
           }
 
-          // 以括号结尾的不是关键词
+          // Ending with parenthesis is not a keyword
           if (trimmed.endsWith(')') || trimmed.endsWith('）')) {
             return false;
           }
@@ -46,7 +47,7 @@ void main() {
         expect(filtered, contains('nano'));
         expect(filtered, contains('查询时'));
 
-        // 验证被过滤掉的
+        // Verify filtered out items
         expect(filtered,
             isNot(contains('This is a complete sentence, with comma')));
         expect(filtered, isNot(contains('Another sentence!')));
@@ -54,7 +55,9 @@ void main() {
         expect(filtered, isNot(contains('ending with bracket)')));
       });
 
-      test('应该去除语义重复的关键词（基于包含关系）', () {
+      test(
+          'Should remove semantically duplicate keywords (based on containment)',
+          () {
         final allKeywords = {
           'RAG',
           '检索',
@@ -65,17 +68,17 @@ void main() {
           '存储',
         };
 
-        // 按长度排序（短的在前）
+        // Sort by length (shorter first)
         final sortedKeywords = allKeywords.toList()
           ..sort((a, b) => a.length.compareTo(b.length));
 
-        // 去除被包含的词
+        // Remove contained words
         final deduplicated = <String>{};
         for (final keyword in sortedKeywords) {
           final normalized = keyword.toLowerCase().trim();
           if (normalized.isEmpty) continue;
 
-          // 检查是否已被更长的词包含
+          // Check if already contained by a longer word
           final isContained = deduplicated.any(
             (existing) => existing.contains(keyword),
           );
@@ -85,17 +88,17 @@ void main() {
           }
         }
 
-        // 验证：短词如果被长词包含，应该被去除
-        expect(deduplicated, contains('向量数据库')); // 长词保留
-        expect(deduplicated, contains('性能优化')); // 长词保留
-        // 注意：由于处理顺序，"向量"和"性能"可能先被加入，所以不一定会被去除
-        // 实际实现中会优先保留更具体的词
-        expect(deduplicated, contains('RAG')); // 独立词保留
-        expect(deduplicated, contains('检索')); // 独立词保留
-        expect(deduplicated, contains('存储')); // 独立词保留
+        // Verify: shorter words that are contained by longer words should be removed
+        expect(deduplicated, contains('向量数据库')); // Retain longer word
+        expect(deduplicated, contains('性能优化')); // Retain longer word
+        // Note: Due to processing order, "向量" and "性能" may be added first, so they may not be removed
+        // Actual implementation will prioritize more specific words
+        expect(deduplicated, contains('RAG')); // Independent word retained
+        expect(deduplicated, contains('检索')); // Independent word retained
+        expect(deduplicated, contains('存储')); // Independent word retained
       });
 
-      test('应该按重要性排序 keywords', () {
+      test('Should sort keywords by importance', () {
         final topic = 'RAG 技术';
         final slmKeywords = ['检索增强生成', '向量搜索'];
         final slmTags = ['AI', '机器学习'];
@@ -107,28 +110,28 @@ void main() {
           '普通标签',
         };
 
-        // 模拟排序逻辑
+        // Simulate sorting logic
         final ranked = allKeywords.toList()
           ..sort((a, b) {
-            // topic 优先级最高
+            // Topic has highest priority
             if (a == topic) return -1;
             if (b == topic) return 1;
 
-            // SLM 生成的关键词优先
+            // SLM generated keywords have priority
             final aIsSlm = slmKeywords.contains(a) || slmTags.contains(a);
             final bIsSlm = slmKeywords.contains(b) || slmTags.contains(b);
             if (aIsSlm && !bIsSlm) return -1;
             if (!aIsSlm && bIsSlm) return 1;
 
-            // 否则按长度排序（适中的更好）
+            // Otherwise sort by length (moderate is better)
             final aScore = (a.length - 5).abs();
             final bScore = (b.length - 5).abs();
             return aScore.compareTo(bScore);
           });
 
-        // 验证排序结果
-        expect(ranked.first, equals(topic)); // topic 排第一
-        // SLM 关键词应该在前面
+        // Verify sorting result
+        expect(ranked.first, equals(topic)); // Topic should be first
+        // SLM keywords should be at the front
         final slmKeywordsInResult = ranked
             .where((k) => slmKeywords.contains(k) || slmTags.contains(k))
             .toList();
@@ -137,24 +140,24 @@ void main() {
     });
 
     // =========================================================================
-    // 问题 5: 重要性计算过于简单 - 测试
+    // Issue 5: Importance Calculation Over-Simplified - Test
     // =========================================================================
-    group('问题 5: 重要性计算', () {
-      test('应该考虑访问频率奖励', () {
-        // 模拟两个 MemoryUnit
+    group('Issue 5: Importance Calculation', () {
+      test('Should consider access frequency bonus', () {
+        // Simulate two MemoryUnits
         final unit1 = (
           importance: 0.5,
-          sourceIds: List.generate(10, (i) => 'source_$i'), // 10 个 source
+          sourceIds: List.generate(10, (i) => 'source_$i'), // 10 sources
           updatedAt: DateTime.now().subtract(const Duration(days: 5)),
         );
 
         final unit2 = (
           importance: 0.6,
-          sourceIds: ['single_source'], // 1 个 source
+          sourceIds: ['single_source'], // 1 source
           updatedAt: DateTime.now().subtract(const Duration(days: 1)),
         );
 
-        // 计算合并后的重要性
+        // Calculate merged importance
         final baseImportance = unit1.importance > unit2.importance
             ? unit1.importance
             : unit2.importance;
@@ -165,40 +168,40 @@ void main() {
 
         final accessBonus = (0.2).clamp(0.0, maxAccessCount * 0.02);
 
-        // 验证：访问频率高的应该获得更高奖励
-        expect(accessBonus, equals(0.2)); // 10 个 source，达到上限 0.2
+        // Verify: Higher access frequency should get higher bonus
+        expect(accessBonus, equals(0.2)); // 10 sources, reaches upper limit 0.2
         expect(baseImportance + accessBonus, greaterThan(0.7));
       });
 
-      test('应该考虑时效性奖励', () {
+      test('Should consider recency bonus', () {
         final now = DateTime.now();
 
-        // 新记录（1 天前）
+        // Recent record (1 day ago)
         final recentUnit = (
           importance: 0.5,
           updatedAt: now.subtract(const Duration(days: 1)),
         );
 
-        // 旧记录（60 天前）
+        // Old record (60 days ago)
         final oldUnit = (
           importance: 0.5,
           updatedAt: now.subtract(const Duration(days: 60)),
         );
 
-        // 计算时效性奖励
+        // Calculate recency bonus
         final leftAge = now.difference(recentUnit.updatedAt).inDays;
         final rightAge = now.difference(oldUnit.updatedAt).inDays;
 
         final recencyBonusRecent = (0.1 * (1 - leftAge / 30)).clamp(0.0, 0.1);
         final recencyBonusOld = (0.1 * (1 - rightAge / 30)).clamp(0.0, 0.1);
 
-        // 验证：新记录获得更高的时效性奖励
+        // Verify: Recent records should get higher recency bonus
         expect(recencyBonusRecent, greaterThan(recencyBonusOld));
-        expect(recencyBonusRecent, closeTo(0.097, 0.01)); // 约 0.097
-        expect(recencyBonusOld, equals(0.0)); // 超过 30 天，无奖励
+        expect(recencyBonusRecent, closeTo(0.097, 0.01)); // About 0.097
+        expect(recencyBonusOld, equals(0.0)); // More than 30 days, no bonus
       });
 
-      test('合并后的重要性不应该超过 1.0', () {
+      test('Merged importance should not exceed 1.0', () {
         final unit1 = (
           importance: 0.9,
           sourceIds: List.generate(20, (i) => 'source_$i'),
@@ -211,28 +214,28 @@ void main() {
           updatedAt: DateTime.now(),
         );
 
-        // 计算各项
+        // Calculate each component
         final baseImportance = 0.9;
         final maxAccessCount = 20;
         final accessBonus =
             (0.2).clamp(0.0, maxAccessCount * 0.02); // 0.4 -> 0.2
-        final recencyBonus = 0.1; // 最新记录
+        final recencyBonus = 0.1; // Latest record
 
         final mergedImportance =
             (baseImportance + accessBonus + recencyBonus).clamp(0.0, 1.0);
 
-        // 验证：不超过 1.0
+        // Verify: Should not exceed 1.0
         expect(mergedImportance, equals(1.0));
         expect(mergedImportance, lessThanOrEqualTo(1.0));
       });
     });
 
     // =========================================================================
-    // 综合测试：验证整体逻辑
+    // Comprehensive Tests: Verify Overall Logic
     // =========================================================================
-    group('综合测试', () {
-      test('完整的关键词合并流程', () {
-        // 模拟真实场景
+    group('Comprehensive Tests', () {
+      test('Complete keyword merging workflow', () {
+        // Simulate real scenario
         final leftKeywords = ['RAG', '性能优化', 'This is a sentence,'];
         final rightKeywords = ['向量搜索', '存储'];
         final slmKeywords = ['检索增强生成', 'AI'];
@@ -240,7 +243,7 @@ void main() {
         final topic = 'RAG 技术';
         final maxKeywords = 8;
 
-        // 步骤 1: 过滤低质量 tags
+        // Step 1: Filter low-quality tags
         final filteredUserTags = <String>[];
         for (final tag in [...leftKeywords, ...rightKeywords]) {
           final trimmed = tag.trim();
@@ -256,7 +259,7 @@ void main() {
         expect(filteredUserTags, isNot(contains('This is a sentence,')));
         expect(filteredUserTags.length, equals(4)); // RAG, 性能优化，向量搜索，存储
 
-        // 步骤 2: 合并所有来源
+        // Step 2: Merge all sources
         final allKeywords = <String>{
           ...filteredUserTags,
           ...slmKeywords,
@@ -264,10 +267,10 @@ void main() {
           topic,
         };
 
-        // 8 个：RAG, 性能优化，向量搜索，存储，检索增强生成，AI, 机器学习，自然语言处理，RAG 技术
+        // 9 items: RAG, 性能优化，向量搜索，存储，检索增强生成，AI, 机器学习，自然语言处理，RAG 技术
         expect(allKeywords.length, equals(9));
 
-        // 步骤 3: 去重和排序（简化版）
+        // Step 3: Deduplicate and sort (simplified version)
         final ranked = allKeywords.toList()
           ..sort((a, b) {
             if (a == topic) return -1;
@@ -279,15 +282,15 @@ void main() {
             return 0;
           });
 
-        // 步骤 4: 截取
+        // Step 4: Take top N
         final finalKeywords = ranked.take(maxKeywords).toList();
 
         expect(finalKeywords.first, equals(topic));
         expect(finalKeywords.length, lessThanOrEqualTo(maxKeywords));
-        // 注意：实际实现中过滤逻辑可能更复杂，这里只验证基本流程
+        // Note: Actual implementation may have more complex filtering logic, this verifies basic workflow
       });
 
-      test('重要性计算综合场景', () {
+      test('Importance calculation comprehensive scenario', () {
         final unit1 = (
           importance: 0.7,
           sourceIds: List.generate(5, (i) => 'source_$i'),
@@ -300,7 +303,7 @@ void main() {
           updatedAt: DateTime.now().subtract(const Duration(days: 2)),
         );
 
-        // 完整计算
+        // Complete calculation
         final baseImportance = 0.7; // max(0.7, 0.6)
         final maxAccessCount = 5; // max(5, 3)
         final accessBonus = (0.2).clamp(0.0, 5 * 0.02); // 0.1
@@ -318,11 +321,11 @@ void main() {
         final mergedImportance =
             (baseImportance + accessBonus + finalRecencyBonus).clamp(0.0, 1.0);
 
-        // 验证：合并后的重要性应该高于原始值
+        // Verify: Merged importance should be higher than original value
         expect(mergedImportance, greaterThan(0.7));
         expect(mergedImportance, lessThanOrEqualTo(1.0));
 
-        // 具体数值验证（允许小范围误差）
+        // Specific value verification (allow small error margin)
         expect(mergedImportance, closeTo(0.87, 0.05));
       });
     });

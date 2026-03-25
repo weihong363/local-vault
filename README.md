@@ -20,9 +20,8 @@
 
 ### ⚡ 快捷操作
 
-- **系统级快捷入口** - Android TileService 快速卡片，下拉即达
-- **悬浮窗手势唤醒** - 支持双击、三击等手势快速唤起保存界面
-- **文本/图片分享保存** - 从其他应用一键分享内容到 Local Vault
+- **悬浮窗手势唤醒** - 支持双击、三击等手势快速唤起保存界面 -- 开发中
+- **文本/图片分享保存** - 从其他应用一键分享内容到 Local Vault -- 开发中
 - **剪贴板静默保存** - 自动检测剪贴板内容并快速保存
 
 ### 🎯 模板系统
@@ -66,8 +65,9 @@ lib/
 
 - [项目架构图](docs/PROJECT_ARCHITECTURE.md) - 完整架构图和目录结构
 - [开发进度](docs/PROGRESS.md) - 详细的功能完成情况和待办事项
-  ~~- [迁移指南](docs/build/MIGRATION_GUIDE.md) - 新旧架构迁移指南~~
-  ~~- [使用示例](lib/ARCHITECTURE_EXAMPLE.md) - 快速使用示例~~
+- [记忆架构](docs/MEMORY_ARCHITECTURE.md) - 三层记忆模型详解
+- [SLM 集成指南](docs/SLM_INTEGRATION_GUIDE.md) - SLM 规则引擎集成方案 -- 待更新
+- [增强处理流程](docs/ENHANCEMENT_PROCESS.md) - 状态压缩与标题生成增强
 
 ## 🛠️ 技术栈
 
@@ -100,6 +100,11 @@ lib/
 - **share_plus** - 系统分享功能
 - **permission_handler** - 权限管理
 - **image_picker** - 图片选择能力
+
+### SLM 与智能处理
+
+- **纯规则引擎** - 基于关键词匹配、BM25-lite 和 Jaccard 相似度的本地智能处理
+- **降级策略** - 模型不可用时自动回退到规则引擎，保证主流程不中断
 
 ## 📱 快速开始
 
@@ -163,21 +168,13 @@ flutter test test/core/services/memory_rule_engine_real_data_test.dart
 
 - [项目架构图](docs/PROJECT_ARCHITECTURE.md) - 完整架构图和目录结构
 - [开发进度](docs/PROGRESS.md) - 详细的功能完成情况和待办事项
-  ~~- [迁移指南](docs/build/MIGRATION_GUIDE.md) - 新旧架构迁移指南~~
-  ~~- [使用示例](lib/ARCHITECTURE_EXAMPLE.md) - 快速使用示例~~
 
 ### 功能说明
 
-~~- [记忆管理模块](docs/MEMORY_MODULE.md) - 三层记忆模型详解~~
-~~- [SLM 规则引擎](docs/SLM_RULE_ENGINE.md) - 智能记忆处理机制~~
-~~- [手势唤醒系统](docs/GESTURE_SYSTEM.md) - 悬浮窗手势配置~~
-~~- [备份恢复指南](docs/BACKUP_RESTORE.md) - 数据备份与导入~~
-
-### 开发与测试
-
-~~- [开发环境搭建](docs/DEVELOPMENT_SETUP.md) - 开发环境配置指南~~
-~~- [测试指南](docs/TESTING_GUIDE.md) - 单元测试和集成测试~~
-~~- [代码规范](docs/CODE_STYLE.md) - 代码风格和最佳实践~~
+- [记忆架构](docs/MEMORY_ARCHITECTURE.md) - 三层记忆模型详解
+- [SLM 集成指南](docs/SLM_INTEGRATION_GUIDE.md) - 规则引擎与 SLM 增强方案
+- [记忆合并优化](docs/MEMORY_MERGE_FIXES.md) - 智能合并与主题提取机制
+- [升级机制](docs/MEMORY_PROMOTION_MECHANISM.md) - Fact 到 Core 的自动升级逻辑
 
 ## 🤝 贡献
 
@@ -238,19 +235,38 @@ final summaries = ref.watch(summaryEntityNotifierProvider);
 #### 调用规则引擎
 
 ```dart
-import 'package:local_vault/core/services/memory_rule_engine.dart';
+import 'package:local_vault/core/services/memory_slm_service.dart';
 
-final engine = MemoryRuleEngine();
+final engine = sl<MemorySLMService>();
 
 // 提取主题
-final topic = engine.extractTopic(title, content);
+final topicResponse = await
+engine.extractTopic
+(title, content);
+
+final topic = topicResponse.data;
 
 // 判断相似度
-final isSame = engine.isSameTopic(entityA, entityB);
+final isSame = await
+engine.isSameTopic
+(entityA, entityB);
 
 // 合并会话
-final result = engine.mergeSessions(sessions);
+final result = await
+engine.mergeSessions
+(
+sessions
+);
 ```
+
+### 技术路线说明
+
+当前 SLM 相关能力采用**纯规则引擎 + 可选云端增强**方案：
+
+- ✅ **规则引擎**：基于关键词匹配、BM25-lite 相似度、Jaccard 系数实现本地智能处理
+- ✅ **降级策略**：模型不可用时自动回退到规则引擎，保证主流程不中断
+- ❌ **MediaPipe + GGUF**：因兼容性问题已废弃
+- 🔮 **未来扩展**：保留 SLM 接口，支持后续接入 llama.cpp 或其他端侧推理框架
 
 ## 📄 许可证
 

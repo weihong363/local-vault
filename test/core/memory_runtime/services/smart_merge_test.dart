@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
 import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
+import 'package:local_vault/core/memory_runtime/policies/default_memory_policy.dart';
 import 'package:local_vault/core/memory_runtime/services/rule_based_memory_runtime.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
-import 'package:local_vault/core/memory_runtime/policies/default_memory_policy.dart';
-import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
 
 void main() {
-  group('智能合并双入口策略测试', () {
+  group('Smart merge dual entry policy testing', () {
     late RuleBasedMemoryMerger merger;
     late MemorySLMService slmService;
     late MemoryPolicy policy;
@@ -18,16 +18,16 @@ void main() {
         maxCompressedClausesValue: 20,
       );
 
-      // 不初始化 SLM，模拟 SLM 关闭状态
+      // The SLM is not initialized, and the SLM is turned off
       merger = RuleBasedMemoryMerger(
         slmService: slmService,
         policy: policy,
       );
     });
 
-    group('规则路径测试（SLM 关闭）', () {
-      test('GraphRAG 文本 - 基础结构化合并', () async {
-        // 用户提供的真实测试文本
+    group('Rule Path Testing (SLM Off)', () {
+      test('GraphRAG Text - Infrastructure Structured Merge', () async {
+        // Real test text
         final graphragText1 = '''
 坦白说，如果把微软标准的 GraphRAG 直接搬到手机上，目前的性能会是严重的瓶颈，几乎不可用。它的构建和查询都太重了。
 
@@ -43,7 +43,7 @@ void main() {
 · 查询延迟高且不可控：查询时可能需要遍历整个图结构，延迟比向量检索高得多。手机 CPU 处理这种复杂图遍历会很吃力，影响用户体验。
 ''';
 
-        // 模拟两个记忆单元
+        // Simulate two memory units
         final left = _createMemoryUnit(
           summary: graphragText1,
           topic: 'GraphRAG',
@@ -56,36 +56,39 @@ void main() {
           keywords: ['GraphRAG', '索引', '查询'],
         );
 
-        // 执行智能合并（SLM 未初始化，走规则路径）
+        // Perform Smart Merge (SLM not initialized, follow the rule path)
         final result = await merger.mergeUnits(
           left,
           right,
           strategy: MemoryMergeStrategy.smartMerge,
         );
 
-        // 验证输出格式为结构化项目符号
+        // Verify that the output format is structured bullets
         expect(result.summary, isNotEmpty);
         expect(result.summary.contains('•'), isTrue,
-            reason: '规则路径应该输出结构化项目符号（•）');
+            reason: 'Rule path should output structured bullet points (•)');
 
-        // 验证关键信息保留
-        expect(result.summary.contains('1000 倍'), isTrue, reason: '应保留关键性能数据');
+        // Verify critical information retention
+        expect(result.summary.contains('1000 倍'), isTrue,
+            reason: 'Should retain key performance data');
         expect(result.summary.contains('索引构建') || result.summary.contains('索引'),
             isTrue,
-            reason: '应保留核心概念');
+            reason: 'Should retain core concepts');
 
-        // 验证去重逻辑
+        // Validate the deduplication logic
         final bulletCount = result.summary
             .split('\n')
             .where((line) => line.trim().startsWith('•'))
             .length;
-        expect(bulletCount, greaterThanOrEqualTo(5), reason: '至少保留 5 条要点');
-        expect(bulletCount, lessThanOrEqualTo(10), reason: '最多保留 10 条要点');
+        expect(bulletCount, greaterThanOrEqualTo(5),
+            reason: 'Should retain at least 5 bullet points');
+        expect(bulletCount, lessThanOrEqualTo(10),
+            reason: 'Should retain at most 10 bullet points');
 
-        print('✅ 规则路径合并结果:\n${result.summary}');
+        print('✅ Rule path merge results:\n${result.summary}');
       });
 
-      test('轻量化方案文本 - 低信号过滤', () async {
+      test('Lightweight protocol text - low-signal filtering', () async {
         final text1 = '''
 有哪些专为端侧优化的轻量化方案？
 
@@ -113,26 +116,30 @@ void main() {
 
         final result = await merger.mergeUnits(left, right);
 
-        // 验证低信号内容被过滤
-        expect(result.summary.contains('这个'), isFalse, reason: '应过滤"这个"等低信号词');
-        expect(result.summary.contains('那个'), isFalse, reason: '应过滤"那个"等低信号词');
-        expect(result.summary.contains('一些'), isFalse, reason: '应过滤"一些"等低信号词');
+        // Verify low-signal content is filtered
+        expect(result.summary.contains('这个'), isFalse,
+            reason: 'Should filter low-signal words like "这个"');
+        expect(result.summary.contains('那个'), isFalse,
+            reason: 'Should filter low-signal words like "那个"');
+        expect(result.summary.contains('一些'), isFalse,
+            reason: 'Should filter low-signal words like "一些"');
 
-        // 验证关键数据保留
+        // Verify critical data retention
         expect(
             result.summary.contains('0.1%') || result.summary.contains('1/700'),
             isTrue,
-            reason: '应保留关键性能数据');
+            reason: 'Should retain key performance data');
         expect(
             result.summary.contains('1/10') || result.summary.contains('1/100'),
             isTrue,
-            reason: '应保留关键性能数据');
-        expect(result.summary.contains('1.5GB'), isTrue, reason: '应保留关键技术参数');
+            reason: 'Should retain key performance data');
+        expect(result.summary.contains('1.5GB'), isTrue,
+            reason: 'Should retain key technical parameters');
 
-        print('✅ 轻量化方案合并结果:\n${result.summary}');
+        print('✅ Lightweight scheme combined results:\n${result.summary}');
       });
 
-      test('重复内容去重测试', () async {
+      test('Duplicate content deduplication testing', () async {
         final text1 = '''
 GraphRAG 在端侧运行很困难。
 标准 GraphRAG 因资源消耗过大，不适合直接在手机上运行。
@@ -157,22 +164,24 @@ GraphRAG 在端侧运行很困难。
 
         final result = await merger.mergeUnits(left, right);
 
-        // 验证相似内容去重
+        // Verify similar content deduplication
         final lines = result.summary
             .split('\n')
             .where((line) => line.trim().isNotEmpty)
             .toList();
-        expect(lines.length, lessThanOrEqualTo(10), reason: '去重后行数不应过多');
+        expect(lines.length, lessThanOrEqualTo(10),
+            reason: 'Line count after deduplication should not be excessive');
 
-        // 验证输出格式
+        // Verify output format
         for (final line in lines.where((l) => l.trim().startsWith('•'))) {
-          expect(line.trim().startsWith('• '), isTrue, reason: '每个要点应以"• "开头');
+          expect(line.trim().startsWith('• '), isTrue,
+              reason: 'Each bullet point should start with "• "');
         }
 
-        print('✅ 去重测试结果:\n${result.summary}');
+        print('✅ Deduplication test results:\n${result.summary}');
       });
 
-      test('建议类文本 - 保留关键行动点', () async {
+      test('Suggested text - Preserve key action points', () async {
         final text1 = '''
 总结与建议
 
@@ -202,24 +211,25 @@ GraphRAG 在端侧运行很困难。
 
         final result = await merger.mergeUnits(left, right);
 
-        // 验证关键行动点保留
+        // Validate key action point retention
         expect(
             result.summary.contains('LazyGraphRAG') ||
                 result.summary.contains('E²GraphRAG'),
             isTrue,
-            reason: '应保留具体方案名称');
-        expect(result.summary.contains('RAGFlow'), isTrue, reason: '应保留具体方案名称');
+            reason: 'Should retain specific solution names');
+        expect(result.summary.contains('RAGFlow'), isTrue,
+            reason: 'Should retain specific solution names');
         expect(result.summary.contains('混合') || result.summary.contains('架构'),
             isTrue,
-            reason: '应保留核心建议');
+            reason: 'Should retain core suggestions');
 
-        // 验证问句可能被过滤（低信号）
-        // 注意：这不是强制要求，因为问句也可能包含重要信息
+        // Verify questions may be filtered (low signal)
+        // Note: This is not a strict requirement, as questions may also contain important information
 
         print('✅ 建议类文本合并结果:\n${result.summary}');
       });
 
-      test('表格数据文本 - 保留结构化信息', () async {
+      test('Table data text - Preserve structured information', () async {
         final text1 = '''
 轻量化 GraphRAG 框架对比
 
@@ -249,24 +259,25 @@ nano-graphrag 精简代码，去除冗余模块 低 中等 中等
 
         final result = await merger.mergeUnits(left, right);
 
-        // 验证关键框架名称保留
+        // Verify critical framework name retention
         expect(result.summary.contains('LazyGraphRAG'), isTrue,
-            reason: '应保留框架名称');
+            reason: 'Should retain framework names');
         expect(
             result.summary.contains('E²GraphRAG') ||
                 result.summary.contains('E2GraphRAG'),
             isTrue,
-            reason: '应保留框架名称');
-        expect(result.summary.contains('RAGFlow'), isTrue, reason: '应保留框架名称');
+            reason: 'Should retain framework names');
+        expect(result.summary.contains('RAGFlow'), isTrue,
+            reason: 'Should retain framework names');
         expect(result.summary.contains('nano-graphrag'), isTrue,
-            reason: '应保留框架名称');
+            reason: 'Should retain framework names');
 
         print('✅ 表格数据合并结果:\n${result.summary}');
       });
     });
 
-    group('边界条件测试', () {
-      test('空内容处理', () async {
+    group('Edge Case Tests', () {
+      test('Empty content handling', () async {
         final left = _createMemoryUnit(
           summary: '',
           topic: '测试',
@@ -284,7 +295,7 @@ nano-graphrag 精简代码，去除冗余模块 低 中等 中等
         expect(result.summary, isEmpty);
       });
 
-      test('单条内容处理', () async {
+      test('Single content handling', () async {
         final content = '这是唯一的内容。';
 
         final left = _createMemoryUnit(
@@ -305,8 +316,8 @@ nano-graphrag 精简代码，去除冗余模块 低 中等 中等
         expect(result.summary.contains('唯一'), isTrue);
       });
 
-      test('超长文本压缩', () async {
-        // 生成超长文本
+      test('Long text compression', () async {
+        // Generate long text
         final longText = List.generate(100, (i) => '这是第$i个句子。').join(' ');
 
         final left = _createMemoryUnit(
@@ -316,28 +327,30 @@ nano-graphrag 精简代码，去除冗余模块 低 中等 中等
         );
 
         final right = _createMemoryUnit(
-          summary: longText, // 重复内容，测试去重
+          summary: longText, // Duplicate content, test deduplication
           topic: '测试',
           keywords: ['测试'],
         );
 
         final result = await merger.mergeUnits(left, right);
 
-        // 验证去重后只保留一份
+        // Verify only one copy is retained after deduplication
         expect(result.summary.length, lessThan(longText.length * 1.5),
-            reason: '去重后长度应显著减少');
+            reason:
+                'Length should be significantly reduced after deduplication');
 
-        // 验证要点数量限制
+        // Verify bullet point limit
         final bulletCount = result.summary
             .split('\n')
             .where((line) => line.trim().startsWith('•'))
             .length;
-        expect(bulletCount, lessThanOrEqualTo(10), reason: '最多 10 条要点');
+        expect(bulletCount, lessThanOrEqualTo(10),
+            reason: 'Maximum 10 bullet points');
       });
     });
 
-    group('其他合并策略测试', () {
-      test('保留旧版本策略', () async {
+    group('Other Merge Strategy Tests', () {
+      test('Keep old version strategy', () async {
         final oldContent = '这是旧版本的内容。';
         final newContent = '这是新版本的内容。';
 
@@ -362,7 +375,7 @@ nano-graphrag 精简代码，去除冗余模块 低 中等 中等
         expect(result.summary, equals(oldContent));
       });
 
-      test('保留新版本策略', () async {
+      test('Keep new version strategy', () async {
         final oldContent = '这是旧版本的内容。';
         final newContent = '这是新版本的内容。';
 
@@ -390,7 +403,7 @@ nano-graphrag 精简代码，去除冗余模块 低 中等 中等
   });
 }
 
-// 辅助函数：创建测试用的 MemoryUnit
+// Helper function: Create test MemoryUnit
 MemoryUnit _createMemoryUnit({
   required String summary,
   required String topic,

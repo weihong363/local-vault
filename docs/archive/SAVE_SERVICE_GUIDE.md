@@ -1,122 +1,128 @@
-# 摘要保存服务使用指南
+# Summary Save Service Usage Guide
 
-## 概述
+## Overview
 
-本项目已经封装了统一的摘要保存接口，支持多种触发方式：
+This project has encapsulated a unified summary saving interface, supporting multiple trigger methods:
 
-- **分享触发** (`SaveTriggerType.share`) - 通过系统分享菜单
-- **手势触发** (`SaveTriggerType.gesture`) - 背部敲击等手势
-- **快捷操作** (`SaveTriggerType.quickAction`) - 控制中心悬浮球
-- **语音唤醒** (`SaveTriggerType.voice`) - 语音指令
-- **手动触发** (`SaveTriggerType.manual`) - 应用内按钮
+- **Share trigger** (`SaveTriggerType.share`) - through system share menu
+- **Gesture trigger** (`SaveTriggerType.gesture`) - back tap and other gestures
+- **Quick action** (`SaveTriggerType.quickAction`) - control center floating ball
+- **Voice wake-up** (`SaveTriggerType.voice`) - voice commands
+- **Manual trigger** (`SaveTriggerType.manual`) - in-app buttons
 
-## 核心类说明
+## Core Class Explanation
 
-### 1. SaveContext（保存上下文）
+### 1. SaveContext (Save Context)
 
-记录保存操作的触发来源和元数据：
+Records the trigger source and metadata of the save operation:
 
 ```dart
-// 创建分享上下文
+// Create share context
 final context = SaveContext.share(metadata: {
   'sourceApp': 'com.android.chrome',
 });
 
-// 创建手势上下文
+// Create gesture context
 final context = SaveContext.gesture(
   tapCount: 2,
   packageName: 'com.tencent.mm',
 );
 
-// 创建快捷操作上下文
+// Create quick action context
 final context = SaveContext.quickAction(actionId: 'floating_ball');
 ```
 
-### 2. SavePayload（保存数据）
+### 2. SavePayload (Save Data)
 
-封装要保存的内容：
+Encapsulates the content to be saved:
 
 ```dart
-// 从分享文本创建
+// Create from share text
 final payload = SavePayload.fromShare(sharedText);
 
-// 从 OCR 结果创建
+// Create from OCR result
 final payload = SavePayload.fromOCR(recognizedText);
 
-// 手动创建完整数据
+// Manually create complete data
 final payload = SavePayload(
-  title: '重要笔记',
-  content: '这是内容...',
-  tags: ['工作', '会议'],
- remark: '需要跟进',
+  title: 'Important Note',
+  content: 'This is content...',
+  tags: ['Work', 'Meeting'],
+  remark: 'Need to follow up',
   sourceType: 'manual',
 );
 ```
 
-### 3. SummarySaveService（保存服务）
+### 3. SummarySaveService (Save Service)
 
-核心服务类，提供钩子机制：
+Core service class, providing hook mechanism:
 
 ```dart
 final saveService = SummarySaveService();
 
-// 注册保存前钩子
+// Register before save hook
 saveService.registerBeforeSave((payload, context) async {
-  // 可以在这里做预处理、验证等
+// Can do preprocessing, validation, etc. here
   if (payload.content.isEmpty) {
-   return false; // 中断保存
+return false; // Interrupt save
   }
- return true; // 继续保存
+return true; // Continue saving
 });
 
-// 注册保存后钩子
+// Register after save hook
 saveService.registerAfterSave((payload, context, success) {
   if (success) {
-   debugPrint('保存成功：${payload.title}');
+debugPrint('Save successful: ${payload.title}');
   }
 });
 ```
 
-### 4. SaveCoordinator（保存协调器）
+### 4. SaveCoordinator (Save Coordinator)
 
-门面模式，简化调用：
+Facade pattern, simplifies calling:
 
 ```dart
 final coordinator = SaveCoordinator();
 
-// 处理分享触发
+// Handle share trigger
 await coordinator.handleShare(text: sharedText);
 
-// 处理手势触发
+// Handle gesture trigger
 await coordinator.handleGesture(
   content: clipboardContent,
   tapCount: 2,
   packageName: currentApp,
 );
 
-// 处理快捷操作触发
+// Handle quick action trigger
 await coordinator.handleQuickAction(
   content: quickActionContent,
   actionId: 'ball_001',
 );
 
-// 处理语音触发
+// Handle voice trigger
 await coordinator.handleVoice(
   content: voiceRecognizedText,
-  voiceCommand: '保存到记忆库',
+voiceCommand: 'Save to memory bank',
 );
 
-// 处理手动触发（直接保存，不显示 UI）
+// Handle manual trigger (direct save, no UI)
 await coordinator.handleManual(
-  title: '标题',
-  content: '内容',
-  tags: ['标签 1', '标签 2'],
+title: 'Title',
+content: 'Content',
+tags: ['Tag 1',
+'
+Tag
+2
+'
+]
+,
 );
 ```
 
-## 集成示例
+## Integration Examples
 
-### 在 MainActivity.kt 中处理分享
+### Handling Share in MainActivity.kt
 
 ```kotlin
 when (it.action) {
@@ -125,9 +131,9 @@ when (it.action) {
             mimeType == "text/plain" -> {
                val text = it.getStringExtra(Intent.EXTRA_TEXT)
                if (text != null) {
-                    // 原生端缓存
+                   // Native side cache
                     pendingShareText = text
-                    // 通知 Flutter 端
+                   // Notify Flutter side
                     shareChannel?.invokeMethod("onShareReceived", text)
                 }
             }
@@ -136,33 +142,33 @@ when (it.action) {
 }
 ```
 
-### 在 main.dart 中监听分享
+### Listening for Share in main.dart
 
 ```dart
 void _initializeShareService() {
   final shareService = ShareService();
   shareService.initialize();
-  
-  // 监听分享流
+
+  // Listen to share stream
   _shareSubscription = shareService.shareStream.listen((sharedText) {
    if (mounted) {
-      // 使用协调器统一处理
+     // Use coordinator to handle uniformly
       SaveCoordinator().handleShare(text: sharedText.text);
     }
   });
 }
 ```
 
-### 在手势服务中调用
+### Calling in Gesture Service
 
 ```dart
 class FloatingWindowService {
   Future<void> handleGesture(int tapCount, String packageName) async {
-    // 从剪贴板获取内容
+    // Get content from clipboard
     final content = await Clipboard.getData(Clipboard.kTextPlain);
     
    if (content?.text != null) {
-      // 使用协调器处理手势触发保存
+     // Use coordinator to handle gesture-triggered save
      await SaveCoordinator().handleGesture(
         content: content!.text!,
         tapCount: tapCount,
@@ -173,32 +179,32 @@ class FloatingWindowService {
 }
 ```
 
-## 钩子使用场景
+## Hook Usage Scenarios
 
-### 1. 自动添加标签
+### 1. Automatic Tag Addition
 
 ```dart
 SaveCoordinator().registerBeforeSave((payload, context) async {
-  // 根据触发来源自动添加标签
+// Automatically add tags based on trigger source
   List<String> autoTags = [];
   
   if (context.triggerType == SaveTriggerType.share) {
-    autoTags.add('来自分享');
+autoTags.add('From Share');
   } else if (context.triggerType == SaveTriggerType.gesture) {
-    autoTags.add('手势快速保存');
+autoTags.add('Gesture Quick Save');
   }
-  
-  // 返回修改后的 payload（需要扩展 Payload 支持 copyWith）
+
+// Return modified payload (need to extend Payload to support copyWith)
  return true;
 });
 ```
 
-### 2. 保存统计
+### 2. Save Statistics
 
 ```dart
 SaveCoordinator().registerAfterSave((payload, context, success) {
   if (success) {
-    // 记录统计信息
+// Record statistical information
     Analytics.log('summary_saved', {
       'trigger_type': context.triggerType.name,
       'source_type': payload.sourceType,
@@ -208,85 +214,85 @@ SaveCoordinator().registerAfterSave((payload, context, success) {
 });
 ```
 
-### 3. 智能标题生成
+### 3. Intelligent Title Generation
 
 ```dart
 SaveCoordinator().registerBeforeSave((payload, context) async {
-  // 如果标题为空，尝试从内容提取
+// If title is empty, try to extract from content
   if (payload.title.isEmpty && payload.content.isNotEmpty) {
     final firstLine = payload.content.split('\n').first;
-    // 可以调用 AI 生成标题或截取关键词
+// Can call AI to generate title or extract keywords
     // final generatedTitle = await AIService.generateTitle(firstLine);
   }
  return true;
 });
 ```
 
-## 最佳实践
+## Best Practices
 
-### 1. 单一职责原则
+### 1. Single Responsibility Principle
 
-每个触发方式都有独立的处理方法，保持职责清晰。
+Each trigger method has its own independent processing method, keeping responsibilities clear.
 
-### 2. 开闭原则
+### 2. Open/Closed Principle
 
-通过钩子机制扩展功能，无需修改核心代码。
+Extend functionality through hook mechanism without modifying core code.
 
-### 3. 依赖倒置
+### 3. Dependency Inversion
 
-上层业务依赖抽象的 `SaveContext` 和 `SavePayload`，而非具体实现。
+Upper-level business depends on abstract `SaveContext` and `SavePayload`, not specific implementations.
 
-### 4. 日志记录
+### 4. Logging
 
-所有关键步骤都有详细的日志输出，便于调试。
+All key steps have detailed log output for easy debugging.
 
-### 5. 错误处理
+### 5. Error Handling
 
-每个方法都有 try-catch 保护，不会导致应用崩溃。
+Each method has try-catch protection to prevent app crashes.
 
-## 未来扩展
+## Future Extensions
 
-### 1. 批量保存
+### 1. Batch Save
 
 ```dart
 Future<bool> handleBatchSave({
  required List<SavePayload> payloads,
  required SaveContext context,
 }) async {
-  // 批量处理逻辑
+  // Batch processing logic
 }
 ```
 
-### 2. 定时保存
+### 2. Scheduled Save
 
 ```dart
 Future<void> scheduleAutoSave({
  required String content,
  required Duration interval,
 }) async {
-  // 定时自动保存逻辑
+  // Scheduled auto-save logic
 }
 ```
 
-### 3. 云同步
+### 3. Cloud Sync
 
 ```dart
 SaveCoordinator().registerAfterSave((payload, context, success) async {
   if (success) {
-    // 异步同步到云端
+// Async sync to cloud
    await CloudSyncService().sync(payload);
   }
 });
 ```
 
-## 注意事项
+## Notes
 
-1. **线程安全**：所有方法都是异步的，避免在 UI 线程执行耗时操作
-2. **内存管理**：及时清理不需要的钩子，避免内存泄漏
-3. **测试覆盖**：为每个触发方式编写单元测试
-4. **权限检查**：某些触发方式（如手势、悬浮球）需要特殊权限
+1. **Thread Safety**: All methods are asynchronous, avoid performing time-consuming operations on UI thread
+2. **Memory Management**: Clean up unnecessary hooks in time to avoid memory leaks
+3. **Test Coverage**: Write unit tests for each trigger method
+4. **Permission Check**: Some trigger methods (like gestures, floating balls) require special permissions
 
-## 相关文档
+## Related Documents
 
-- [SHARE_SOLUTION.md](SHARE_SOLUTION.md) - 分享功能详细设计
-- [LocalVault-Context.md](../LocalVault-Context.md) - 项目核心思想与能力摘要
+- [SHARE_SOLUTION.md](SHARE_SOLUTION.md) - Detailed design of sharing functionality
+- [LocalVault-Context.md](../LocalVault-Context.md) - Project core ideas and capability summary

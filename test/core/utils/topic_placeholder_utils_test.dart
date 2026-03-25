@@ -18,7 +18,7 @@ void main() {
       expect(TopicPlaceholderUtils.isPlaceholderTopic('正式发布计划'), isFalse);
     });
 
-    test('strips leading placeholder prefixes from multilingual topics', () {
+    test('Strips leading placeholder prefixes from multilingual topics', () {
       expect(
         TopicPlaceholderUtils.stripLeadingPlaceholder(
           'Resumen pendiente: lanzamiento del proyecto',

@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
 import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
+import 'package:local_vault/core/memory_runtime/policies/default_memory_policy.dart';
 import 'package:local_vault/core/memory_runtime/services/rule_based_memory_runtime.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
-import 'package:local_vault/core/memory_runtime/policies/default_memory_policy.dart';
-import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
 
 void main() {
-  test('规则路径结构化合并 - GraphRAG 示例', () async {
-    // SLM 未初始化，走规则路径
+  test('Rule path structured merge - GraphRAG example', () async {
+    // SLM is not initialized and follows the regular path
     final slmService = MemorySLMService();
     final policy = DefaultMemoryPolicy(
       maxCompressedSummaryCharsValue: 800,
@@ -19,7 +19,7 @@ void main() {
       policy: policy,
     );
 
-    // 用户提供的真实测试文本
+    // Real test text
     final graphragText1 = '''
 坦白说，如果把微软标准的 GraphRAG 直接搬到手机上，目前的性能会是严重的瓶颈，几乎不可用。它的构建和查询都太重了。
 
@@ -59,35 +59,40 @@ void main() {
       confidence: 0.7,
     );
 
-    // 执行智能合并（SLM 未初始化，走规则路径）
+    // Perform Smart Merge (SLM not initialized, follow the rule path)
     final result = await merger.mergeUnits(
       left,
       right,
       strategy: MemoryMergeStrategy.smartMerge,
     );
 
-    print('\n========== 合并结果 ==========');
+    print('\n========== Merge Results ==========');
     print(result.summary);
     print('============================\n');
 
-    // 验证输出格式为结构化项目符号
-    expect(result.summary, isNotEmpty, reason: '合并结果不应为空');
-    expect(result.summary.contains('•'), isTrue, reason: '规则路径应该输出结构化项目符号（•）');
+    // Verify output format is structured bullet points
+    expect(result.summary, isNotEmpty,
+        reason: 'Merge result should not be empty');
+    expect(result.summary.contains('•'), isTrue,
+        reason: 'Rule path should output structured bullet points (•)');
 
-    // 验证关键信息保留
-    expect(result.summary.contains('1000 倍'), isTrue, reason: '应保留关键性能数据');
+    // Verify critical information retention
+    expect(result.summary.contains('1000 倍'), isTrue,
+        reason: 'Should retain key performance data');
 
-    // 验证去重逻辑
+    // Verify deduplication logic
     final bulletCount = result.summary
         .split('\n')
         .where((line) => line.trim().startsWith('•'))
         .length;
-    print('要点数量：$bulletCount');
-    expect(bulletCount, greaterThanOrEqualTo(3), reason: '至少保留几条要点');
-    expect(bulletCount, lessThanOrEqualTo(15), reason: '最多保留 15 条要点');
+    print('Bullet point count: $bulletCount');
+    expect(bulletCount, greaterThanOrEqualTo(3),
+        reason: 'Should retain at least a few bullet points');
+    expect(bulletCount, lessThanOrEqualTo(15),
+        reason: 'Should retain at most 15 bullet points');
   });
 
-  test('低信号过滤测试', () async {
+  test('Low signal filtering test', () async {
     final slmService = MemorySLMService();
     final policy = DefaultMemoryPolicy();
 
@@ -133,33 +138,40 @@ void main() {
 
     final result = await merger.mergeUnits(left, right);
 
-    print('\n========== 低信号过滤结果 ==========');
+    print('\n========== Low Signal Filter Results ==========');
     print(result.summary);
     print('==================================\n');
 
-    // 验证低信号内容被过滤
-    expect(result.summary.contains('这个'), isFalse, reason: '应过滤"这个"等低信号词');
-    expect(result.summary.contains('那个'), isFalse, reason: '应过滤"那个"等低信号词');
-    expect(result.summary.contains('一些'), isFalse, reason: '应过滤"一些"等低信号词');
-    expect(result.summary.contains('可能'), isFalse, reason: '应过滤"可能"等低信号词');
-    expect(result.summary.contains('一般来说'), isFalse, reason: '应过滤"一般来说"等低信号词');
+    // Verify that low-signal content is filtered
+    expect(result.summary.contains('这个'), isFalse,
+        reason: 'Should filter low-signal words like "这个"');
+    expect(result.summary.contains('那个'), isFalse,
+        reason: 'Should filter low-signal words like "那个"');
+    expect(result.summary.contains('一些'), isFalse,
+        reason: 'Should filter low-signal words like "一些"');
+    expect(result.summary.contains('可能'), isFalse,
+        reason: 'Should filter low-signal words like "可能"');
+    expect(result.summary.contains('一般来说'), isFalse,
+        reason: 'Should filter low-signal words like "一般来说"');
     expect(result.summary.contains('通常情况下'), isFalse,
-        reason: '应过滤"通常情况下"等低信号词');
-    expect(result.summary.contains('总之'), isFalse, reason: '应过滤"总之"等低信号词');
-    expect(result.summary.contains('简单来说'), isFalse, reason: '应过滤"简单来说"等低信号词');
+        reason: 'Should filter low-signal words like "通常情况下"');
+    expect(result.summary.contains('总之'), isFalse,
+        reason: 'Should filter low-signal words like "总之"');
+    expect(result.summary.contains('简单来说'), isFalse,
+        reason: 'Should filter low-signal words like "简单来说"');
 
-    // 验证高信号内容保留
+    // Verify high-signal content retention
     expect(result.summary.contains('核心功能') || result.summary.contains('快速检索'),
         isTrue,
-        reason: '应保留高信号内容');
+        reason: 'Should retain high-signal content');
     expect(result.summary.contains('关键技术') || result.summary.contains('优化算法'),
         isTrue,
-        reason: '应保留高信号内容');
+        reason: 'Should retain high-signal content');
     expect(
         result.summary.contains('必须') || result.summary.contains('性能'), isTrue,
-        reason: '应保留高信号内容');
+        reason: 'Should retain high-signal content');
     expect(
         result.summary.contains('建议') || result.summary.contains('测试'), isTrue,
-        reason: '应保留高信号内容');
+        reason: 'Should retain high-signal content');
   });
 }

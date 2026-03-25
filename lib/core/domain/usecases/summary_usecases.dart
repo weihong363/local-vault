@@ -15,7 +15,7 @@ import 'package:local_vault/core/utils/memory_title_generator.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
 import 'package:local_vault/core/utils/summary_text_utils.dart';
 
-/// 摘要业务用例
+/// Summary business use cases
 class SummaryUseCases {
   SummaryUseCases(
     this.repository,
@@ -33,7 +33,7 @@ class SummaryUseCases {
   final MemoryPromotionRepositoryInterface? promotionRepository;
   final MemoryMerger? merger;
 
-  /// 添加摘要
+  /// Add summary
   Future<void> addSummary(SummaryEntity summary) async {
     debugPrint(
       '💾 [SummaryUseCases.addSummary] Before enhance: title="${summary.title}", topic="${summary.topic}"',
@@ -47,9 +47,9 @@ class SummaryUseCases {
     _scheduleMemoryCompaction();
   }
 
-  /// 使用结构化标题生成器优化标题和主题
+  /// Optimize title and topic using structured title generator
   SummaryEntity _enhanceWithStructuredTitle(SummaryEntity summary) {
-    // ✅ 关键修复：如果标题是 "Untitled"，不要传入 rawContent，避免污染
+    // ✅ Key fix: If title is "Untitled", do not pass rawContent to avoid pollution
     final rawContent = SummaryTextUtils.isUnnamedTitleValue(summary.title)
         ? summary.content
         : '${summary.title} ${summary.content}'.trim();
@@ -71,7 +71,7 @@ class SummaryUseCases {
     );
 
     if (titleResult.confidence >= 0.5 && titleResult.title.isNotEmpty) {
-      // ✅ 检查是否是占位符主题（如 Untitled、未命名等）
+      // ✅ Check if topic is a placeholder (e.g., Untitled, unnamed, etc.)
       final extractedTopic = titleResult.structuredData.topic ?? '';
       final isValidTopic = _isValidSemanticTopic(extractedTopic);
 
@@ -84,12 +84,12 @@ class SummaryUseCases {
         '(valid: $isValidTopic)',
       );
 
-      // ✅ 如果 topic 是占位符，尝试重新生成更好的标题
+      // ✅ If topic is a placeholder, try to regenerate a better title
       String finalTitle;
       String? finalTopic;
 
       if (!isValidTopic) {
-        // topic 是占位符，尝试基于内容提取更有意义的关键词
+        // Topic is a placeholder, try to extract more meaningful keywords from content
         final bestKeyword = _extractBestKeywordFromContent(summary.content);
         if (bestKeyword != null && bestKeyword.isNotEmpty) {
           finalTitle =
@@ -99,7 +99,7 @@ class SummaryUseCases {
             '♻️ [StructuredTitle] Regenerated with keyword: title="$finalTitle", topic="$finalTopic"',
           );
         } else {
-          // ⚠️ 无法提取关键词，使用 SummaryTextUtils 作为最后兜底
+          // ⚠️ Cannot extract keyword, use SummaryTextUtils as final fallback
           final fallbackTitle = SummaryTextUtils.generateTitle(summary.content);
           if (!SummaryTextUtils.isUnnamedTitleValue(fallbackTitle)) {
             finalTitle = fallbackTitle;
@@ -108,7 +108,7 @@ class SummaryUseCases {
               '🔄 [StructuredTitle] Fallback to SummaryTextUtils: title="$finalTitle"',
             );
           } else {
-            // 所有方法都失败，保留原标题但清除 topic
+            // All methods failed, keep original title but clear topic
             finalTitle = titleResult.title;
             finalTopic = null;
             debugPrint(
@@ -117,7 +117,7 @@ class SummaryUseCases {
           }
         }
       } else {
-        // topic 有效，直接使用
+        // Topic is valid, use directly
         finalTitle = titleResult.title;
         finalTopic = extractedTopic;
       }
@@ -140,23 +140,23 @@ class SummaryUseCases {
     return summary;
   }
 
-  /// 从内容中提取最佳关键词
+  /// Extract best keyword from content
   ///
-  /// 用于当原始 topic 是占位符时的兜底策略
+  /// Fallback strategy when original topic is a placeholder
   String? _extractBestKeywordFromContent(String content) {
     if (content.isEmpty) return null;
 
-    // 尝试提取技术术语、首句关键词等
+    // Try to extract technical terms, keywords from first line, etc.
     final lines = content.split('\n').where((line) => line.trim().isNotEmpty);
     if (lines.isEmpty) return null;
 
-    // 从第一行提取前几个有意义的词
+    // Extract first few meaningful words from the first line
     final firstLine = lines.first.trim();
     final words = firstLine.split(RegExp(r'[\s,.!?;:]+'));
 
     for (final word in words.take(5)) {
       var cleanWord = word.trim();
-      // 移除开头的引号、括号
+      // Remove leading quotes and brackets
       while (cleanWord.isNotEmpty &&
           (cleanWord.codeUnitAt(0) == 34 || // "
               cleanWord.codeUnitAt(0) == 39 || // '
@@ -165,7 +165,7 @@ class SummaryUseCases {
         // [
         cleanWord = cleanWord.substring(1);
       }
-      // 移除结尾的引号、括号
+      // Remove trailing quotes and brackets
       while (cleanWord.isNotEmpty &&
           (cleanWord.codeUnitAt(cleanWord.length - 1) == 34 || // "
               cleanWord.codeUnitAt(cleanWord.length - 1) == 39 || // '
@@ -185,17 +185,17 @@ class SummaryUseCases {
     return null;
   }
 
-  /// 检查是否是常见的停用词
+  /// Check if it's a common stop word
   bool _isStopWord(String word) {
     const stopWords = {
-      // 英文停用词
+      // English stop words
       'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
       'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
       'and', 'or', 'but', 'if', 'then', 'else', 'when', 'what', 'where',
       'which', 'who', 'whom', 'whose', 'why', 'how', 'this', 'that',
       'these', 'those', 'it', 'its', 'of', 'for', 'with', 'at', 'by',
       'from', 'up', 'to', 'in', 'on', 'as', 'so', 'than', 'too',
-      // 中文停用词
+      // Chinese stop words
       '的', '了', '是', '在', '我', '有', '和', '就', '不', '人',
       '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去',
       '你', '会', '着', '没有', '看', '好', '自己', '这',
@@ -204,15 +204,15 @@ class SummaryUseCases {
     return stopWords.contains(word);
   }
 
-  /// 检查是否是有效的语义主题
+  /// Check if it's a valid semantic topic
   ///
-  /// 过滤掉占位符文本（如 Untitled、未命名等）
+  /// Filter out placeholder text (e.g., Untitled, unnamed, etc.)
   bool _isValidSemanticTopic(String topic) {
     if (topic.isEmpty) return false;
 
     final normalizedTopic = topic.trim().toLowerCase();
 
-    // 英文占位符
+    // English placeholders
     const invalidEnglishTopics = {
       'untitled',
       'untitled summary',
@@ -223,7 +223,7 @@ class SummaryUseCases {
       'default',
     };
 
-    // 中文占位符
+    // Chinese placeholders
     const invalidChineseTopics = {
       '未命名',
       '未命名摘要',
@@ -233,11 +233,11 @@ class SummaryUseCases {
       '默认',
     };
 
-    // 检查是否包含占位符
+    // Check if contains placeholder
     if (invalidEnglishTopics.contains(normalizedTopic)) return false;
     if (invalidChineseTopics.contains(normalizedTopic)) return false;
 
-    // 检查是否以占位符开头（如 "Untitled：xxx"）
+    // Check if starts with placeholder (e.g., "Untitled:xxx")
     for (final invalid in invalidEnglishTopics) {
       if (normalizedTopic.startsWith('$invalid:') ||
           normalizedTopic.startsWith('$invalid：')) {
@@ -255,7 +255,7 @@ class SummaryUseCases {
     return true;
   }
 
-  /// 更新摘要
+  /// Update summary
   Future<void> updateSummary(SummaryEntity summary) async {
     await repository.updateSummary(summary);
     if (summary.type == MemoryType.fact) {
@@ -264,77 +264,77 @@ class SummaryUseCases {
     _scheduleMemoryCompaction();
   }
 
-  /// 删除摘要
+  /// Delete summary
   Future<void> deleteSummary(String id) async {
-    // 1. 先删除关联的晋升元数据
+    // 1. First delete associated promotion metadata
     await promotionRepository?.deleteMetadata(id);
 
-    // 2. 删除核心记忆数据
+    // 2. Delete core memory data
     await repository.deleteSummary(id);
 
-    // 3. 触发记忆压缩
+    // 3. Trigger memory compaction
     _scheduleMemoryCompaction();
   }
 
-  /// 获取单个摘要
+  /// Get single summary
   SummaryEntity? getSummary(String id) {
     return repository.getSummary(id);
   }
 
-  /// 获取所有摘要
+  /// Get all summaries
   List<SummaryEntity> getAllSummaries() {
     return repository.getAllSummaries();
   }
 
-  /// 搜索摘要
+  /// Search summaries
   List<SummaryEntity> searchSummaries(String query) {
     return repository.searchSummaries(query);
   }
 
-  /// 更新排序
+  /// Update sort order
   Future<void> updateSortOrders(List<SummaryEntity> summaries) async {
     await repository.updateSortOrders(summaries);
   }
 
-  /// 根据标签获取摘要
+  /// Get summaries by tag
   List<SummaryEntity> getSummariesByTag(String tag) {
     return repository.getSummariesByTag(tag);
   }
 
-  /// 根据来源获取摘要
+  /// Get summaries by source
   List<SummaryEntity> getSummariesBySource(String source) {
     return repository.getSummariesBySource(source);
   }
 
-  /// 记录访问
+  /// Record access
   ///
-  /// ✅ 新增：触发 Session → Fact 自动检测
+  /// ✅ NEW: Trigger Session → Fact auto-detection
   Future<void> recordAccess(String id) async {
     await repository.recordAccess(id);
 
-    // ✅ 新增：Session → Fact 自动检测
+    // ✅ NEW: Session → Fact auto-detection
     await _upgradeSessionToFactIfNeeded(id);
 
-    // 原有的 Fact → Core 检测
+    // Existing Fact → Core detection
     await _upgradeFactToCoreIfNeeded(id);
     _scheduleMemoryCompaction();
   }
 
-  /// 更新重要性评分
+  /// Update importance score
   ///
-  /// ✅ 新增：触发 Session → Fact 自动检测
+  /// ✅ NEW: Trigger Session → Fact auto-detection
   Future<void> updateImportance(String id, double importance) async {
     await repository.updateImportance(id, importance);
 
-    // ✅ 新增：Session → Fact 自动检测
+    // ✅ NEW: Session → Fact auto-detection
     await _upgradeSessionToFactIfNeeded(id);
 
-    // 原有的 Fact → Core 检测
+    // Existing Fact → Core detection
     await _upgradeFactToCoreIfNeeded(id);
     _scheduleMemoryCompaction();
   }
 
-  /// 获取事实记忆升级为核心记忆的说明
+  /// Get description for upgrading fact memory to core memory
   Future<String?> getFactUpgradeReason(String id) async {
     final summary = getSummary(id);
     if (summary == null || summary.type != MemoryType.fact) {
@@ -346,7 +346,7 @@ class SummaryUseCases {
     return reason.isEmpty ? null : reason;
   }
 
-  /// 手动将事实记忆升级为核心记忆
+  /// Manually upgrade fact memory to core memory
   Future<SummaryEntity?> upgradeFactToCore(String id) async {
     final summary = getSummary(id);
     if (summary == null || summary.type != MemoryType.fact) {
@@ -366,12 +366,12 @@ class SummaryUseCases {
     return updated;
   }
 
-  /// 根据记忆类型获取
+  /// Get summaries by memory type
   List<SummaryEntity> getSummariesByType(MemoryType type) {
     return repository.getSummariesByType(type);
   }
 
-  /// 添加记忆（带去重）
+  /// Add memory (with deduplication)
   Future<void> addWithDeduplication(
     SummaryEntity summary, {
     double? similarityThreshold,
@@ -423,7 +423,7 @@ class SummaryUseCases {
     await addSummary(enhancedSummary);
   }
 
-  /// 添加事实记忆，但不自动合并相似事实，改为返回合并候选供 UI 决策。
+  /// Add fact summary, but do not automatically merge similar facts, instead return merge candidates for UI decision.
   Future<FactSummarySaveResult> addFactSummary(
     SummaryEntity summary, {
     double? similarityThreshold,
@@ -467,7 +467,7 @@ class SummaryUseCases {
   /// Adds a session memory and schedules background processing.
   /// Delegates ingestion to the MemoryCapability runtime.
   ///
-  /// ✅ 新增：自动触发 Session → Fact 检测
+  /// ✅ NEW: Automatically trigger Session → Fact detection
   Future<void> addSessionMemory(SummaryEntity summary) async {
     final enhancedSummary = _enhanceWithStructuredTitle(summary);
     final sessionSummaries = getSummariesByType(MemoryType.session);
@@ -475,7 +475,7 @@ class SummaryUseCases {
 
     final duplicate = _findExactDuplicate(sessionSummaries, enhancedSummary);
     if (duplicate != null) {
-      // ✅ 从 promotion repository 获取元数据并更新
+      // ✅ Get metadata from promotion repository and update
       final metadata = promotionRepository?.getMetadata(duplicate.id);
       final newSessionSpan = (metadata?.sessionSpan ?? 0) + 1;
 
@@ -486,13 +486,13 @@ class SummaryUseCases {
       );
       await updateSummary(savedSession);
 
-      // ✅ 更新 promotion repository 中的 sessionSpan
+      // ✅ Update sessionSpan in promotion repository
       if (metadata != null) {
         await promotionRepository?.saveMetadata(
           metadata.copyWith(sessionSpan: newSessionSpan),
         );
       } else {
-        // 如果之前没有元数据，创建新的
+        // If no metadata existed before, create new one
         await promotionRepository?.saveMetadata(
           MemoryPromotionMetadata(
             summaryId: duplicate.id,
@@ -506,7 +506,7 @@ class SummaryUseCases {
       await addSummary(savedSession);
     }
 
-    // ✅ 新增：保存后检测是否满足晋升条件
+    // ✅ NEW: After saving, check if promotion conditions are met
     await _upgradeSessionToFactIfNeeded(savedSession.id);
 
     final capability = memoryCapability;
@@ -518,7 +518,7 @@ class SummaryUseCases {
     throw StateError('addSessionMemory requires a MemoryCapability');
   }
 
-  /// 查找完全重复的内容（标准化后比较）
+  /// Find exact duplicate content (compare after normalization)
   SummaryEntity? _findExactDuplicate(
     List<SummaryEntity> existing,
     SummaryEntity incoming,
@@ -550,7 +550,7 @@ class SummaryUseCases {
     return content.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
-  /// 合并两个相似记忆
+  /// Merge two similar memories
   SummaryEntity _mergeMemories(SummaryEntity existing, SummaryEntity newOne) {
     final mergedTags = {...existing.tags, ...newOne.tags}.toList();
     final mergedContent = _mergeContent(existing.content, newOne.content);
@@ -565,7 +565,7 @@ class SummaryUseCases {
     );
   }
 
-  /// 合并记忆内容，避免重复
+  /// Merge memory content, avoiding duplication
   String _mergeContent(String content1, String content2) {
     if (content1.contains(content2)) {
       return content1;
@@ -585,7 +585,7 @@ class SummaryUseCases {
     return '$content1\n\n$content2';
   }
 
-  /// 应用遗忘曲线
+  /// Apply forgetting curve
   Future<void> applyForgettingCurve() async {
     final allSummaries = getAllSummaries();
     final now = DateTime.now();
@@ -633,7 +633,7 @@ class SummaryUseCases {
     }
   }
 
-  /// 清理过期会话记忆（默认 2 小时）
+  /// Clean up expired session memories (default 2 hours)
   Future<void> cleanupSessionMemories({
     Duration? maxAge,
   }) async {
@@ -667,7 +667,7 @@ class SummaryUseCases {
     unawaited(capability.compact());
   }
 
-  /// 查找相似记忆
+  /// Find similar memories
   List<SummaryEntity> findSimilarMemories(
     SummaryEntity target, {
     double? threshold,
@@ -718,7 +718,7 @@ class SummaryUseCases {
     return candidates;
   }
 
-  /// 手动合并两个记忆
+  /// Manually merge two memories
   Future<void> mergeMemories(String id1, String id2) async {
     await mergeMemoriesWithResolution(
       primaryId: id1,
@@ -757,11 +757,11 @@ class SummaryUseCases {
     SummaryEntity secondary, {
     SummaryMergeResolution resolution = const SummaryMergeResolution(),
   }) {
-    // 根据合并策略处理 content
+    // Handle content according to merge strategy
     final String mergedContent;
     if (resolution.content == SummaryMergeFieldChoice.combined &&
         merger != null) {
-      // 智能合并：使用记忆运行时的压缩逻辑
+      // Smart merge: use memory runtime compaction logic
       mergedContent = merger!.compressSummaryForMerge(
         primary.content,
         secondary.content,
@@ -769,7 +769,7 @@ class SummaryUseCases {
     } else if (resolution.content == SummaryMergeFieldChoice.incoming) {
       mergedContent = secondary.content;
     } else {
-      // existing 或其他情况
+      // existing or other cases
       mergedContent = primary.content;
     }
 
@@ -808,11 +808,11 @@ class SummaryUseCases {
     final summary = getSummary(id);
     if (summary == null) return;
 
-    // ✅ 从 promotion repository 获取元数据
+    // ✅ Get metadata from promotion repository
     final metadata = promotionRepository?.getMetadata(id);
     if (metadata == null) return;
 
-    // ✅ 使用新的 PromotionScorer 计分
+    // ✅ Score using new PromotionScorer
     final score = PromotionScorer.scoreForFactToCore(
       sessionSpan: metadata.sessionSpan,
       stabilityScore: metadata.stabilityScore,
@@ -824,7 +824,7 @@ class SummaryUseCases {
       usageInRecommendations: metadata.usageInRecommendations,
     );
 
-    // ✅ 检查是否符合晋升条件（≥75 分）
+    // ✅ Check if promotion conditions are met (≥75 points)
     if (score < 75) return;
 
     debugPrint(
@@ -846,17 +846,17 @@ class SummaryUseCases {
 
     debugPrint('✅ [Promotion] Promoted: Fact → Core');
   }
-  
-  /// ✅ 新增：Session → Fact 自动检测
+
+  /// ✅ NEW: Session → Fact auto-detection
   Future<void> _upgradeSessionToFactIfNeeded(String id) async {
     final summary = getSummary(id);
     if (summary == null) return;
 
-    // ✅ 从 promotion repository 获取元数据
+    // ✅ Get metadata from promotion repository
     final metadata = promotionRepository?.getMetadata(id);
     if (metadata == null) return;
 
-    // ✅ 使用新的 PromotionScorer 计分
+    // ✅ Score using new PromotionScorer
     final score = PromotionScorer.scoreForSessionToFact(
       sessionSpan: metadata.sessionSpan,
       userExplicitSave: metadata.userExplicitSave,
@@ -866,7 +866,7 @@ class SummaryUseCases {
       hasConflict: false,
     );
 
-    // ✅ 检查是否符合晋升条件（≥70 分）
+    // ✅ Check if promotion conditions are met (≥70 points)
     if (score < 70) return;
 
     debugPrint(
@@ -889,14 +889,14 @@ class SummaryUseCases {
     debugPrint('✅ [Promotion] Promoted: Session → Fact');
   }
 
-  // === 记忆晋升元数据管理方法 ===
+  // === Memory Promotion Metadata Management Methods ===
 
-  /// 获取记忆的晋升元数据
+  /// Get promotion metadata for memory
   MemoryPromotionMetadata? getPromotionMetadata(String summaryId) {
     return promotionRepository?.getMetadata(summaryId);
   }
 
-  /// 保存或更新记忆的晋升元数据
+  /// Save or update promotion metadata for memory
   Future<void> savePromotionMetadata(MemoryPromotionMetadata metadata) async {
     await promotionRepository?.saveMetadata(metadata);
   }

@@ -1,10 +1,11 @@
-# 记录合并问题修复方案
+# Memory Merge Issues Fix Plan
 
-## 📊 问题分析
+## 📊 Problem Analysis
 
-基于数据库导出数据 (`local_vault_backup_20260323_162636.json`) 的分析，发现当前记忆记录合并逻辑存在以下问题。
+Based on the analysis of database export data (`local_vault_backup_20260323_162636.json`), we identified several issues
+with the current memory record merge logic.
 
-### 数据现状示例
+### Current Data Status Examples
 
 ```json
 {
@@ -35,7 +36,7 @@
       "id": "1774253645126",
       "title": "def：实现 实现注意力计算函数",
       "topic": null
-      // ← 空 topic
+       // ← Empty topic
     }
   ]
 }
@@ -43,26 +44,27 @@
 
 ---
 
-## 🔴 问题清单
+## 🔴 Issue List
 
-### **问题 1: Topic 为空导致合并逻辑失效**
+### **Issue 1: Empty Topic Causes Merge Logic Failure**
 
-**严重程度**: 🔴 严重  
-**影响范围**: 状态推导、检索匹配、合并逻辑  
-**相关文件**:
+**Severity**: 🔴 Critical  
+**Impact Scope**: State derivation, retrieval matching, merge logic  
+**Related Files**:
 
 - `lib/core/memory_runtime/services/rule_based_memory_runtime.dart` (L1343-1362)
 - `lib/core/memory_runtime/services/rule_based_memory_runtime.dart` (L1002-1044)
 
-#### 问题描述
+#### Problem Description
 
-当 `SummaryEntity.topic` 为 null 且 SLM 语义分析失败时，`_stableTopicFromParts` 方法会返回空字符串，导致：
+When `SummaryEntity.topic` is null and SLM semantic analysis fails, the `_stableTopicFromParts` method returns an empty
+string, causing:
 
-1. MemoryUnit 的 topic 字段为空
-2. 状态推导 (`_deriveStatePatch`) 失败
-3. 检索时无法正确匹配相关记忆
+1. MemoryUnit's topic field becomes empty
+2. State derivation (`_deriveStatePatch`) fails
+3. Retrieval cannot correctly match related memories
 
-#### 根本原因
+#### Root Cause
 
 ```dart
 String _stableTopicFromParts({
@@ -168,58 +170,58 @@ String _getDefaultTopic(String? content) {
 }
 ```
 
-**关键改动**:
+**Key Changes**:
 
-1. ✅ **精简为 4 层判断**：显式 topic → SLM 结果 → title → 终极兜底
-2. ✅ **移除冗余逻辑**：不再检查 domainKey、facetKey、keywords（这些已在 SLM 内部处理）
-3. ✅ **终极兜底更智能**：自动从 content 提取或按语言返回默认值
-4. ✅ **减少参数传递**：只需在 `_stableTopic` 处传递一次 content
+1. ✅ **Simplified to 4-level check**: explicit topic → SLM result → title → ultimate fallback
+2. ✅ **Removed redundant logic**: no longer checks domainKey, facetKey, keywords (already handled in SLM)
+3. ✅ **Smarter ultimate fallback**: automatically extracts from content or returns default by language
+4. ✅ **Reduced parameter passing**: only pass content once at `_stableTopic`
 
-#### 验证步骤
+#### Verification Steps
 
-1. 运行编译检查：`flutter analyze`
-2. 创建单元测试，测试 topic 为 null 的场景
-3. 验证合并后 topic 永不为空
+1. Run compilation check: `flutter analyze`
+2. Create unit tests for scenarios where topic is null
+3. Verify that merged topic is never empty
 
 ---
 
-### **问题 2: 合并后信息丢失**
+### **Issue 2: Information Loss After Merge**
 
-**严重程度**: 🟡 中等  
-**影响范围**: 摘要质量、知识完整性  
-**相关文件**:
+**Severity**: 🟡 Medium  
+**Impact Scope**: Summary quality, knowledge integrity  
+**Related Files**:
 
 - `lib/core/memory_runtime/services/rule_based_memory_runtime.dart` (L1075-1103)
 
-#### 问题描述
+#### Problem Description
 
-当前的 `_compressSummary` 方法存在以下问题：
+The current `_compressSummary` method has the following issues:
 
-1. 按标点符号强行分割，切断完整语义单元
-2. 只保留最长句子，短小精悍的关键句被过滤
-3. 去重逻辑基于简单的字符串归一化，无法识别语义重复
+1. Forcefully splits by punctuation, breaking complete semantic units
+2. Only keeps the longest sentences, filtering out concise key sentences
+3. Deduplication logic based on simple string normalization cannot identify semantic duplication
 
-#### 根本原因
+#### Root Cause
 
 ```dart
 String _compressSummary(List<String> parts) {
   final clauses = <String>[];
   final seen = <String>{};
 
-  // 问题 1: 按标点符号分割，破坏语义完整性
+  // Issue 1: Split by punctuation, destroying semantic integrity
   for (final clause in normalizedPart.split(RegExp(r'[\n。！？!?；;]'))) {
     final key = _normalize(clause);
     if (!seen.add(key)) {
-      continue; // 跳过"重复"句子
+       continue; // Skip "duplicate" sentences
     }
     clauses.add(clause);
   }
 
-  // 问题 2: 按长度排序，短句被丢弃
+  // Issue 2: Sort by length, short sentences discarded
   clauses.sort((a, b) => b.length.compareTo(a.length));
   final selected = clauses.take(_policy.maxCompressedClauses).toList();
 
-  // 问题 3: 简单截断，可能切断关键词
+  // Issue 3: Simple truncation may cut off keywords
   return joined.substring(0, _policy.maxCompressedSummaryChars).trimRight();
 }
 ```
@@ -235,18 +237,18 @@ String _compressSummary(List<String> parts) {
   final sentences = <String>[];
   final sentenceScores = <String, double>{};
 
-  // 1. 提取句子并打分
+  // 1. Extract sentences and score them
   for (final part in parts) {
     final normalizedPart = part.trim();
     if (normalizedPart.isEmpty) continue;
 
-    // 按自然段落分割，而不是简单按标点
+    // Split by natural paragraphs instead of simple punctuation
     final paragraphs = normalizedPart.split(RegExp(r'\n\s*\n'));
     for (final paragraph in paragraphs) {
       final cleanParagraph = paragraph.trim();
       if (cleanParagraph.isEmpty) continue;
 
-      // 整个段落作为一个语义单元
+      // Treat entire paragraph as a semantic unit
       final key = _normalize(cleanParagraph);
       if (!sentenceScores.containsKey(key)) {
         sentences.add(cleanParagraph);
@@ -255,14 +257,14 @@ String _compressSummary(List<String> parts) {
     }
   }
 
-  // 2. 按重要性分数排序，而不是长度
+  // 2. Sort by importance score, not length
   sentences.sort((a, b) {
     final scoreA = sentenceScores[_normalize(a)] ?? 0.0;
     final scoreB = sentenceScores[_normalize(b)] ?? 0.0;
     return scoreB.compareTo(scoreA);
   });
 
-  // 3. 选择最重要的句子，直到达到字符限制
+  // 3. Select most important sentences until character limit reached
   final selected = <String>[];
   var totalLength = 0;
 
@@ -274,34 +276,34 @@ String _compressSummary(List<String> parts) {
     totalLength += sentence.length + 1; // +1 for separator
   }
 
-  // 4. 使用更自然的连接符
-  return selected.join('。');
+  // 4. Use more natural connectors
+  return selected.join('.');
 }
 
-/// 评估句子重要性分数
+/// Evaluate sentence importance score
 double _scoreSentenceImportance(String sentence) {
   double score = 1.0;
 
-  // 包含数字的句子通常更重要（数据、版本等）
+  // Sentences containing numbers are usually more important (data, versions, etc.)
   if (RegExp(r'\d').hasMatch(sentence)) {
     score += 0.3;
   }
 
-  // 包含特定关键词的句子更重要
-  final importantKeywords = ['核心', '关键', '重要', '必须', '应该', '建议'];
+  // Sentences containing specific keywords are more important
+  final importantKeywords = ['core', 'key', 'important', 'must', 'should', 'recommend'];
   for (final keyword in importantKeywords) {
-    if (sentence.contains(keyword)) {
+     if (sentence.toLowerCase().contains(keyword)) {
       score += 0.2;
       break;
     }
   }
 
-  // 过短的句子信息量少
+  // Too short sentences have less information
   if (sentence.length < 10) {
     score *= 0.7;
   }
 
-  // 过长的句子可能不够精炼
+  // Too long sentences may not be concise enough
   if (sentence.length > 100) {
     score *= 0.8;
   }
@@ -310,11 +312,11 @@ double _scoreSentenceImportance(String sentence) {
 }
 ```
 
-#### 验证步骤
+#### Verification Steps
 
-1. 使用实际数据测试压缩效果
-2. 确保关键信息不丢失
-3. 验证压缩后的摘要语义完整
+1. Test compression effectiveness with real data
+2. Ensure critical information is not lost
+3. Verify compressed summary semantic integrity
 
 ---
 
@@ -334,37 +336,37 @@ double _scoreSentenceImportance(String sentence) {
 2. 缺少时间维度考虑
 3. 阈值难以调优
 
-#### 修复方案
+#### Fix Plan
 
-**修改文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File to Modify**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
-**修改内容**:
+**Changes**:
 
 ```dart
 @override
 bool shouldMerge(MemoryUnit left, MemoryUnit right) {
-  // 1. 首先检查 topic 是否完全相同（快速路径）
+   // 1. First check if topics are exactly the same (fast path)
   if (left.topic.isNotEmpty && right.topic.isNotEmpty &&
       _normalize(left.topic) == _normalize(right.topic)) {
     return true;
   }
 
-  // 2. 检查时间接近性（7 天内的记录更容易合并）
+  // 2. Check time proximity (records within 7 days are easier to merge)
   final timeDiff = left.createdAt
       .difference(right.createdAt)
       .abs()
       .inDays;
   final timeBonus = timeDiff <= 7 ? 0.15 : (timeDiff <= 30 ? 0.05 : 0.0);
 
-  // 3. 检查关键词重叠度
+  // 3. Check keyword overlap
   final commonKeywords = left.keywords.toSet().intersection(right.keywords.toSet());
   final keywordOverlapRatio = commonKeywords.length /
       max(left.keywords.length, right.keywords.length);
   if (keywordOverlapRatio >= 0.5) {
-    return true; // 关键词重叠度超过 50% 直接合并
+     return true; // Direct merge if keyword overlap exceeds 50%
   }
 
-  // 4. SLM 语义分析（如果有）
+  // 4. SLM semantic analysis (if available)
   final leftProfile = _slmService.describeTextSemantics(
     title: left.topic,
     content: left.summary,
@@ -376,12 +378,12 @@ bool shouldMerge(MemoryUnit left, MemoryUnit right) {
     tags: right.keywords,
   );
 
-  // 5. 检查语义对齐
+  // 5. Check semantic alignment
   if (_slmService.hasStableSemanticAlignment(leftProfile, rightProfile)) {
     return true;
   }
 
-  // 6. 综合评分
+  // 6. Comprehensive scoring
   final profileSimilarity = _slmService.calculateSemanticProfileSimilarity(
     leftProfile,
     rightProfile,
@@ -393,42 +395,42 @@ bool shouldMerge(MemoryUnit left, MemoryUnit right) {
     right.summary,
   );
 
-  // 应用时间奖励
+  // Apply time bonus
   final adjustedThreshold = _policy.memoryUnitMergeThreshold - timeBonus;
 
   return max(profileSimilarity, textSimilarity) >= adjustedThreshold;
 }
 ```
 
-#### 验证步骤
+#### Verification Steps
 
-1. 测试 topic 相同的记录能够快速合并
-2. 测试时间接近的记录更容易合并
-3. 测试关键词重叠度高的记录直接合并
+1. Test that records with same topic can merge quickly
+2. Test that records close in time are easier to merge
+3. Test that records with high keyword overlap merge directly
 
 ---
 
-### **问题 4: Keywords 合并策略不合理**
+### **Issue 4: Unreasonable Keywords Merge Strategy**
 
-**严重程度**: 🟢 优化  
-**影响范围**: 标签质量、检索效果  
-**相关文件**:
+**Severity**: 🟢 Optimization  
+**Impact Scope**: Tag quality, retrieval effectiveness  
+**Related Files**:
 
 - `lib/core/memory_runtime/services/rule_based_memory_runtime.dart` (L1015-1025)
 
-#### 问题描述
+#### Problem Description
 
-当前的 keywords 合并策略只是简单堆砌所有来源的 tags：
+The current keywords merge strategy simply stacks all source tags:
 
-1. 用户手动输入的 tags 可能包含完整句子
-2. 语义相近的词无法识别（如 "RAG" 和 "检索"）
-3. 关键词爆炸导致质量参差不齐
+1. User-entered tags may contain complete sentences
+2. Semantically similar words cannot be recognized (e.g., "RAG" and "retrieval")
+3. Keyword explosion leads to inconsistent quality
 
-#### 修复方案
+#### Fix Plan
 
-**修改文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File to Modify**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
-**修改内容**:
+**Changes**:
 
 ```dart
 @override
@@ -437,7 +439,7 @@ Future<MemoryUnit> mergeUnits(MemoryUnit left, MemoryUnit right) async {
   final combinedProfile = _slmService.describeTextSemantics(
     title: '${left.topic}\n${right.topic}',
     content: combinedSummary,
-    tags: <String>[], // ← 不直接传入原始 tags
+     tags: <String>[], // ← Don't pass raw tags directly
   );
 
   final topic = _stableTopicFromParts(
@@ -447,7 +449,7 @@ Future<MemoryUnit> mergeUnits(MemoryUnit left, MemoryUnit right) async {
     content: combinedSummary,
   );
 
-  // 新的 keywords 合并策略
+  // New keywords merge strategy
   final keywords = _mergeKeywordsIntelligently(
     leftKeywords: left.keywords,
     rightKeywords: right.keywords,
@@ -466,7 +468,7 @@ Future<MemoryUnit> mergeUnits(MemoryUnit left, MemoryUnit right) async {
     topic: topic,
     keywords: keywords,
     importance: _calculateMergedImportance(left, right),
-    // ← 使用新的计算方法
+     // ← Use new calculation method
     sourceIds: sourceIds,
     createdAt: left.createdAt.isBefore(right.createdAt)
         ? left.createdAt
@@ -478,7 +480,7 @@ Future<MemoryUnit> mergeUnits(MemoryUnit left, MemoryUnit right) async {
   );
 }
 
-/// 智能合并 keywords
+/// Intelligently merge keywords
 List<String> _mergeKeywordsIntelligently({
   required List<String> leftKeywords,
   required List<String> rightKeywords,
@@ -487,7 +489,7 @@ List<String> _mergeKeywordsIntelligently({
   required String topic,
   required int maxKeywords,
 }) {
-  // 1. 过滤掉低质量的 tags（完整句子、片段词等）
+   // 1. Filter out low-quality tags (complete sentences, fragments, etc.)
   final filteredUserTags = <String>[];
   for (final tag in [...leftKeywords, ...rightKeywords]) {
     if (_isValidKeyword(tag)) {
@@ -495,7 +497,7 @@ List<String> _mergeKeywordsIntelligently({
     }
   }
 
-  // 2. 合并所有来源
+  // 2. Merge all sources
   final allKeywords = <String>{
     ...filteredUserTags,
     ...slmKeywords,
@@ -503,16 +505,16 @@ List<String> _mergeKeywordsIntelligently({
     if (topic.isNotEmpty) topic,
   };
 
-  // 3. 去除语义重复（简化版：基于包含关系）
+  // 3. Remove semantic duplication (simplified version: based on containment)
   final deduplicated = <String>{};
   final sortedKeywords = allKeywords.toList()
-    ..sort((a, b) => a.length.compareTo(b.length)); // 短的在前
+     ..sort((a, b) => a.length.compareTo(b.length)); // Short first
 
   for (final keyword in sortedKeywords) {
     final normalized = keyword.toLowerCase().trim();
     if (normalized.isEmpty) continue;
 
-    // 检查是否已被更长的词包含
+    // Check if already contained by longer word
     final isContained = deduplicated.any(
           (existing) => existing.toLowerCase().contains(normalized),
     );
@@ -522,20 +524,20 @@ List<String> _mergeKeywordsIntelligently({
     }
   }
 
-  // 4. 按重要性排序并截取
+  // 4. Sort by importance and truncate
   final ranked = deduplicated.toList()
     ..sort((a, b) {
-      // topic 优先级最高
+       // topic highest priority
       if (a == topic) return -1;
       if (b == topic) return 1;
 
-      // SLM 生成的关键词优先
+      // SLM-generated keywords priority
       final aIsSlm = slmKeywords.contains(a) || slmTags.contains(a);
       final bIsSlm = slmKeywords.contains(b) || slmTags.contains(b);
       if (aIsSlm && !bIsSlm) return -1;
       if (!aIsSlm && bIsSlm) return 1;
 
-      // 否则按长度排序（适中的更好）
+      // Otherwise sort by length (moderate is better)
       final aScore = (a.length - 5).abs();
       final bScore = (b.length - 5).abs();
       return aScore.compareTo(bScore);
@@ -544,21 +546,21 @@ List<String> _mergeKeywordsIntelligently({
   return ranked.take(maxKeywords).toList();
 }
 
-/// 判断是否是有效的关键词
+/// Judge if it's a valid keyword
 bool _isValidKeyword(String keyword) {
   final trimmed = keyword.trim();
 
-  // 太短或太长都不是好关键词
+  // Too short or too long are not good keywords
   if (trimmed.length < 2 || trimmed.length > 30) {
     return false;
   }
 
-  // 包含完整句子标点的不是关键词
+  // Containing complete sentence punctuation is not a keyword
   if (RegExp(r'[,.!?;:]').hasMatch(trimmed)) {
     return false;
   }
 
-  // 以括号结尾的不是关键词
+  // Ending with parenthesis is not a keyword
   if (trimmed.endsWith(')') || trimmed.endsWith('）')) {
     return false;
   }
@@ -567,47 +569,47 @@ bool _isValidKeyword(String keyword) {
 }
 ```
 
-#### 验证步骤
+#### Verification Steps
 
-1. 测试过滤掉完整句子 tags
-2. 测试去除语义重复的关键词
-3. 验证最终 keywords 的质量
+1. Test filtering out complete sentence tags
+2. Test removing semantically duplicate keywords
+3. Verify final keywords quality
 
 ---
 
-### **问题 5: 重要性计算过于简单**
+### **Issue 5: Oversimplified Importance Calculation**
 
-**严重程度**: 🟢 优化  
-**影响范围**: 排序准确性  
-**相关文件**:
+**Severity**: 🟢 Optimization  
+**Impact Scope**: Ranking accuracy  
+**Related Files**:
 
 - `lib/core/memory_runtime/services/rule_based_memory_runtime.dart` (L1034)
 
-#### 问题描述
+#### Problem Description
 
-当前使用简单的 `max(left.importance, right.importance)`，忽略了：
+Currently using simple `max(left.importance, right.importance)`, ignoring:
 
-1. 访问频率 (`accessCount`)
-2. 时效性 (`lastAccessedAt`)
-3. 记录类型 (`type`)
+1. Access frequency (`accessCount`)
+2. Timeliness (`lastAccessedAt`)
+3. Record type (`type`)
 
-#### 修复方案
+#### Fix Plan
 
-**修改文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File to Modify**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
-**修改内容**:
+**Changes**:
 
 ```dart
-/// 计算合并后的重要性
+/// Calculate merged importance
 double _calculateMergedImportance(MemoryUnit left, MemoryUnit right) {
-  // 1. 基础重要性（取最大值）
+   // 1. Base importance (take maximum)
   final baseImportance = max(left.importance, right.importance);
 
-  // 2. 访问频率奖励
+  // 2. Access frequency bonus
   final maxAccessCount = max(left.sourceIds.length, right.sourceIds.length);
-  final accessBonus = min(0.2, maxAccessCount * 0.02); // 每个 source +0.02，最多 0.2
+  final accessBonus = min(0.2, maxAccessCount * 0.02); // Each source +0.02, max 0.2
 
-  // 3. 时效性奖励（最近的记录）
+  // 3. Recency bonus (recent records)
   final now = DateTime.now();
   final leftAge = now
       .difference(left.updatedAt)
@@ -616,45 +618,45 @@ double _calculateMergedImportance(MemoryUnit left, MemoryUnit right) {
       .difference(right.updatedAt)
       .inDays;
   final recencyBonus = max(
-    0.1 * (1 - leftAge / 30), // 30 天内衰减
+     0.1 * (1 - leftAge / 30), // Decay within 30 days
     0.1 * (1 - rightAge / 30),
   ).clamp(0.0, 0.1);
 
-  // 4. 综合计算
+  // 4. Comprehensive calculation
   final mergedImportance = baseImportance + accessBonus + recencyBonus;
 
   return mergedImportance.clamp(0.0, 1.0);
 }
 ```
 
-#### 验证步骤
+#### Verification Steps
 
-1. 测试高频访问的记录获得更高重要性
-2. 测试最近的记录获得时效性奖励
-3. 验证最终重要性不超过 1.0
+1. Test that frequently accessed records get higher importance
+2. Test that recent records get recency bonus
+3. Verify final importance doesn't exceed 1.0
 
 ---
 
-### **问题 6: 合并顺序可能导致次优结果**
+### **Issue 6: Merge Order May Lead to Suboptimal Results**
 
-**严重程度**: 🟢 优化  
-**影响范围**: 合并质量  
-**相关文件**:
+**Severity**: 🟢 Optimization  
+**Impact Scope**: Merge quality  
+**Related Files**:
 
 - `lib/core/memory_runtime/services/rule_based_memory_runtime.dart` (L237-264)
 
-#### 问题描述
+#### Problem Description
 
-当前的贪心算法遇到第一个可合并的就合并，可能导致：
+The current greedy algorithm merges when encountering the first mergeable candidate, which may cause:
 
-1. 错过更好的合并机会
-2. 结果依赖于遍历顺序
+1. Missing better merge opportunities
+2. Results depend on traversal order
 
-#### 修复方案（可选优化）
+#### Fix Plan (Optional Optimization)
 
-**修改文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File to Modify**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
-**修改内容**:
+**Changes**:
 
 ```dart
 Future<List<MemoryUnit>> _rebuildMemoryUnits() async {
@@ -666,7 +668,7 @@ Future<List<MemoryUnit>> _rebuildMemoryUnits() async {
 
   final units = <MemoryUnit>[];
 
-  // 优化：先按 topic 分组，组内再合并
+  // Optimization: Group by topic first, then merge within groups
   final byTopic = <String, List<SummaryEntity>>{};
   for (final summary in sourceSummaries) {
     final topic = summary.topic
@@ -678,7 +680,7 @@ Future<List<MemoryUnit>> _rebuildMemoryUnits() async {
     byTopic.putIfAbsent(topic, () => []).add(summary);
   }
 
-  // 对每个 topic 组内进行合并
+  // Merge within each topic group
   for (final entries in byTopic.entries) {
     final groupUnits = <MemoryUnit>[];
 
@@ -686,7 +688,7 @@ Future<List<MemoryUnit>> _rebuildMemoryUnits() async {
       final candidate = _buildCandidateUnit(summary);
       var merged = false;
 
-      // 在组内寻找最佳合并对象（而不仅仅是第一个）
+      // Find best merge target within group (not just the first one)
       MemoryUnit? bestMatch;
       int bestMatchIndex = -1;
       double bestScore = 0.0;
@@ -694,7 +696,7 @@ Future<List<MemoryUnit>> _rebuildMemoryUnits() async {
       for (var index = 0; index < groupUnits.length; index++) {
         final existing = groupUnits[index];
         if (_merger.shouldMerge(existing, candidate)) {
-          // 计算合并优先级分数
+           // Calculate merge priority score
           final score = _calculateMergePriority(existing, candidate);
           if (score > bestScore) {
             bestScore = score;
@@ -714,7 +716,7 @@ Future<List<MemoryUnit>> _rebuildMemoryUnits() async {
       }
     }
 
-    // 将组内合并后的结果加入总列表
+    // Add merged results from group to total list
     units.addAll(groupUnits);
   }
 
@@ -722,16 +724,16 @@ Future<List<MemoryUnit>> _rebuildMemoryUnits() async {
   return units;
 }
 
-/// 计算合并优先级分数
+/// Calculate merge priority score
 double _calculateMergePriority(MemoryUnit existing, MemoryUnit candidate) {
   double score = 0.0;
 
-  // topic 完全相同优先级最高
+  // Same topic highest priority
   if (_normalize(existing.topic) == _normalize(candidate.topic)) {
     score += 1.0;
   }
 
-  // 时间接近的优先级高
+  // Time proximity high priority
   final timeDiff = existing.createdAt
       .difference(candidate.createdAt)
       .abs()
@@ -742,7 +744,7 @@ double _calculateMergePriority(MemoryUnit existing, MemoryUnit candidate) {
     score += 0.3;
   }
 
-  // 关键词重叠度
+  // Keyword overlap
   final commonKeywords = existing.keywords.toSet()
       .intersection(candidate.keywords.toSet());
   final overlapRatio = commonKeywords.length /
@@ -753,172 +755,172 @@ double _calculateMergePriority(MemoryUnit existing, MemoryUnit candidate) {
 }
 ```
 
-#### 验证步骤
+#### Verification Steps
 
-1. 测试相同 topic 的记录优先合并
-2. 测试时间接近的记录优先合并
-3. 比较优化前后的合并质量差异
-
----
-
-## 📋 修复优先级与计划
-
-### 第一阶段：立即修复（P0）
-
-1. ✅ **问题 1: Topic 为空导致合并失效**
-    - 影响：核心功能失效
-    - 工作量：2 小时
-    - 风险：低
-
-### （P1）
-
-2. ✅ **问题 2: 合并后信息丢失**
-    - 影响：用户体验
-    - 工作量：3 小时
-    - 风险：中
-
-3. ✅ **问题 3: 合并判断过于依赖 SLM**
-    - 影响：合并准确性
-    - 工作量：2 小时
-    - 风险：低
-
-### 第三阶段：优化改进（P2）
-
-4. ✅ **问题 4: Keywords 合并策略不合理**
-    - 影响：检索效果
-    - 工作量：4 小时
-    - 风险：低
-    - 状态：**已完成并通过单元测试验证**
-
-5. ✅ **问题 5: 重要性计算过于简单**
-    - 影响：排序准确性
-    - 工作量：1 小时
-    - 风险：低
-    - 状态：**已完成并通过单元测试验证**
-
-6. ✅ **问题 6: 合并顺序可能导致次优结果**
-    - 影响：合并质量
-    - 工作量：5 小时
-    - 风险：中
-    - 备注：可选优化，视情况执行
-    - 状态：**已在代码中实现优先级计算方法**
+1. Test that records with same topic are prioritized for merging
+2. Test that records close in time are prioritized for merging
+3. Compare merge quality difference before and after optimization
 
 ---
 
-## 🧪 测试计划
+## 📋 Fix Priority and Plan
 
-### 单元测试
+### Phase 1: Immediate Fixes (P0)
 
-✅ **已完成测试文件**: `test/core/memory_runtime/services/memory_merge_optimization_test.dart`
+1. ✅ **Issue 1: Empty Topic Causes Merge Failure**
+   - Impact: Core functionality failure
+   - Effort: 2 hours
+   - Risk: Low
 
-1. ✅ **关键词过滤测试** - 已通过
+### Phase 2: Quality Improvements (P1)
+
+2. ✅ **Issue 2: Information Loss After Merge**
+   - Impact: User experience
+   - Effort: 3 hours
+   - Risk: Medium
+
+3. ✅ **Issue 3: Merge Judgment Over-Relies on SLM**
+   - Impact: Merge accuracy
+   - Effort: 2 hours
+   - Risk: Low
+
+### Phase 3: Optimization Improvements (P2)
+
+4. ✅ **Issue 4: Unreasonable Keywords Merge Strategy**
+   - Impact: Retrieval effectiveness
+   - Effort: 4 hours
+   - Risk: Low
+   - Status: **Completed and verified with unit tests**
+
+5. ✅ **Issue 5: Oversimplified Importance Calculation**
+   - Impact: Ranking accuracy
+   - Effort: 1 hour
+   - Risk: Low
+   - Status: **Completed and verified with unit tests**
+
+6. ✅ **Issue 6: Merge Order May Lead to Suboptimal Results**
+   - Impact: Merge quality
+   - Effort: 5 hours
+   - Risk: Medium
+   - Note: Optional optimization, execute as needed
+   - Status: **Priority calculation method implemented in code**
+
+---
+
+## 🧪 Test Plan
+
+### Unit Tests
+
+✅ **Completed Test File**: `test/core/memory_runtime/services/memory_merge_optimization_test.dart`
+
+1. ✅ **Keyword Filtering Test** - Passed
    ```dart
-   test('应该过滤掉包含完整句子标点的 tags', () {
-     // 验证英文标点 [,!?;:] 的过滤
+   test('Should filter out tags containing complete sentence punctuation', () {
+     // Verify English punctuation [,!?;:] filtering
      expect(filtered, contains('RAG'));
      expect(filtered, isNot(contains('This is a complete sentence, with comma')));
    });
    ```
 
-2. ✅ **关键词去重测试** - 已通过
+2. ✅ **Keyword Deduplication Test** - Passed
    ```dart
-   test('应该去除语义重复的关键词（基于包含关系）', () {
-     // 验证长词优先保留
-     expect(deduplicated, contains('向量数据库'));
-     expect(deduplicated, contains('性能优化'));
+   test('Should remove semantically duplicate keywords (based on containment)', () {
+     // Verify longer words are prioritized
+     expect(deduplicated, contains('vector database'));
+     expect(deduplicated, contains('performance optimization'));
    });
    ```
 
-3. ✅ **关键词排序测试** - 已通过
+3. ✅ **Keyword Sorting Test** - Passed
    ```dart
-   test('应该按重要性排序 keywords', () {
-     // 验证 topic 优先 > SLM 关键词 > 普通标签
+   test('Should sort keywords by importance', () {
+     // Verify topic priority > SLM keywords > regular tags
      expect(ranked.first, equals(topic));
    });
    ```
 
-4. ✅ **重要性计算测试** - 已通过
+4. ✅ **Importance Calculation Test** - Passed
    ```dart
-   test('应该考虑访问频率奖励', () {
-     // 验证 sourceIds 数量带来的奖励
+   test('Should consider access frequency bonus', () {
+     // Verify sourceIds count bonus
      expect(accessBonus, equals(0.2));
    });
    
-   test('应该考虑时效性奖励', () {
-     // 验证 30 天内衰减逻辑
+   test('Should consider recency bonus', () {
+     // Verify decay logic within 30 days
      expect(recencyBonusRecent, greaterThan(recencyBonusOld));
    });
    
-   test('合并后的重要性不应该超过 1.0', () {
-     // 验证 clamp 逻辑
+   test('Merged importance should not exceed 1.0', () {
+     // Verify clamp logic
      expect(mergedImportance, equals(1.0));
    });
    ```
 
-5. ✅ **综合流程测试** - 已通过
+5. ✅ **Comprehensive Flow Test** - Passed
    ```dart
-   test('完整的关键词合并流程', () {
-     // 验证完整流程：过滤 → 合并 → 去重 → 排序 → 截取
+   test('Complete keyword merge flow', () {
+     // Verify complete flow: filter → merge → deduplicate → sort → truncate
    });
    
-   test('重要性计算综合场景', () {
-     // 验证多因素综合计算
+   test('Importance calculation comprehensive scenario', () {
+     // Verify multi-factor comprehensive calculation
    });
    ```
 
-### 测试结果
+### Test Results
 
 ```
 00:00 +8: All tests passed!
 ```
 
-✅ **所有 8 个测试用例全部通过**
+✅ **All 8 test cases passed**
 
 ---
 
-## 📊 验收标准
+## 📊 Acceptance Criteria
 
-### 功能验收
+### Functional Acceptance
 
-- [x] ✅ 所有 MemoryUnit 的 topic 字段永不为空
-- [x] ✅ 合并后的摘要保留关键信息（基于重要性评分）
-- [x] ✅ 相同 topic 的记录能够正确合并
-- [x] ✅ 关键词列表质量明显提升（过滤低质量 tags、去重、排序）
+- [x] ✅ All MemoryUnit topic fields are never empty
+- [x] ✅ Merged summaries retain key information (based on importance scoring)
+- [x] ✅ Records with same topic can be correctly merged
+- [x] ✅ Keyword list quality significantly improved (filter low-quality tags, deduplicate, sort)
 
-### 性能验收
+### Performance Acceptance
 
-- [x] ✅ 合并操作耗时不超过 100ms/对（轻量级规则判断）
-- [x] ✅ 不增加额外的内存占用（仅优化算法）
+- [x] ✅ Merge operation takes no more than 100ms/pair (lightweight rule-based judgment)
+- [x] ✅ No additional memory footprint (only algorithm optimization)
 
-### 质量验收
+### Quality Acceptance
 
-- [x] ✅ 单元测试覆盖率 > 80%（8 个测试用例全部通过）
-- [x] ✅ 通过所有现有测试用例
-- [x] ✅ 无明显回归问题
-
----
-
-## 📝 注意事项
-
-1. **向后兼容**: 确保修改不影响现有的 API 接口
-2. **渐进式部署**: 建议先在开发环境验证，再逐步推广
-3. **监控指标**: 部署后关注合并成功率、检索准确率等指标
-4. **回滚方案**: 准备好快速回滚脚本，以备不时之需
+- [x] ✅ Unit test coverage > 80% (all 8 test cases passed)
+- [x] ✅ Passed all existing test cases
+- [x] ✅ No obvious regression issues
 
 ---
 
-## 🔗 相关文件索引
+## 📝 Notes
 
-- 主逻辑文件：`lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
-- 实体定义：`lib/core/memory_runtime/entities/memory_runtime_models.dart`
-- 接口定义：`lib/core/memory_runtime/interfaces/memory_runtime_interfaces.dart`
-- 工具函数：`lib/core/utils/summary_text_utils.dart`
-- 策略配置：`lib/core/config/memory_policy_config.dart`
+1. **Backward Compatibility**: Ensure modifications don't affect existing API interfaces
+2. **Incremental Deployment**: Recommended to verify in development environment first, then gradually promote
+3. **Monitoring Metrics**: After deployment, monitor merge success rate, retrieval accuracy, and other metrics
+4. **Rollback Plan**: Prepare quick rollback scripts for emergencies
 
 ---
 
-**文档版本**: v1.1  
-**创建时间**: 2026-03-23  
-**最后更新**: 2026-03-23  
-**维护者**: Local Vault Team  
-**更新说明**: 第三阶段优化改进完成，所有单元测试通过
+## 🔗 Related File Index
+
+- Main logic file: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+- Entity definition: `lib/core/memory_runtime/entities/memory_runtime_models.dart`
+- Interface definition: `lib/core/memory_runtime/interfaces/memory_runtime_interfaces.dart`
+- Utility functions: `lib/core/utils/summary_text_utils.dart`
+- Policy configuration: `lib/core/config/memory_policy_config.dart`
+
+---
+
+**Document Version**: v1.1  
+**Created**: 2026-03-23  
+**Last Updated**: 2026-03-23  
+**Maintainer**: Local Vault Team  
+**Update Notes**: Phase 3 optimization improvements completed, all unit tests passed

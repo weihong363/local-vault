@@ -1,26 +1,26 @@
-# Local Vault 架构迁移指南
+# Local Vault Architecture Migration Guide
 
-## 📋 概述
+## 📋 Overview
 
-本指南介绍如何将 Local Vault 项目从现有架构迁移到清洁架构（Clean Architecture）。
+This guide explains how to migrate the Local Vault project from the existing architecture to Clean Architecture.
 
 ---
 
-## 🏗️ 架构对比
+## 🏗️ Architecture Comparison
 
-### 旧架构
+### Old Architecture
 ```
 lib/features/summary/
 ├── models/
-│   └── summary.dart (直接依赖 Hive)
+│   └── summary.dart (directly depends on Hive)
 ├── domain/
 │   ├── repositories/
-│   │   └── summary_repository.dart (直接实现)
+│   │   └── summary_repository.dart (direct implementation)
 │   └── providers/
 │       └── summary_provider.dart
 ```
 
-### 新架构
+### New Architecture
 ```
 lib/
 ├── core/
@@ -28,107 +28,116 @@ lib/
 │   │   └── service_locator.dart (GetIt)
 │   ├── domain/
 │   │   ├── entities/
-│   │   │   └── summary_entity.dart (纯 Dart)
+│   │   │   └── summary_entity.dart (pure Dart)
 │   │   ├── repositories/
-│   │   │   └── summary_repository_interface.dart (接口)
+│   │   │   └── summary_repository_interface.dart (interface)
 │   │   └── usecases/
-│   │       └── summary_usecases.dart (业务逻辑)
+│   │       └── summary_usecases.dart (business logic)
 │   ├── providers/
-│   │   └── summary_entities_provider.dart (新 Provider)
+│   │   └── summary_entities_provider.dart (new Provider)
 │   └── utils/
-│       └── summary_adapter.dart (新旧模型互转)
+│       └── summary_adapter.dart (old/new model conversion)
 └── infrastructure/
     └── repositories/
-        └── hive_summary_repository.dart (Hive 实现)
+        └── hive_summary_repository.dart (Hive implementation)
 ```
 
 ---
 
-## 📦 已完成的工作
+## 📦 Completed Work
 
-### ✅ 1. Domain Layer（领域层）
-- [x] `SummaryEntity` - 摘要领域实体
-- [x] `TemplateEntity` - 模板领域实体
-- [x] `SummaryRepositoryInterface` - 摘要仓库接口
-- [x] `TemplateRepositoryInterface` - 模板仓库接口
-- [x] `SummaryUseCases` - 摘要业务用例
-- [x] `TemplateUseCases` - 模板业务用例
+### ✅ 1. Domain Layer
 
-### ✅ 2. Infrastructure Layer（基础设施层）
-- [x] `HiveSummaryRepository` - Hive 摘要仓库实现
-- [x] `HiveTemplateRepository` - Hive 模板仓库实现
+- [x] `SummaryEntity` - summary domain entity
+- [x] `TemplateEntity` - template domain entity
+- [x] `SummaryRepositoryInterface` - summary repository interface
+- [x] `TemplateRepositoryInterface` - template repository interface
+- [x] `SummaryUseCases` - summary business use cases
+- [x] `TemplateUseCases` - template business use cases
 
-### ✅ 3. DI Layer（依赖注入）
-- [x] `service_locator.dart` - GetIt 配置
-- [x] `main.dart` - 初始化调用
+### ✅ 2. Infrastructure Layer
 
-### ✅ 4. 应用层重构
-- [x] `SummarySaveService` - 静默保存已使用新架构
+- [x] `HiveSummaryRepository` - Hive summary repository implementation
+- [x] `HiveTemplateRepository` - Hive template repository implementation
 
-### ✅ 5. 新架构 Provider
-- [x] `summary_entities_provider.dart` - 新架构 Summary Provider
-- [x] `template_entities_provider.dart` - 新架构 Template Provider
+### ✅ 3. DI Layer
 
-### ✅ 6. 适配器（向后兼容）
-- [x] `summary_adapter.dart` - Summary 新旧模型互转
-- [x] `template_adapter.dart` - Template 新旧模型互转
+- [x] `service_locator.dart` - GetIt configuration
+- [x] `main.dart` - initialization call
+
+### ✅ 4. Application Layer Refactoring
+
+- [x] `SummarySaveService` - silent saving already uses new architecture
+
+### ✅ 5. New Architecture Provider
+
+- [x] `summary_entities_provider.dart` - new architecture Summary Provider
+- [x] `template_entities_provider.dart` - new architecture Template Provider
+
+### ✅ 6. Adapters (Backward Compatibility)
+
+- [x] `summary_adapter.dart` - Summary old/new model conversion
+- [x] `template_adapter.dart` - Template old/new model conversion
 
 ---
 
-## 🚀 迁移步骤
+## 🚀 Migration Steps
 
-### 阶段 1：渐进式迁移（当前）
-保持现有代码运行，逐步迁移新功能。
+### Phase 1: Progressive Migration (Current)
 
-#### 使用新架构添加新功能
+Keep existing code running, gradually migrate new features.
+
+#### Using New Architecture for New Features
 ```dart
-// 推荐：新功能使用新架构
+// Recommended: Use new architecture for new features
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 
-// 获取 UseCase
+// Get UseCase
 final useCases = sl<SummaryUseCases>();
 
-// 创建并保存摘要
+// Create and save summary
 final summary = SummaryEntity.create(
-  title: '新功能',
-  content: '使用新架构...',
+  title: 'New Feature',
+  content: 'Using new architecture...',
 );
 await useCases.addSummary(summary);
 ```
 
-### 阶段 2：完全迁移（未来）
-将所有 UI 层迁移到新架构。
+### Phase 2: Complete Migration (Future)
+
+Migrate all UI layers to the new architecture.
 
 ---
 
-## 💡 使用示例
+## 💡 Usage Examples
 
-### 1. 直接使用 UseCase（推荐）
+### 1. Directly Use UseCase (Recommended)
 ```dart
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 
-// 获取 UseCase
+// Get UseCase
 final useCases = sl<SummaryUseCases>();
 
-// 添加摘要
+// Add summary
 await useCases.addSummary(summary);
 
-// 查询所有摘要
+// Query all summaries
 final summaries = useCases.getAllSummaries();
 
-// 搜索摘要
-final results = useCases.searchSummaries('关键词');
+// Search summaries
+final results = useCases.searchSummaries('keyword'
+);
 ```
 
-### 2. 使用 Riverpod Provider
+### 2. Using Riverpod Provider
 ```dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
 
-// 在 ConsumerWidget 中使用
+// Use in ConsumerWidget
 class MyWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -136,7 +145,7 @@ class MyWidget extends ConsumerWidget {
     
     return summariesAsync.when(
       loading: () => CircularProgressIndicator(),
-      error: (error, stack) => Text('错误: $error'),
+      error: (error, stack) => Text('Error: $error'),
       data: (summaries) => ListView.builder(
         itemCount: summaries.length,
         itemBuilder: (context, index) => ListTile(
@@ -148,25 +157,25 @@ class MyWidget extends ConsumerWidget {
 }
 ```
 
-### 3. 使用适配器（向后兼容）
+### 3. Using Adapters (Backward Compatibility)
 ```dart
 import 'package:local_vault/core/utils/summary_adapter.dart';
 import 'package:local_vault/features/summary/models/summary.dart' as old;
 
-// 旧模型转新模型
+// Old model to new model
 final oldSummary = old.Summary.create(...);
 final newEntity = SummaryAdapter.toEntity(oldSummary);
 
-// 新模型转旧模型
+// New model to old model
 final entity = SummaryEntity.create(...);
 final oldModel = SummaryAdapter.fromEntity(entity);
 ```
 
 ---
 
-## 📁 完整文件清单
+## 📁 Complete File List
 
-### 新增文件
+### New Files
 ```
 lib/
 ├── core/
@@ -193,46 +202,49 @@ lib/
 │       ├── hive_summary_repository.dart
 │       └── hive_template_repository.dart
 ├── ARCHITECTURE_EXAMPLE.md
-└── MIGRATION_GUIDE.md (本文件)
+└── MIGRATION_GUIDE.md (this file)
 ```
 
-### 修改文件
+### Modified Files
 ```
 lib/
-├── main.dart (添加 initializeDependencies 调用)
-├── core/services/summary_save_service.dart (使用新架构静默保存)
-pubspec.yaml (添加 get_it 依赖)
+├── main.dart (add initializeDependencies call)
+├── core/services/summary_save_service.dart (use new architecture for silent saving)
+pubspec.yaml (add get_it dependency)
 ```
 
 ---
 
-## 🎯 下一步行动
+## 🎯 Next Steps
 
-### 短期（推荐）
-1. **新功能使用新架构** - 所有新增功能使用 UseCase
-2. **逐步迁移 UI** - 选择 1-2 个页面先迁移到新 Provider
-3. **添加单元测试** - 为 UseCase 编写测试
+### Short-term (Recommended)
 
-### 长期
-1. **完全迁移 Summary UI** - 所有页面使用新 Provider
-2. **完全迁移 Template UI** - 所有页面使用新 Provider
-3. **删除旧代码** - 删除旧的 Repository 和 Provider
-4. **添加 Memory 模块** - 使用新架构实现记忆功能
+1. **Use new architecture for new features** - All new features use UseCase
+2. **Gradually migrate UI** - Select 1-2 pages to migrate to new Provider first
+3. **Add unit tests** - Write tests for UseCase
 
----
+### Long-term
 
-## ⚠️ 注意事项
-
-1. **向后兼容** - 适配器保证新旧代码可以共存
-2. **渐进式迁移** - 不要一次性全部迁移，风险太高
-3. **测试覆盖** - 每个迁移步骤都要测试
-4. **日志输出** - 关键操作添加 debugPrint 日志
+1. **Complete migration of Summary UI** - All pages use new Provider
+2. **Complete migration of Template UI** - All pages use new Provider
+3. **Delete old code** - Remove old Repository and Provider
+4. **Add Memory module** - Implement memory functionality using new architecture
 
 ---
 
-## 📞 技术支持
+## ⚠️ Notes
 
-如有问题，请检查：
-1. `lib/ARCHITECTURE_EXAMPLE.md` - 使用示例
-2. `lib/core/di/service_locator.dart` - 依赖注入配置
-3. `lib/core/domain/usecases/` - 业务用例
+1. **Backward compatibility** - Adapters ensure old and new code can coexist
+2. **Progressive migration** - Don't migrate all at once, too risky
+3. **Test coverage** - Test each migration step
+4. **Log output** - Add debugPrint logs for key operations
+
+---
+
+## 📞 Technical Support
+
+If you have questions, please check:
+
+1. `lib/ARCHITECTURE_EXAMPLE.md` - Usage examples
+2. `lib/core/di/service_locator.dart` - Dependency injection configuration
+3. `lib/core/domain/usecases/` - Business use cases

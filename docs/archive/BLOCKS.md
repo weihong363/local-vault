@@ -1,113 +1,132 @@
-# 卡点记录
+# Blockers Record
 
-## 卡点1: pubspec.yaml 依赖版本问题
-- **问题**: `flutter_neumorphic ^3.4.0` 和 `flutter_glowing_phantom` 不存在
-- **解决方案**: 移除这些不存在的依赖包
-- **状态**: 已解决
+## Blocker 1: pubspec.yaml Dependency Version Issues
 
-## 卡点2: `onnx_runtime_flutter` 包不存在
-- **问题**: `onnx_runtime_flutter` 包在 pub.dev 上不存在
-- **解决方案**: 移除该依赖
-- **状态**: 已解决
+- **Problem**: `flutter_neumorphic ^3.4.0` and `flutter_glowing_phantom` do not exist
+- **Solution**: Remove these non-existent dependency packages
+- **Status**: Resolved
 
-## 卡点3: `flutter_clipboard_manager` 包不存在
-- **问题**: `flutter_clipboard_manager` 包版本不存在
-- **解决方案**: 使用 `clipboard` 包替代
-- **状态**: 已解决
+## Blocker 2: `onnx_runtime_flutter` Package Does Not Exist
 
-## 卡点4: `inject_page.dart` 语法错误
-- **问题**: `ShareSheet.share(` 缺少分号
-- **解决方案**: 修复语法错误
-- **状态**: 已解决
+- **Problem**: `onnx_runtime_flutter` package does not exist on pub.dev
+- **Solution**: Remove this dependency
+- **Status**: Resolved
 
-## 卡点5: `summary.dart` 导入错误
-- **问题**: 导入了不存在的文件
-- **解决方案**: 修复导入语句
-- **状态**: 已解决
+## Blocker 3: `flutter_clipboard_manager` Package Does Not Exist
 
-## 卡点6: `app_theme.dart` 缺少 `AppColors` 类
-- **问题**: `AppColors` 类未定义
-- **解决方案**: 添加 `AppColors` 类定义
-- **状态**: 已解决
+- **Problem**: `flutter_clipboard_manager` package version does not exist
+- **Solution**: Use `clipboard` package instead
+- **Status**: Resolved
 
-## 卡点7: `app_provider.dart` 中 `ProviderContainer` 未定义
-- **问题**: `ProviderContainer` 方法不存在
-- **解决方案**: 需要移除或修复该文件
-- **状态**: 已解决(删除文件)
+## Blocker 4: `inject_page.dart` Syntax Error
 
-## 卡点8: 多余的导入语句
-- **问题**: 多个文件包含未使用的导入
-- **解决方案**: 清理未使用的导入
-- **状态**: 已解决(只有警告,不影响运行)
+- **Problem**: `ShareSheet.share(` missing semicolon
+- **Solution**: Fix syntax error
+- **Status**: Resolved
 
-## 卡点9: `clipboard_manager.dart` 中 `Clipboard` 未定义
-- **问题**: `Clipboard` 和 `ClipboardData` 未导入
-- **解决方案**: 添加 `import 'package:flutter/services.dart';`
-- **状态**: 已解决
+## Blocker 5: `summary.dart` Import Error
 
-## 卡点10: `clipboard_monitor_service.dart` 中 `ClipboardDataListener` 未定义
-- **问题**: `ClipboardDataListener` 类不存在
-- **解决方案**: 移除该文件
-- **状态**: 已解决
+- **Problem**: Imported non-existent file
+- **Solution**: Fix import statement
+- **Status**: Resolved
 
-## 卡点11: `app_icons.dart` 中 `Icons.clipboard` 不存在
-- **问题**: `Icons.clipboard` 不是标准 Flutter 图标
-- **解决方案**: 使用 `Icons.content_copy` 替代
-- **状态**: 已解决
+## Blocker 6: `app_theme.dart` Missing `AppColors` Class
 
-## 卡点12: `share_sheet.dart` 中 `MethodChannel` 未定义
-- **问题**: `MethodChannel` 和 `PlatformException` 未导入
-- **解决方案**: 添加 `import 'package:flutter/services.dart';`
-- **状态**: 已解决
+- **Problem**: `AppColors` class not defined
+- **Solution**: Add `AppColors` class definition
+- **Status**: Resolved
 
-## 卡点13: 循环依赖 - `clipboard_manager.dart` 和其他文件相互导入
-- **问题**: 多个文件相互导入导致循环依赖
-- **解决方案**: 简化导入结构,移除不必要的导入
-- **状态**: 已解决
+## Blocker 7: `ProviderContainer` Undefined in `app_provider.dart`
 
-## 卡点14: `app_colors.dart` 等文件包含重复的 `AppColors` 类定义
-- **问题**: 多个文件包含重复的 `AppColors` 类定义
-- **解决方案**: 删除 `app_colors.dart`，统一使用 `app_theme.dart` 中的定义
-- **状态**: 已解决
+- **Problem**: `ProviderContainer` method does not exist
+- **Solution**: Need to remove or fix this file
+- **Status**: Resolved (file deleted)
 
-## 卡点15: `inject` 相关文件有多个错误
-- **问题**: 
-  - `inject_page.dart` 中有 undefined identifier 错误
-  - `Icons.inject` 不存在
-  - `FlutterClipboardManager` 未定义
-  - `ShareSheet` 未正确导入
-  - `accessibility_service.dart` 中有多个 undefined name 错误
-  - `clipboard_monitor.dart` 引用不存在的包
-- **解决方案**: 需要简化或重写这些文件，使用标准 Flutter API
-- **状态**: 部分解决（已简化 inject_page.dart，删除了有问题的服务文件）
+## Blocker 8: Unused Import Statements
 
-## 卡点16: `save` 相关文件有多个错误
-- **问题**: 
-  - `save_page.dart` 中 `ref` 未定义
-  - `clipboard_service.dart` 引用不存在的包
-  - `gesture_service.dart` 引用不存在的文件
-  - 多个 undefined name 错误
-- **解决方案**: 需要简化或重写这些文件，使用标准 Flutter API
-- **状态**: 部分解决（已修复 save_page.dart，删除了有问题的服务文件）
+- **Problem**: Multiple files contain unused imports
+- **Solution**: Clean up unused imports
+- **Status**: Resolved (only warnings, does not affect running)
 
-## 卡点17: `save` widgets 和 `search_page` 有错误
-- **问题**: 
-  - `overlay_floating_button.dart` 和 `save_service_manager.dart` 有多个 undefined name 错误
-  - `search_page.dart` 中 `ref` 未定义
-- **解决方案**: 简化或删除这些文件，使用标准 Flutter API
-- **状态**: 部分解决（已修复 search_page.dart，删除了有问题的 widgets 文件）
+## Blocker 9: `Clipboard` Undefined in `clipboard_manager.dart`
 
-## 卡点18: 核心数据层和存储层有错误
-- **问题**: 
-  - `settings_page.dart` 中 `SettingsItem` 未定义
-  - `summary_repository_impl.dart` 和 `summary_repository.dart` 有 undefined class 错误
-  - `summary_provider.dart` 有 undefined class 和 return type 错误
-  - `summary_detail_page.dart` 有 undefined name 错误
-- **解决方案**: 修复核心数据模型和存储层的代码
-- **状态**: 已解决！所有错误都已修复，只剩警告了
+- **Problem**: `Clipboard` and `ClipboardData` not imported
+- **Solution**: Add `import 'package:flutter/services.dart';`
+- **Status**: Resolved
 
-## 卡点19: 快捷方式弹窗出现黑色色块
+## Blocker 10: `ClipboardDataListener` Undefined in `clipboard_monitor_service.dart`
 
-- **问题**: 快捷操作弹窗（QuickActionActivity）在透明主题下仍出现黑色背景块
-- **解决方案**: 在 `QuickActionActivity` 强制使用 `RenderMode.texture` 并启用透明模式，确保 Flutter Surface 走透明通道
-- **状态**: 已解决
+- **Problem**: `ClipboardDataListener` class does not exist
+- **Solution**: Remove this file
+- **Status**: Resolved
+
+## Blocker 11: `Icons.clipboard` Does Not Exist in `app_icons.dart`
+
+- **Problem**: `Icons.clipboard` is not a standard Flutter icon
+- **Solution**: Use `Icons.content_copy` instead
+- **Status**: Resolved
+
+## Blocker 12: `MethodChannel` Undefined in `share_sheet.dart`
+
+- **Problem**: `MethodChannel` and `PlatformException` not imported
+- **Solution**: Add `import 'package:flutter/services.dart';`
+- **Status**: Resolved
+
+## Blocker 13: Circular Dependency - `clipboard_manager.dart` and Other Files Import Each Other
+
+- **Problem**: Multiple files importing each other causing circular dependencies
+- **Solution**: Simplify import structure, remove unnecessary imports
+- **Status**: Resolved
+
+## Blocker 14: Duplicate `AppColors` Class Definitions in `app_colors.dart` and Other Files
+
+- **Problem**: Multiple files contain duplicate `AppColors` class definitions
+- **Solution**: Delete `app_colors.dart`, use the definition in `app_theme.dart` uniformly
+- **Status**: Resolved
+
+## Blocker 15: Multiple Errors in `inject` Related Files
+
+- **Problem**:
+  - `inject_page.dart` has undefined identifier errors
+  - `Icons.inject` does not exist
+  - `FlutterClipboardManager` not defined
+  - `ShareSheet` not correctly imported
+  - `accessibility_service.dart` has multiple undefined name errors
+  - `clipboard_monitor.dart` references non-existent packages
+- **Solution**: Need to simplify or rewrite these files, use standard Flutter API
+- **Status**: Partially resolved (simplified inject_page.dart, deleted problematic service files)
+
+## Blocker 16: Multiple Errors in `save` Related Files
+
+- **Problem**:
+  - `ref` undefined in `save_page.dart`
+  - `clipboard_service.dart` references non-existent packages
+  - `gesture_service.dart` references non-existent files
+  - Multiple undefined name errors
+- **Solution**: Need to simplify or rewrite these files, use standard Flutter API
+- **Status**: Partially resolved (fixed save_page.dart, deleted problematic service files)
+
+## Blocker 17: Errors in `save` Widgets and `search_page`
+
+- **Problem**:
+  - Multiple undefined name errors in `overlay_floating_button.dart` and `save_service_manager.dart`
+  - `ref` undefined in `search_page.dart`
+- **Solution**: Simplify or delete these files, use standard Flutter API
+- **Status**: Partially resolved (fixed search_page.dart, deleted problematic widgets files)
+
+## Blocker 18: Errors in Core Data Layer and Storage Layer
+
+- **Problem**:
+  - `SettingsItem` undefined in `settings_page.dart`
+  - Undefined class errors in `summary_repository_impl.dart` and `summary_repository.dart`
+  - Undefined class and return type errors in `summary_provider.dart`
+  - Undefined name errors in `summary_detail_page.dart`
+- **Solution**: Fix core data model and storage layer code
+- **Status**: Resolved! All errors fixed, only warnings remain
+
+## Blocker 19: Black Color Blocks Appearing in Shortcut Popup
+
+- **Problem**: Quick action popup (QuickActionActivity) still shows black background blocks in transparent theme
+- **Solution**: Force use `RenderMode.texture` in `QuickActionActivity` and enable transparent mode to ensure Flutter
+  Surface uses transparent channel
+- **Status**: Resolved

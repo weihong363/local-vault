@@ -1,47 +1,53 @@
-# 分享文本显示问题解决方案
+# Share Text Display Issue Solution
 
-## 问题描述
+## Problem Description
 
-在实现从其他应用分享文本到 Local Vault 的功能时，遇到了分享内容无法正确显示在保存页面的问题。虽然原生端已经成功接收到分享文本，但 Flutter 端的文本框始终为空。
+When implementing the functionality to share text from other apps to Local Vault, we encountered an issue where the
+shared content could not be correctly displayed on the save page. Although the native side successfully received the
+shared text, the text field on the Flutter side was always empty.
 
-## 问题分析
+## Problem Analysis
 
-### 根本原因
+### Root Cause
 
-SavePage 的路由配置没有正确处理 GoRouter 的 `extra` 参数。虽然在 `main.dart` 中使用了 `_router.push(AppRoutes.save, extra: text)` 传递分享文本，但路由定义中只是简单地创建了 `SavePage` 实例，没有接收和处理这个 `extra` 参数。
+The SavePage route configuration did not properly handle GoRouter's `extra` parameter. Although
+`_router.push(AppRoutes.save, extra: text)` was used in `main.dart` to pass the shared text, the route definition simply
+created a `SavePage` instance without receiving and processing this `extra` parameter.
 
 ```dart
-// ❌ 有问题的代码
+// ❌ Problematic code
 GoRoute(
   path: AppRoutes.save,
-  builder: (context, state) => const SavePage(), // 没有处理 state.extra
+builder: (context, state) => const SavePage(), // No handling of state.extra
 ),
 ```
 
-### 数据流断裂
+### Data Flow Break
 
-完整的数据流程应该是：
+The complete data flow should be:
 
 ```
 Android MainActivity → ShareService → main.dart → Router → SavePage
 ```
 
-但在 Router → SavePage 这一环出现了断裂，导致分享文本无法传递到页面。
+But there was a break in the Router → SavePage环节, causing the shared text to not be passed to the page.
 
-## 解决方案
+## Solution
 
-参考了 GitHub 上的优秀开源项目 [receive_sharing_intent_plus](https://github.com/OutdatedGuy/receive_sharing_intent_plus) 的实现方式，借鉴了其 Stream 流式监听和插件化封装的最佳实践。
+Referenced the implementation of the excellent open-source
+project [receive_sharing_intent_plus](https://github.com/OutdatedGuy/receive_sharing_intent_plus) on GitHub, drawing
+inspiration from its best practices of Stream-based listening and plugin-like encapsulation.
 
-### 第一步：创建独立的 ShareService
+### Step 1: Create Independent ShareService
 
-**文件**: `lib/core/services/share_service.dart`
+**File**: `lib/core/services/share_service.dart`
 
 ```dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// 分享文本数据模型
+/// Shared text data model
 class SharedText {
   final String text;
   final DateTime timestamp;
@@ -54,7 +60,7 @@ class SharedText {
   });
 }
 
-/// 分享服务 - 单例模式
+/// Share service - Singleton pattern
 class ShareService {
   static final ShareService _instance = ShareService._internal();
   factory ShareService() => _instance;
@@ -64,22 +70,22 @@ class ShareService {
   
   final StreamController<SharedText> _shareStreamController = 
       StreamController<SharedText>.broadcast();
-  
-  /// 获取分享文本流
+
+  /// Get share text stream
   Stream<SharedText> get shareStream => _shareStreamController.stream;
   
   bool _isInitialized = false;
 
-  /// 初始化分享服务
+  /// Initialize share service
   void initialize() {
     if (_isInitialized) return;
     _isInitialized = true;
-    
-    // 设置 MethodChannel 监听器
+
+    // Set MethodChannel listener
     _channel.setMethodCallHandler(_handleMethodCall);
   }
 
-  /// 处理来自原生端的方法调用
+  /// Handle method calls from native side
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'onShareReceived':
@@ -94,16 +100,16 @@ class ShareService {
         break;
       
       default:
-        debugPrint('⚠️ 未知的方法调用：${call.method}');
+        debugPrint('⚠️ Unknown method call: ${call.method}');
     }
   }
 
-  /// 获取待处理的分享文本（被动拉取模式）
+  /// Get pending shared text (passive pull mode)
   Future<String?> getPendingShareText() async {
     try {
       final text = await _channel.invokeMethod<String>('getPendingShareText');
       if (text != null && text.isNotEmpty) {
-        // 同时也推送到流中
+        // Also push to stream
         _shareStreamController.add(SharedText(
           text: text,
           timestamp: DateTime.now(),
@@ -112,21 +118,21 @@ class ShareService {
       }
       return text;
     } on PlatformException catch (e) {
-      debugPrint('❌ 获取分享文本失败：${e.message}');
+      debugPrint('❌ Failed to get shared text: ${e.message}');
       return null;
     }
   }
 
-  /// 重置分享状态（清除缓存）
+  /// Reset share state (clear cache)
   Future<void> reset() async {
     try {
       await _channel.invokeMethod('reset');
     } on PlatformException catch (e) {
-      debugPrint('❌ 重置失败：${e.message}');
+      debugPrint('❌ Reset failed: ${e.message}');
     }
   }
 
-  /// 释放资源
+  /// Release resources
   void dispose() {
     _shareStreamController.close();
     _isInitialized = false;
@@ -134,15 +140,16 @@ class ShareService {
 }
 ```
 
-**核心优势**：
-- ✅ 单例模式，全局唯一实例
-- ✅ Stream 流式监听，符合 Flutter 编程习惯
-- ✅ 完整的生命周期管理
-- ✅ 详细的日志输出便于调试
+**Core Advantages**:
 
-### 第二步：修改 Android 端添加 reset 方法
+- ✅ Singleton pattern, globally unique instance
+- ✅ Stream-based listening,符合 Flutter 编程习惯
+- ✅ Complete lifecycle management
+- ✅ Detailed log output for easy debugging
 
-**文件**: `android/app/src/main/kotlin/com/example/local_vault/MainActivity.kt`
+### Step 2: Modify Android Side to Add reset Method
+
+**File**: `android/app/src/main/kotlin/com/example/local_vault/MainActivity.kt`
 
 ```kotlin
 MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_CHANNEL).setMethodCallHandler { call, result ->
@@ -152,7 +159,7 @@ MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_CHANNEL).setMeth
             pendingShareText = null
             result.success(text)
         }
-        "reset" -> {  // ✅ 新增 reset 方法
+      "reset" -> {  // ✅ Added reset method
             pendingShareText = null
             result.success(null)
         }
@@ -163,7 +170,7 @@ MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SHARE_CHANNEL).setMeth
 }
 ```
 
-### 第三步：在 main.dart 中使用 ShareService
+### Step 3: Use ShareService in main.dart
 
 ```dart
 import 'dart:async';
@@ -180,22 +187,22 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> {
     });
   }
 
-  /// 初始化分享服务
+  /// Initialize share service
   void _initializeShareService() {
-    debugPrint('🚀 [main] 开始初始化分享服务...');
+    debugPrint('🚀 [main] Starting to initialize share service...');
     
     final shareService = ShareService();
     shareService.initialize();
-    
-    // 监听分享流
+
+    // Listen to share stream
     _shareSubscription = shareService.shareStream.listen((sharedText) {
       if (mounted) {
-        debugPrint('✨ [main] 从 Stream 收到分享：${sharedText.text}...');
+        debugPrint('✨ [main] Received share from Stream: ${sharedText.text}...');
         _handleShareText(sharedText.text);
       }
     });
-    
-    // 同时尝试获取待处理的分享文本（兼容旧模式）
+
+    // Also try to get pending shared text (compatible with old mode)
     shareService.getPendingShareText().then((text) {
       if (text != null && mounted) {
         _handleShareText(text);
@@ -212,28 +219,28 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp> {
 }
 ```
 
-### 第四步：修复 SavePage 路由配置
+### Step 4: Fix SavePage Route Configuration
 
-**文件**: `lib/main.dart`
+**File**: `lib/main.dart`
 
 ```dart
 GoRoute(
   path: AppRoutes.save,
   builder: (context, state) {
-    // ✅ 从路由参数或 extra 获取分享文本
+// ✅ Get shared text from route parameters or extra
     final shareText = state.extra as String?;
     return SavePage(initialText: shareText);
   },
 ),
 ```
 
-### 第五步：修改 SavePage 接收 initialText 参数
+### Step 5: Modify SavePage to Receive initialText Parameter
 
-**文件**: `lib/features/save/presentation/pages/save_page.dart`
+**File**: `lib/features/save/presentation/pages/save_page.dart`
 
 ```dart
 class SavePage extends ConsumerStatefulWidget {
-  final String? initialText;  // ✅ 新增参数
+  final String? initialText; // ✅ Added parameter
 
   const SavePage({super.key, this.initialText});
 
@@ -242,19 +249,19 @@ class SavePage extends ConsumerStatefulWidget {
 }
 ```
 
-### 第六步：优化 _checkRouteArguments 方法
+### Step 6: Optimize _checkRouteArguments Method
 
 ```dart
-/// 检查路由参数（优先级更高）
+/// Check route arguments (higher priority)
 Future<bool> _checkRouteArguments() async {
   try {
     await Future.delayed(const Duration(milliseconds: 10));
     
     if (!mounted) return false;
-    
-    // ✅ 首先尝试从构造函数的 initialText 获取（GoRouter extra）
+
+    // ✅ First try to get from constructor's initialText (GoRouter extra)
     if (widget.initialText != null && widget.initialText!.isNotEmpty) {
-      debugPrint('✅ [SavePage] 从 GoRouter extra 获取分享文本成功');
+      debugPrint('✅ [SavePage] Successfully got shared text from GoRouter extra');
       setState(() {
         _contentController.text = widget.initialText!;
         _source = 'share';
@@ -262,11 +269,11 @@ Future<bool> _checkRouteArguments() async {
       });
       return true;
     }
-    
-    // 如果 initialText 为空，再尝试从 ModalRoute 获取（兼容旧方式）
+
+    // If initialText is empty, try to get from ModalRoute (compatible with old way)
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is String && args.isNotEmpty) {
-      debugPrint('✅ [SavePage] 从 ModalRoute 获取分享文本成功');
+      debugPrint('✅ [SavePage] Successfully got shared text from ModalRoute');
       setState(() {
         _contentController.text = args;
         _source = 'share';
@@ -274,21 +281,21 @@ Future<bool> _checkRouteArguments() async {
       });
       return true;
     }
-    
-    debugPrint('⚠️ [SavePage] 未找到分享文本');
+
+    debugPrint('⚠️ [SavePage] No shared text found');
     return false;
   } catch (e) {
-    debugPrint('❌ [SavePage] 获取路由参数失败：$e');
+    debugPrint('❌ [SavePage] Failed to get route arguments: $e');
     return false;
   }
 }
 ```
 
-## 完整的架构图
+## Complete Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                  其他应用分享文本                      │
+│                  Other app shares text              │
 └──────────────────┬──────────────────────────────────┘
                    │
                    ▼
@@ -296,7 +303,7 @@ Future<bool> _checkRouteArguments() async {
 │          Android MainActivity                        │
 │  ┌────────────────────────────────────────────┐    │
 │  │ handleIntent()                             │    │
-│  │  - 提取文本                                 │    │
+│  │  - Extract text                            │    │
 │  │  - notifyFlutterOfShare(text)              │    │
 │  └────────────────────────────────────────────┘    │
 └──────────────────┬──────────────────────────────────┘
@@ -304,11 +311,11 @@ Future<bool> _checkRouteArguments() async {
                    │ invokeMethod("onShareReceived")
                    ▼
 ┌─────────────────────────────────────────────────────┐
-│          ShareService (单例)                         │
+│          ShareService (Singleton)                  │
 │  ┌────────────────────────────────────────────┐    │
 │  │ _handleMethodCall()                        │    │
-│  │  - 接收原生推送                              │    │
-│  │  - 添加到 StreamController                  │    │
+│  │  - Receive native push                     │    │
+│  │  - Add to StreamController                  │    │
 │  └────────────────────────────────────────────┘    │
 │                                                      │
 │  ┌────────────────────────────────────────────┐    │
@@ -323,8 +330,8 @@ Future<bool> _checkRouteArguments() async {
 │          main.dart                                   │
 │  ┌────────────────────────────────────────────┐    │
 │  │ _initializeShareService()                  │    │
-│  │  - 监听 Stream                              │    │
-│  │  - 调用_handleShareText()                   │    │
+│  │  - Listen to Stream                        │    │
+│  │  - Call _handleShareText()                 │    │
 │  └────────────────────────────────────────────┘    │
 └──────────────────┬──────────────────────────────────┘
                    │
@@ -345,8 +352,8 @@ Future<bool> _checkRouteArguments() async {
 │          SavePage                                    │
 │  ┌────────────────────────────────────────────┐    │
 │  │ widget.initialText                         │    │
-│  │  - 优先从这里获取                           │    │
-│  │  - 回退到 ModalRoute                       │    │
+│  │  - Get from here first                     │    │
+│  │  - Fallback to ModalRoute                  │    │
 │  └────────────────────────────────────────────┘    │
 │                                                      │
 │  ┌────────────────────────────────────────────┐    │
@@ -355,120 +362,144 @@ Future<bool> _checkRouteArguments() async {
 └─────────────────────────────────────────────────────┘
 ```
 
-## 关键改进点总结
+## Key Improvements Summary
 
-### 1. Stream 流式监听
-借鉴了 receive_sharing_intent_plus 的设计，使用 Stream 来监听分享事件，比原始的 MethodChannel 回调更符合 Flutter 编程习惯。
+### 1. Stream-based Listening
 
-### 2. 单例模式
-ShareService 使用单例模式，确保全局只有一个实例，避免重复初始化和资源浪费。
+Borrowed from receive_sharing_intent_plus's design, using Stream to listen for share events is more in line with Flutter
+programming habits than the original MethodChannel callback.
 
-### 3. 类型安全的路由传参
-通过为 SavePage 添加 `initialText` 参数，实现了类型安全的路由传参，避免了隐式的 `arguments` 传递。
+### 2. Singleton Pattern
 
-### 4. 双重保障机制
-- **主动推送**：原生端通过 MethodChannel 实时推送分享事件
-- **被动拉取**：Flutter端主动查询待处理的分享文本
-- **路由参数**：通过 GoRouter 的 extra 参数传递
-- **ModalRoute**：兼容旧的 arguments 方式
+ShareService uses singleton pattern to ensure there's only one global instance, avoiding duplicate initialization and
+resource waste.
 
-### 5. 完整的生命周期管理
-ShareService 提供了 `initialize()` 和 `dispose()` 方法，确保资源的正确分配和释放。
+### 3. Type-safe Route Parameter Passing
 
-### 6. 详细的日志系统
-每个关键步骤都有详细的日志输出，方便调试和问题追踪：
-- 🚀 服务初始化
-- 🔧 配置加载
-- 📥 接收分享
-- ✨ 数据处理
-- ✅ 操作成功
-- ❌ 错误信息
+By adding `initialText` parameter to SavePage, implemented type-safe route parameter passing, avoiding implicit
+`arguments` passing.
 
-## 测试验证
+### 4. Dual Protection Mechanism
 
-### 编译测试
+- **Active push**: Native side pushes share events in real-time through MethodChannel
+- **Passive pull**: Flutter side actively queries for pending shared text
+- **Route parameters**: Pass through GoRouter's extra parameter
+- **ModalRoute**: Compatible with old arguments method
+
+### 5. Complete Lifecycle Management
+
+ShareService provides `initialize()` and `dispose()` methods to ensure proper allocation and release of resources.
+
+### 6. Detailed Log System
+
+Each key step has detailed log output for easy debugging and problem tracking:
+
+- 🚀 Service initialization
+- 🔧 Configuration loading
+- 📥 Receiving share
+- ✨ Data processing
+- ✅ Operation success
+- ❌ Error messages
+
+## Test Verification
+
+### Compilation Test
 ```bash
 cd /Users/ironion/workspace/local-vault
 flutter analyze lib/main.dart lib/features/save/presentation/pages/save_page.dart
-# 结果：无 error，只有少量 warning（未使用的方法）
+# Result: No errors, only a few warnings (unused methods)
 ```
 
-### 运行测试
+### Run Test
 ```bash
 flutter run --debug -d <device_id>
 ```
 
-观察日志输出：
+Observe log output:
 ```
-I/flutter: 🚀 [main] 开始初始化分享服务...
-I/flutter: 🔧 [ShareService] 开始初始化...
-I/flutter: ✅ [ShareService] 初始化完成
-I/flutter: ✅ [main] 分享服务初始化完成
-```
-
-### 分享功能测试
-从其他应用（如浏览器、微信等）分享文本到 Local Vault：
-
-1. **原生端日志**：
-```
-D/MainActivity: 收到分享内容：分享的文本内容
+I/flutter: 🚀 [main] Starting to initialize share service...
+I/flutter: 🔧 [ShareService] Starting initialization...
+I/flutter: ✅ [ShareService] Initialization completed
+I/flutter: ✅ [main] Share service initialization completed
 ```
 
-2. **Flutter 端日志**：
+### Share Functionality Test
+
+Share text from other apps (like browser, WeChat, etc.) to Local Vault:
+
+1. **Native side logs**:
 ```
-I/flutter: 📥 [ShareService] 收到分享文本：分享的文本内容...
-I/flutter: ✨ [main] 从 Stream 收到分享：分享的文本内容...
-I/flutter: Flutter 收到分享文本：分享的文本内容
-I/flutter: ✅ [SavePage] 从 GoRouter extra 获取分享文本成功：分享的文本内容...
+D/MainActivity: Received shared content: Shared text content
 ```
 
-3. **UI 验证**：
-- ✅ 保存页面自动打开
-- ✅ 内容框自动填充分享文本
-- ✅ 右上角显示绿色分享图标
-- ✅ 可以正常编辑标题、备注、标签
-- ✅ 可以正常保存到本地记忆库
+2. **Flutter side logs**:
+```
+I/flutter: 📥 [ShareService] Received shared text: Shared text content...
+I/flutter: ✨ [main] Received share from Stream: Shared text content...
+I/flutter: Flutter received shared text: Shared text content
+I/flutter: ✅ [SavePage] Successfully got shared text from GoRouter extra: Shared text content...
+```
 
-## 经验教训
+3. **UI Verification**:
 
-### 1. 路由传参要显式声明
-不要依赖隐式的 `arguments` 传递，应该在路由定义中明确处理 `state.extra`。
+- ✅ Save page opens automatically
+- ✅ Content box auto-fills with shared text
+- ✅ Green share icon displays in upper right corner
+- ✅ Can edit title, remarks, tags normally
+- ✅ Can save to local memory bank normally
 
-### 2. 使用 Stream 更优雅
-对于持续的事件流（如分享、通知等），使用 Stream 比 MethodChannel 回调更符合 Flutter 风格。
+## Lessons Learned
 
-### 3. 单一职责原则
-将分享处理逻辑封装到独立的 ShareService 中，使代码更清晰、更易维护。
+### 1. Route Parameter Passing Should Be Explicit
 
-### 4. 生命周期管理很重要
-对于单例服务和 Stream 订阅，要在合适的时机初始化和释放，避免内存泄漏。
+Don't rely on implicit `arguments` passing; should explicitly handle `state.extra` in route definitions.
 
-### 5. 日志是调试的神器
-详细的日志输出可以快速定位问题所在，节省大量调试时间。
+### 2. Using Stream Is More Elegant
 
-## 参考项目
+For continuous event streams (like shares, notifications, etc.), using Stream is more in line with Flutter style than
+MethodChannel callbacks.
 
-- [receive_sharing_intent_plus](https://github.com/OutdatedGuy/receive_sharing_intent_plus) - Flutter分享接收插件
-- [share_plus](https://github.com/fluttercommunity/plus_plugins/tree/main/packages/share_plus) - Flutter 官方社区维护的分享插件
+### 3. Single Responsibility Principle
 
-## 相关文件清单
+Encapsulate share handling logic in an independent ShareService to make code clearer and more maintainable.
 
-### 新增文件
-- `lib/core/services/share_service.dart` - 分享服务（单例 + Stream）
+### 4. Lifecycle Management Is Important
 
-### 修改文件
-- `lib/main.dart` - 添加 ShareService 初始化和监听
-- `lib/features/save/presentation/pages/save_page.dart` - 接收 initialText 参数
-- `android/app/src/main/kotlin/com/example/local_vault/MainActivity.kt` - 添加 reset 方法
+For singleton services and Stream subscriptions, initialize and release at appropriate times to avoid memory leaks.
 
-## 总结
+### 5. Logs Are Debugging Magic
 
-通过借鉴优秀的开源项目实践，我们不仅解决了分享文本显示的问题，还提升了整体代码质量和架构设计。新的实现具有以下特点：
+Detailed log output can quickly locate problem areas, saving a lot of debugging time.
 
-- ✅ **更优雅**：使用 Stream 流式监听
-- ✅ **更安全**：类型安全的路由传参
-- ✅ **更可靠**：多重保障机制确保分享不丢失
-- ✅ **更易维护**：清晰的职责划分和完整的生命周期管理
-- ✅ **更易调试**：详细的日志系统
+## Reference Projects
 
-这个解决方案不仅适用于分享功能，也可以应用到其他类似的事件监听场景（如推送通知、剪贴板监听等）。
+- [receive_sharing_intent_plus](https://github.com/OutdatedGuy/receive_sharing_intent_plus) - Flutter share receiving
+  plugin
+- [share_plus](https://github.com/fluttercommunity/plus_plugins/tree/main/packages/share_plus) - Share plugin maintained
+  by Flutter official community
+
+## Related File List
+
+### New Files
+
+- `lib/core/services/share_service.dart` - Share service (singleton + Stream)
+
+### Modified Files
+
+- `lib/main.dart` - Add ShareService initialization and listening
+- `lib/features/save/presentation/pages/save_page.dart` - Receive initialText parameter
+- `android/app/src/main/kotlin/com/example/local_vault/MainActivity.kt` - Add reset method
+
+## Summary
+
+By drawing on excellent open-source project practices, we not only solved the shared text display issue but also
+improved overall code quality and architecture design. The new implementation has the following features:
+
+- ✅ **More elegant**: Using Stream-based listening
+- ✅ **More secure**: Type-safe route parameter passing
+- ✅ **More reliable**: Multiple protection mechanisms to ensure shares are not lost
+- ✅ **More maintainable**: Clear responsibility division and complete lifecycle management
+- ✅ **Easier to debug**: Detailed log system
+
+This solution is not only applicable to sharing functionality but can also be applied to other similar event listening
+scenarios (like push notifications, clipboard monitoring, etc.).

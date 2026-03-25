@@ -1,78 +1,79 @@
-# Local Vault 清洁架构重构总结
+# Local Vault Clean Architecture Refactoring Summary
 
-## 📅 完成日期
+## 📅 Completion Date
 2026-03-11
 
 ---
 
-## 🎯 重构目标
+## 🎯 Refactoring Goals
 
-将 Local Vault 项目从现有架构迁移到**清洁架构（Clean Architecture）**，遵循：
-- 开闭原则（Open/Closed Principle）
-- 依赖倒置原则（Dependency Inversion Principle）
-- 单一职责原则（Single Responsibility Principle）
-- 可测试性
-- 渐进式迁移
+Migrate the Local Vault project from the existing architecture to **Clean Architecture**, following:
+
+- Open/Closed Principle
+- Dependency Inversion Principle
+- Single Responsibility Principle
+- Testability
+- Progressive migration
 
 ---
 
-## 🏗️ 新架构分层
+## 🏗️ New Architecture Layers
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              Presentation Layer (展示层)                  │
+│              Presentation Layer                        │
 │  - UI Widgets                                            │
-│  - Riverpod Providers (新架构)                           │
+│  - Riverpod Providers (new architecture)                │
 │  - State Management                                      │
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│              Application Layer (应用层)                   │
-│  - UseCases (业务用例)                                    │
-│  - Orchestrates Domain Entities                          │
+│              Application Layer                         │
+│  - UseCases (business use cases)                       │
+│  - Orchestrates Domain Entities                        │
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│                Domain Layer (领域层)                      │
-│  - Entities (纯 Dart 类)                                 │
-│  - Repository Interfaces (抽象接口)                      │
-│  - Business Logic (业务逻辑)                              │
+│                Domain Layer                            │
+│  - Entities (pure Dart classes)                        │
+│  - Repository Interfaces (abstract interfaces)         │
+│  - Business Logic                                      │
 └─────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────┐
-│            Infrastructure Layer (基础设施层)               │
-│  - Repository Implementations (Hive)                     │
-│  - Data Sources (Hive Boxes)                             │
+│            Infrastructure Layer                         │
+│  - Repository Implementations (Hive)                   │
+│  - Data Sources (Hive Boxes)                           │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📁 完整文件清单
+## 📁 Complete File List
 
-### 新增文件（35+ 个）
+### New Files (35+)
 
 #### Core Layer
 ```
 lib/core/
 ├── di/
-│   └── service_locator.dart              # GetIt 依赖注入配置
+│   └── service_locator.dart              # GetIt dependency injection config
 ├── domain/
 │   ├── entities/
-│   │   ├── summary_entity.dart            # 摘要领域实体
-│   │   └── template_entity.dart           # 模板领域实体
+│   │   ├── summary_entity.dart            # summary domain entity
+│   │   └── template_entity.dart           # template domain entity
 │   ├── repositories/
 │   │   ├── summary_repository_interface.dart
 │   │   └── template_repository_interface.dart
 │   └── usecases/
-│       ├── summary_usecases.dart          # 摘要业务用例
-│       └── template_usecases.dart         # 模板业务用例
+│       ├── summary_usecases.dart          # summary business use cases
+│       └── template_usecases.dart         # template business use cases
 ├── providers/
-│   ├── summary_entities_provider.dart     # 新架构 Summary Provider
-│   └── template_entities_provider.dart    # 新架构 Template Provider
+│   ├── summary_entities_provider.dart     # new architecture Summary Provider
+│   └── template_entities_provider.dart    # new architecture Template Provider
 └── utils/
-    ├── summary_adapter.dart                # 新旧 Summary 适配器
-    └── template_adapter.dart               # 新旧 Template 适配器
+    ├── summary_adapter.dart                # old/new Summary adapter
+    └── template_adapter.dart               # old/new Template adapter
 ```
 
 #### Infrastructure Layer
@@ -86,86 +87,91 @@ lib/infrastructure/
 #### Feature Layer
 ```
 lib/features/home/presentation/pages/
-└── new_home_page.dart                      # 新架构首页示例
+└── new_home_page.dart                      # new architecture home page example
 ```
 
 #### Documentation
 ```
-ARCHITECTURE_EXAMPLE.md                     # 使用示例
-MIGRATION_GUIDE.md                         # 迁移指南
-ARCHITECTURE_SUMMARY.md                    # 本文档
+ARCHITECTURE_EXAMPLE.md                     # usage examples
+MIGRATION_GUIDE.md                         # migration guide
+ARCHITECTURE_SUMMARY.md                    # this document
 ```
 
-### 修改文件
+### Modified Files
 
-#### 核心文件
+#### Core Files
 ```
-lib/main.dart                              # 初始化 DI，添加新路由
-lib/core/constants/app_routes.dart         # 添加 newHome 路由
-lib/core/services/summary_save_service.dart # 部分使用新架构
-lib/features/settings/presentation/pages/settings_page.dart # 添加测试入口
-pubspec.yaml                               # 添加 get_it 依赖
+lib/main.dart                              # initialize DI, add new routes
+lib/core/constants/app_routes.dart         # add newHome route
+lib/core/services/summary_save_service.dart # partially use new architecture
+lib/features/settings/presentation/pages/settings_page.dart # add test entry
+pubspec.yaml                               # add get_it dependency
 ```
 
 ---
 
-## ✨ 核心特性
+## ✨ Core Features
 
-### 1. 完全解耦
-- Domain 层**不依赖**任何外部库
-- 只使用纯 Dart 代码
-- 易于测试和维护
+### 1. Complete Decoupling
 
-### 2. 依赖倒置
-- 高层模块（UseCases）依赖抽象接口
-- 低层模块（Repository）实现接口
-- 轻松切换数据源（Hive → SQLite → API）
+- Domain layer **does not depend** on any external libraries
+- Only uses pure Dart code
+- Easy to test and maintain
 
-### 3. 向后兼容
-- Adapter 支持新旧模型互转
-- 新旧代码可以**同时运行**
-- 渐进式迁移，风险可控
+### 2. Dependency Inversion
 
-### 4. 可测试性
-- UseCase 便于单元测试
-- Repository 可以 mock
-- 不依赖 Flutter 环境
+- High-level modules (UseCases) depend on abstract interfaces
+- Low-level modules (Repository) implement interfaces
+- Easily switch data sources (Hive → SQLite → API)
+
+### 3. Backward Compatibility
+
+- Adapters support conversion between old and new models
+- Old and new code can **run simultaneously**
+- Progressive migration with controlled risk
+
+### 4. Testability
+
+- UseCases are easy to unit test
+- Repositories can be mocked
+- No dependency on Flutter environment
 
 ---
 
-## 💡 快速使用指南
+## 💡 Quick Usage Guide
 
-### 方式 1：直接使用 UseCase（推荐）
+### Method 1: Directly Use UseCase (Recommended)
 ```dart
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 
-// 获取 UseCase
+// Get UseCase
 final useCases = sl<SummaryUseCases>();
 
-// 创建摘要
+// Create summary
 final summary = SummaryEntity.create(
-  title: '我的标题',
-  content: '我的内容',
+  title: 'My Title',
+  content: 'My Content',
 );
 
-// 保存
+// Save
 await useCases.addSummary(summary);
 
-// 查询所有
+// Query all
 final allSummaries = useCases.getAllSummaries();
 
-// 搜索
-final results = useCases.searchSummaries('关键词');
+// Search
+final results = useCases.searchSummaries('keyword'
+);
 ```
 
-### 方式 2：使用 Riverpod Provider
+### Method 2: Use Riverpod Provider
 ```dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
 
-// 在 Consumer 中使用
+// Use in Consumer
 class MyWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -173,7 +179,7 @@ class MyWidget extends ConsumerWidget {
     
     return summariesAsync.when(
       loading: () => CircularProgressIndicator(),
-      error: (error, stack) => Text('错误: $error'),
+      error: (error, stack) => Text('Error: $error'),
       data: (summaries) => ListView.builder(
         itemCount: summaries.length,
         itemBuilder: (context, index) {
@@ -187,64 +193,68 @@ class MyWidget extends ConsumerWidget {
 }
 ```
 
-### 方式 3：测试新架构首页
-1. 打开应用
-2. 进入「设置」页面
-3. 找到「架构测试」部分
-4. 点击「新架构首页测试」
+### Method 3: Test New Architecture Home Page
+
+1. Open the app
+2. Go to the "Settings" page
+3. Find the "Architecture Test" section
+4. Click "New Architecture Home Page Test"
 
 ---
 
-## 📊 架构对比
+## 📊 Architecture Comparison
 
-| 方面 | 旧架构 | 新架构 |
-|------|--------|--------|
-| 依赖方向 | 高层依赖低层 | 依赖倒置 |
-| 模型耦合 | Summary 依赖 Hive | SummaryEntity 纯 Dart |
-| Repository | 直接实现 | 接口 + 实现 |
-| 测试难度 | 高（依赖 Flutter） | 低（纯 Dart） |
-| 可替换性 | 低 | 高 |
-| 向后兼容 | - | ✅ 支持 |
-
----
-
-## 🚀 后续迁移计划
-
-### 阶段 1：渐进式（当前）
-- ✅ 新功能使用新架构
-- ✅ SummarySaveService 部分迁移
-- ⏳ 逐步迁移 1-2 个 UI 页面
-
-### 阶段 2：完全迁移（未来）
-- ⏳ 迁移所有 Summary UI
-- ⏳ 迁移所有 Template UI
-- ⏳ 删除旧 Repository 和 Provider
+| Aspect                 | Old Architecture                | New Architecture           |
+|------------------------|---------------------------------|----------------------------|
+| Dependency Direction   | High-level depends on low-level | Dependency inversion       |
+| Model Coupling         | Summary depends on Hive         | SummaryEntity is pure Dart |
+| Repository             | Direct implementation           | Interface + implementation |
+| Test Difficulty        | High (depends on Flutter)       | Low (pure Dart)            |
+| Replaceability         | Low                             | High                       |
+| Backward Compatibility | -                               | ✅ Supported                |
 
 ---
 
-## 📚 相关文档
+## 🚀 Future Migration Plan
 
-1. `ARCHITECTURE_EXAMPLE.md` - 基础使用示例
-2. `MIGRATION_GUIDE.md` - 完整迁移指南
-3. `lib/core/di/service_locator.dart` - 依赖注入配置
+### Phase 1: Progressive (Current)
+
+- ✅ New features use new architecture
+- ✅ SummarySaveService partially migrated
+- ⏳ Gradually migrate 1-2 UI pages
+
+### Phase 2: Complete Migration (Future)
+
+- ⏳ Migrate all Summary UI
+- ⏳ Migrate all Template UI
+- ⏳ Delete old Repository and Provider
 
 ---
 
-## 🎉 总结
+## 📚 Related Documents
 
-清洁架构重构基础框架已**全部完成**！
+1. `ARCHITECTURE_EXAMPLE.md` - Basic usage examples
+2. `MIGRATION_GUIDE.md` - Complete migration guide
+3. `lib/core/di/service_locator.dart` - Dependency injection configuration
 
-✅ Domain 层（领域实体、接口、业务用例）
-✅ Infrastructure 层（Hive 仓库实现）
-✅ DI 层（GetIt 依赖注入）
-✅ 应用服务（SummarySaveService 部分迁移）
-✅ 新架构 Provider（Riverpod）
-✅ 适配器（新旧模型互转）
-✅ 示例页面（新架构首页）
-✅ 测试入口（设置页面）
-✅ 完整文档（3 份指南）
+---
 
-现在你可以：
-1. 新功能使用新架构
-2. 逐步迁移现有代码
-3. 保持向后兼容性
+## 🎉 Summary
+
+The clean architecture refactoring basic framework is **fully completed**!
+
+✅ Domain layer (domain entities, interfaces, business use cases)
+✅ Infrastructure layer (Hive repository implementations)
+✅ DI layer (GetIt dependency injection)
+✅ Application services (SummarySaveService partially migrated)
+✅ New architecture Providers (Riverpod)
+✅ Adapters (old/new model conversion)
+✅ Example page (new architecture home page)
+✅ Test entry (settings page)
+✅ Complete documentation (3 guides)
+
+Now you can:
+
+1. Use the new architecture for new features
+2. Gradually migrate existing code
+3. Maintain backward compatibility

@@ -74,7 +74,8 @@ void main() {
 
       final snapshot = await localizedService.collectSnapshot();
 
-      expect(snapshot.modelFormatDescription, contains('检测到内置的 .gguf 资源文件'));
+      expect(snapshot.modelFormatDescription,
+          contains('Detected built-in .gguf resource file'));
     });
 
     test('runSelfCheck returns topic and metadata inference results', () async {
@@ -82,11 +83,11 @@ void main() {
 
       expect(result.completedAt, DateTime.parse('2026-03-18T12:00:00.000Z'));
       expect(result.initializeCompleted, isTrue);
-      expect(result.topic, '项目诊断');
+      expect(result.topic, 'Project Diagnostics');
       expect(result.topicFallbackMode, MemorySlmFallbackMode.none);
       expect(result.topicLatencyMs, 11);
-      expect(result.title, 'SLM 自检摘要');
-      expect(result.tags, const <String>['SLM', '诊断']);
+      expect(result.title, 'SLM Self-Check Summary');
+      expect(result.tags, const <String>['SLM', 'Diagnostics']);
       expect(result.metadataFallbackMode, MemorySlmFallbackMode.none);
       expect(result.metadataLatencyMs, 17);
       expect(result.usedNativeModel, isTrue);
@@ -133,7 +134,7 @@ class _FakeMemorySlmService extends MemorySLMService {
   ) async {
     return const MemorySlmResponse<String>(
       success: true,
-      data: '项目诊断',
+      data: 'Project Diagnostics',
       fallbackUsed: MemorySlmFallbackMode.none,
       latencyMs: 11,
     );
@@ -148,8 +149,8 @@ class _FakeMemorySlmService extends MemorySLMService {
     return const MemorySlmResponse<MemorySlmSummaryMetadata>(
       success: true,
       data: MemorySlmSummaryMetadata(
-        title: 'SLM 自检摘要',
-        tags: <String>['SLM', '诊断'],
+        title: 'SLM Self-Check Summary',
+        tags: <String>['SLM', 'Diagnostics'],
       ),
       fallbackUsed: MemorySlmFallbackMode.none,
       latencyMs: 17,

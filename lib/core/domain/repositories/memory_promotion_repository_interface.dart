@@ -1,33 +1,33 @@
 import 'package:local_vault/core/domain/entities/memory_promotion_metadata.dart';
 
-/// 记忆晋升元数据仓库接口
+/// Memory Promotion Metadata Repository Interface
 ///
-/// 💡 **职责**：
-/// - 管理记忆晋升相关的辅助数据
-/// - 与核心业务数据 (SummaryEntity) 解耦
-/// - 支持独立的版本迭代
+/// 💡 **Responsibilities**:
+/// - Manage auxiliary data related to memory promotion
+/// - Decouple from core business data (SummaryEntity)
+/// - Support independent version iteration
 abstract class MemoryPromotionRepositoryInterface {
-  /// 初始化
+  /// Initialize
   Future<void> init();
 
-  /// 获取所有元数据
+  /// Get all metadata
   List<MemoryPromotionMetadata> getAllMetadata();
 
-  /// 根据 summaryId 获取元数据
+  /// Get metadata by summaryId
   MemoryPromotionMetadata? getMetadata(String summaryId);
 
-  /// 保存或更新元数据
+  /// Save or update metadata
   Future<void> saveMetadata(MemoryPromotionMetadata metadata);
 
-  /// 批量保存
+  /// Batch save
   Future<void> saveAllMetadata(List<MemoryPromotionMetadata> metadataList);
 
-  /// 删除元数据
+  /// Delete metadata
   Future<void> deleteMetadata(String summaryId);
 
-  /// 清空所有数据
+  /// Clear all data
   Future<void> clearAll();
 
-  /// 总数
+  /// Total count
   int get totalCount;
 }
