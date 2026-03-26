@@ -53,17 +53,17 @@ The project adopts **Clean Architecture** + **Domain-Driven Design (DDD)**, orga
 
 ```
 lib/
-├── core/                    # 核心层
-│   ├── di/                  # 依赖注入（GetIt）
-│   ├── domain/              # 领域层（实体、接口、业务规则）
-│   ├── infrastructure/      # 基础设施层（Hive 实现）
-│   └── providers/           # Riverpod 状态管理
-├── features/                # 功能模块
-│   ├── home/                # 首页模块
-│   ├── memory/              # 记忆管理模块
-│   ├── templates/           # 模板模块
-│   └── settings/            # 设置模块
-└── l10n/                    # 国际化资源
+├── core/                    # Core layer
+│   ├── di/                  # Dependency injection（GetIt）
+│   ├── domain/              # Domain layers (entities, interfaces, business rules)
+│   ├── infrastructure/      # Infrastructure layer (Hive implementation)
+│   └── providers/           # Riverpod status management
+├── features/                # Functional modules
+│   ├── home/                # Home module
+│   ├── memory/              # Memory management module
+│   ├── templates/           # Template module
+│   └── settings/            # Set up the module
+└── l10n/                    # International resources
 ```
 
 ### Architecture Documentation

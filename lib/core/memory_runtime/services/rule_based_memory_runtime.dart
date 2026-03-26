@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +9,7 @@ import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.d
 import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
 import 'package:local_vault/core/memory_runtime/repositories/memory_sidecar_repository.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
+import 'package:local_vault/core/utils/memory_multilingual_keywords.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
 import 'package:local_vault/core/utils/summary_text_utils.dart';
 import 'package:local_vault/core/utils/topic_placeholder_utils.dart';
@@ -85,8 +85,8 @@ class RuleBasedMemoryCapability implements MemoryCapability {
       }
 
       for (final fact in compressionResult.mergedFacts) {
-        // Note: 自动晋升逻辑已移至 SummaryUseCases 统一管理
-        // 此处不再进行实时判断，而是等待后台定期扫描处理
+        // Note: Auto-promotion logic has been moved to SummaryUseCases for unified management
+        // This place no longer performs real-time checks, but waits for background periodic scanning
         await _summaryRepository.addSummary(fact);
       }
 
@@ -167,13 +167,13 @@ class RuleBasedMemoryCapability implements MemoryCapability {
     return _retriever.retrieve(request);
   }
 
-  /// 重建状态记录，支持多类型状态推导
+  /// Rebuild state records, supporting multi-type state derivation
   ///
-  /// 增强的状态推导逻辑：
-  /// - task_state: 任务、待办、跟进事项
-  /// - project_state: 项目、发布、里程碑
-  /// - user_preference_state: 用户偏好、习惯
-  /// - topic_state: 通用主题状态
+  /// Enhanced state derivation logic:
+  /// - task_state: tasks, todos, follow-ups
+  /// - project_state: projects, releases, milestones
+  /// - user_preference_state: user preferences, habits
+  /// - topic_state: general topic states
   List<StateRecord> _rebuildStateRecords(
     List<MemoryUnit> units, {
     required List<StateRecord> previousRecords,
@@ -183,7 +183,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
     };
     final groupedPatches = <String, List<StatePatch>>{};
 
-    // 第一轮：收集所有状态补丁
+    // Round 1: Collect all state patches
     for (final unit in units) {
       final patch = _deriveStatePatch(unit);
       if (patch == null ||
@@ -195,20 +195,20 @@ class RuleBasedMemoryCapability implements MemoryCapability {
           );
     }
 
-    // 第二轮：合并同 key 的补丁并构建记录
+    // Round 2: Merge patches with same key and build records
     final records = <StateRecord>[];
     for (final entry in groupedPatches.entries) {
       final mergedPatch = _mergeStatePatches(entry.value);
       final previous = previousByKey[entry.key];
 
-      // 检查是否发生变化
+      // Check if changes occurred
       final changed = previous == null ||
           previous.summary != mergedPatch.summary ||
           previous.topic != mergedPatch.topic ||
           !_sameStrings(previous.keywords, mergedPatch.keywords) ||
           (previous.importance - mergedPatch.importance).abs() > 0.001;
 
-      // 版本号控制：首次创建为 v1，变化时递增，否则保持不变（优化：简化表达式）
+      // Version control: v1 for first creation, increment on change, keep unchanged otherwise (optimized: simplified expression)
       records.add(
         StateRecord(
           namespace: mergedPatch.namespace,
@@ -225,7 +225,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
       );
     }
 
-    // 按重要性降序排序
+    // Sort by importance descending
     records.sort((a, b) => b.importance.compareTo(a.importance));
     return records;
   }
@@ -237,7 +237,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
         .toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-    // 优化：先按 topic 分组，组内再合并
+    // Optimization: group by topic first, then merge within groups
     final byTopic = <String, List<SummaryEntity>>{};
     for (final summary in sourceSummaries) {
       final profile = _slmService.describeSummarySemantics(summary);
@@ -249,7 +249,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
 
     final units = <MemoryUnit>[];
 
-    // 对每个 topic 组内进行合并
+    // Merge within each topic group
     for (final entries in byTopic.entries) {
       final groupUnits = <MemoryUnit>[];
 
@@ -257,7 +257,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
         final candidate = _buildCandidateUnit(summary);
         var merged = false;
 
-        // 在组内寻找最佳合并对象（而不仅仅是第一个）
+        // Find best merge target within group (not just the first one)
         MemoryUnit? bestMatch;
         int bestMatchIndex = -1;
         double bestScore = 0.0;
@@ -265,7 +265,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
         for (var index = 0; index < groupUnits.length; index++) {
           final existing = groupUnits[index];
           if (_merger.shouldMerge(existing, candidate)) {
-            // 计算合并优先级分数
+            // Calculate merge priority score
             final score = _calculateMergePriority(existing, candidate);
             if (score > bestScore) {
               bestScore = score;
@@ -286,7 +286,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
         }
       }
 
-      // 将组内合并后的结果加入总列表
+      // Add merged results from group to total list
       units.addAll(groupUnits);
     }
 
@@ -332,11 +332,11 @@ class RuleBasedMemoryCapability implements MemoryCapability {
         _normalize('${unit.topic} ${unit.summary} ${unit.keywords.join(' ')}');
     String namespace = '';
 
-    if (_containsAny(normalized, _preferenceSignals)) {
+    if (_containsAny(normalized, StateSignals.preferenceSignals)) {
       namespace = 'user_preference_state';
-    } else if (_containsAny(normalized, _taskSignals)) {
+    } else if (_containsAny(normalized, StateSignals.taskSignals)) {
       namespace = 'task_state';
-    } else if (_containsAny(normalized, _projectSignals)) {
+    } else if (_containsAny(normalized, StateSignals.projectSignals)) {
       namespace = 'project_state';
     } else if (profile.semanticKey.isNotEmpty) {
       namespace = 'topic_state';
@@ -423,16 +423,16 @@ class RuleBasedMemoryCapability implements MemoryCapability {
     });
   }
 
-  /// 计算合并优先级分数
+  /// Calculate merge priority score
   double _calculateMergePriority(MemoryUnit existing, MemoryUnit candidate) {
     double score = 0.0;
 
-    // topic 完全相同优先级最高
+    // Same topic gets highest priority
     if (_normalize(existing.topic) == _normalize(candidate.topic)) {
       score += 1.0;
     }
 
-    // 时间接近的优先级高
+    // Time proximity gets higher priority
     final timeDiff =
         existing.createdAt.difference(candidate.createdAt).abs().inDays;
     if (timeDiff <= 1) {
@@ -443,7 +443,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
       score += 0.1;
     }
 
-    // 关键词重叠度
+    // Keyword overlap
     final commonKeywords =
         existing.keywords.toSet().intersection(candidate.keywords.toSet());
     final overlapRatio = commonKeywords.length /
@@ -452,43 +452,6 @@ class RuleBasedMemoryCapability implements MemoryCapability {
 
     return score;
   }
-
-  static const Set<String> _taskSignals = <String>{
-    'task',
-    'todo',
-    'follow-up',
-    'follow up',
-    'next step',
-    '待办',
-    '任务',
-    '跟进',
-    '修复',
-    '处理',
-    'checklist',
-    'issue',
-  };
-  static const Set<String> _projectSignals = <String>{
-    'project',
-    'launch',
-    'release',
-    'rollout',
-    'milestone',
-    'roadmap',
-    '项目',
-    '发布',
-    '上线',
-    '计划',
-    '版本',
-  };
-  static const Set<String> _preferenceSignals = <String>{
-    'prefer',
-    'preference',
-    'like',
-    'dislike',
-    '偏好',
-    '喜欢',
-    '习惯',
-  };
 }
 
 class RuleBasedMemoryCompressor implements MemoryCompressor {
@@ -503,43 +466,6 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
   final MemorySLMService _slmService;
   final MemoryPolicyConfig _policyConfig;
   final MemoryPolicy _policy;
-
-  static const Set<String> _taskSignals = <String>{
-    'task',
-    'todo',
-    'follow-up',
-    'follow up',
-    'next step',
-    '待办',
-    '任务',
-    '跟进',
-    '修复',
-    '处理',
-    'checklist',
-    'issue',
-  };
-  static const Set<String> _projectSignals = <String>{
-    'project',
-    'launch',
-    'release',
-    'rollout',
-    'milestone',
-    'roadmap',
-    '项目',
-    '发布',
-    '上线',
-    '计划',
-    '版本',
-  };
-  static const Set<String> _preferenceSignals = <String>{
-    'prefer',
-    'preference',
-    'like',
-    'dislike',
-    '偏好',
-    '喜欢',
-    '习惯',
-  };
 
   @override
   Future<SessionCompactionResult> compressSessions(
@@ -584,7 +510,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
         ),
       );
 
-      // 新增：从合并后的 Fact 生成状态记录
+      // New: Process directly generated state records
       final stateRecord = await compressToState(fact);
       if (stateRecord != null) {
         stateUpdates.add(stateRecord);
@@ -600,9 +526,9 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
     );
   }
 
-  /// 从 SummaryEntity 压缩生成 StateRecord
+  /// Compress from SummaryEntity to StateRecord
   ///
-  /// 实现 session → summary → state 的三层压缩管道
+  /// Implements session → summary → state three-layer compression pipeline
   Future<StateRecord?> compressToState(SummaryEntity summary) async {
     final profile = _slmService.describeSummarySemantics(summary);
     final topic = profile.displayTopic.isNotEmpty
@@ -635,7 +561,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       return null;
     }
 
-    // 构建新的状态记录，版本号为 1
+    // Build new state record, version is 1
     return StateRecord(
       namespace: patch.namespace,
       key: patch.key,
@@ -648,8 +574,8 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
     );
   }
 
-  /// 使用已有的语义画像推导状态补丁
-  /// 避免重复调用 describeTextSemantics
+  /// Derive state patch using existing semantic profile
+  /// Avoids repeated calls to describeTextSemantics
   StatePatch? _deriveStatePatchWithProfile(
     MemoryUnit unit,
     RuleSemanticProfile profile,
@@ -658,11 +584,11 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
         _normalize('${unit.topic} ${unit.summary} ${unit.keywords.join(' ')}');
     String namespace = '';
 
-    if (_containsAny(normalized, _preferenceSignals)) {
+    if (_containsAny(normalized, StateSignals.preferenceSignals)) {
       namespace = 'user_preference_state';
-    } else if (_containsAny(normalized, _taskSignals)) {
+    } else if (_containsAny(normalized, StateSignals.taskSignals)) {
       namespace = 'task_state';
-    } else if (_containsAny(normalized, _projectSignals)) {
+    } else if (_containsAny(normalized, StateSignals.projectSignals)) {
       namespace = 'project_state';
     } else if (profile.semanticKey.isNotEmpty) {
       namespace = 'topic_state';
@@ -977,26 +903,26 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
         _isStableComparableTopic(normalizedRefreshed);
   }
 
-  /// 压缩合并后的内容
+  /// Compress merged content
   String _compressSummary(List<String> parts) {
-    // 检查 SLM 是否已初始化（可用）
+    // Check if SLM has been initialized (available)
     final slmAvailable = _slmService.isInitialized;
 
     if (slmAvailable) {
-      // SLM 路径：使用语义分析
+      // SLM path: use semantic analysis
       return _compressSummaryWithSLM(parts);
     } else {
-      // 规则路径：基于结构化合并
+      // Rule path: structural merge based on rules
       return _compressSummaryWithRules(parts);
     }
   }
 
-  /// 使用 SLM 进行智能压缩
+  /// Intelligent compression using SLM
   String _compressSummaryWithSLM(List<String> parts) {
-    // 1. 先尝试直接拼接，如果不超过限制就直接返回
+    // 1. Try direct concatenation first, return directly if within limit
     final directJoin = parts.where((p) => p.trim().isNotEmpty).join('\n\n');
 
-    // 合并时使用合理的字符限制（原始限制的 2 倍，最少 400 字符）
+    // Use reasonable character limit for merge (2x original limit, minimum 400 chars)
     final mergeCharLimit = max(
       _policy.maxCompressedSummaryChars * 2,
       400,
@@ -1006,11 +932,11 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       return directJoin;
     }
 
-    // 2. SLM 辅助路径：使用语义分析增强压缩效果
+    // 2. SLM-assisted path: use semantic analysis for enhanced compression
     debugPrint(
         '🔍 [MemoryRuntime] Using SLM-assisted compression for ${parts.length} parts (${directJoin.length} chars)');
 
-    // 3. 利用 SLM 提取的语义信息指导压缩
+    // 3. Use semantic information extracted by SLM to guide compression
     final combinedText = parts.join(' ');
     final semanticProfile = _slmService.describeTextSemantics(
       title: 'Memory Merge',
@@ -1018,22 +944,22 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       tags: [],
     );
 
-    // 4. 使用语义增强的规则引擎进行压缩
+    // 4. Use semantically enhanced rule engine for compression
     return _compressSummaryWithRules(parts, semanticProfile: semanticProfile);
   }
 
-  /// 使用规则进行结构化合并
+  /// Structural merge using rules
   String _compressSummaryWithRules(
     List<String> parts, {
     RuleSemanticProfile? semanticProfile,
   }) {
-    // 1. 将内容拆分成句子
+    // 1. Split content into sentences
     final sentences = <String>[];
     for (final part in parts) {
       final normalizedPart = part.trim();
       if (normalizedPart.isEmpty) continue;
 
-      // 按多种标点符号分割句子
+      // Split sentences by multiple punctuation marks
       final splitSentences = normalizedPart.split(RegExp(r'[。！？.!?]'));
       for (final sentence in splitSentences) {
         final clean = sentence.trim();
@@ -1043,7 +969,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       }
     }
 
-    // 2. 归一化并去重
+    // 2. Normalize and deduplicate
     final seenNormalized = <String>{};
     final uniqueSentences = <String>[];
     for (final sentence in sentences) {
@@ -1054,13 +980,13 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       }
     }
 
-    // 3. 去除相似的行
+    // 3. Remove similar lines
     final filteredSentences = _removeSimilarLines(uniqueSentences);
 
-    // 4. 移除信号较低的行
+    // 4. Remove low-signal lines
     final highSignalSentences = _filterLowSignalLines(filteredSentences);
 
-    // 5. 基于语义画像和重要性评分选择前 N 条要点
+    // 5. Select top N points based on semantic profile and importance scoring
     final topSentences = _selectTopPoints(
       highSignalSentences,
       min: 5,
@@ -1068,11 +994,11 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       semanticProfile: semanticProfile,
     );
 
-    // 6. 输出为结构化项目符号
+    // 6. Output as structured bullet points
     return _formatAsBulletPoints(topSentences);
   }
 
-  /// 去除相似的行
+  /// Remove similar lines
   List<String> _removeSimilarLines(List<String> lines) {
     if (lines.length <= 1) return lines;
 
@@ -1085,7 +1011,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
 
       result.add(lines[i]);
 
-      // 标记与当前行相似的所有行为已使用
+      // Mark all lines similar to current line as used
       for (int j = i + 1; j < lines.length; j++) {
         if (!used[j] &&
             _areLinesSimilar(normalizedLines[i], normalizedLines[j])) {
@@ -1097,7 +1023,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
     return result;
   }
 
-  /// 判断两行是否相似
+  /// Determine if two lines are similar
   bool _areLinesSimilar(String normalizedA, String normalizedB) {
     final wordsA = normalizedA.split(RegExp(r'\s+')).toSet();
     final wordsB = normalizedB.split(RegExp(r'\s+')).toSet();
@@ -1110,25 +1036,10 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
     return intersection.length / union.length >= 0.5;
   }
 
-  /// 过滤低信号行
+  /// Filter low-signal lines
+  /// Filter low-signal lines
   List<String> _filterLowSignalLines(List<String> lines) {
-    final lowSignalPatterns = [
-      RegExp(r'^这个.*'),
-      RegExp(r'^那个.*'),
-      RegExp(r'^一些.*'),
-      RegExp(r'^可能.*'),
-      RegExp(r'^也许.*'),
-      RegExp(r'^好像.*'),
-      RegExp(r'^似乎.*'),
-      RegExp(r'^一般来说.*'),
-      RegExp(r'^通常情况下.*'),
-      RegExp(r'^总的来说.*'),
-      RegExp(r'^总之.*'),
-      RegExp(r'^简单来说.*'),
-      RegExp(r'^基本上.*'),
-      RegExp(r'^大概.*'),
-      RegExp(r'^大约.*'),
-    ];
+    final lowSignalPatterns = LowSignalPatterns.getAllPatterns();
 
     return lines.where((line) {
       final normalized = _normalize(line);
@@ -1136,7 +1047,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
     }).toList();
   }
 
-  /// 选择前 N 条要点
+  /// Select top N points
   List<String> _selectTopPoints(
     List<String> points, {
     required int min,
@@ -1161,22 +1072,13 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
         score += 0.5;
       }
 
-      final importantKeywords = [
-        '核心',
-        '关键',
-        '重要',
-        '必须',
-        '应该',
-        '建议',
-        '主要',
-        '重点'
-      ];
-      if (importantKeywords.any((kw) => point.contains(kw))) {
+      // Contains important keywords scores high
+      if (ImportantKeywords.containsAny(point)) {
         score += 0.3;
       }
 
-      final actionVerbs = ['实现', '完成', '创建', '建立', '设置', '配置', '优化', '改进'];
-      if (actionVerbs.any((verb) => point.startsWith(verb))) {
+      // Starts with action verb scores high
+      if (ActionVerbs.startsWithAny(point)) {
         score += 0.2;
       }
 
@@ -1202,7 +1104,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
     return scored.take(takeCount).map((e) => e.key).toList();
   }
 
-  /// 格式化为项目符号
+  /// Format as bullet points
   String _formatAsBulletPoints(List<String> points) {
     if (points.isEmpty) return '';
     return points.map((point) => '• $point').join('\n');
@@ -1231,7 +1133,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       }
     }
 
-    // 对 SLM 返回的合并内容进行压缩，避免保留全文
+    // Compress the merged content returned by SLM to avoid keeping the full text
     final compressedContent = _compressSummary(<String>[mergeResult.content]);
 
     return SummaryEntity.create(
@@ -1263,17 +1165,17 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
     return parts.isEmpty ? source : parts.first;
   }
 
-  /// 标准化文本用于模式匹配
+  /// Normalize text for pattern matching
   String _normalize(String text) {
     return text.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
-  /// 检查文本是否包含任意关键词
+  /// Check if text contains any keyword
   bool _containsAny(String normalized, Set<String> signals) {
     return signals.any((signal) => normalized.contains(signal));
   }
 
-  /// 标准化键名
+  /// Normalize key name
   String _normalizeKey(String key) {
     return key
         .toLowerCase()
@@ -1299,32 +1201,32 @@ class RuleBasedMemoryMerger implements MemoryMerger {
     MemoryUnit right, {
     MemoryMergeStrategy strategy = MemoryMergeStrategy.smartMerge,
   }) async {
-    // 根据策略选择 summary 内容
+    /// Select summary content based on strategy
     final String summaryContent;
     switch (strategy) {
       case MemoryMergeStrategy.keepOld:
-        // 保留旧版本（左边）的内容，不压缩
+        // Keep old version (left) content, no compression
         summaryContent = left.summary;
         break;
       case MemoryMergeStrategy.keepNew:
-        // 保留新版本（右边）的内容，不压缩
+        // Keep new version (right) content, no compression
         summaryContent = right.summary;
         break;
       case MemoryMergeStrategy.smartMerge:
-        // 智能合并：执行压缩逻辑
+        // Smart merge: execute compression logic
         summaryContent =
             _compressSummary(<String>[left.summary, right.summary]);
         break;
     }
 
-    // 1. 先调用 SLM 获取语义画像（用于 topic 和 keywords）
+    // 1. Call SLM first to get semantic profile (for topic and keywords)
     final combinedProfile = _slmService.describeTextSemantics(
       title: '${left.topic}\n${right.topic}',
       content: summaryContent,
-      tags: <String>[], // ← 不直接传入原始 tags，避免污染
+      tags: <String>[], // ← Don't pass raw tags directly to avoid pollution
     );
 
-    // 2. 确定 topic
+    // 2. Determine topic
     final topic = _stableTopicFromParts(
       preferredTopic: combinedProfile.displayTopic,
       fallbackTopic: left.topic.isNotEmpty ? left.topic : right.topic,
@@ -1332,7 +1234,7 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       content: summaryContent,
     );
 
-    // 3. 智能合并 keywords
+    // 3. Intelligently merge keywords
     final keywords = _mergeKeywordsIntelligently(
       leftKeywords: left.keywords,
       rightKeywords: right.keywords,
@@ -1363,27 +1265,27 @@ class RuleBasedMemoryMerger implements MemoryMerger {
 
   @override
   bool shouldMerge(MemoryUnit left, MemoryUnit right) {
-    // 1. 首先检查 topic 是否完全相同（快速路径）
+    // 1. Check if topics are exactly the same first (fast path)
     if (left.topic.isNotEmpty &&
         right.topic.isNotEmpty &&
         _normalize(left.topic) == _normalize(right.topic)) {
       return true;
     }
 
-    // 2. 检查时间接近性（7 天内的记录更容易合并）
+    // 2. Check time proximity (records within 7 days are easier to merge)
     final timeDiff = left.createdAt.difference(right.createdAt).abs().inDays;
     final timeBonus = timeDiff <= 7 ? 0.15 : (timeDiff <= 30 ? 0.05 : 0.0);
 
-    // 3. 检查关键词重叠度
+    // 3. Check keyword overlap
     final commonKeywords =
         left.keywords.toSet().intersection(right.keywords.toSet());
     final keywordOverlapRatio = commonKeywords.length /
         max(left.keywords.length, right.keywords.length);
     if (keywordOverlapRatio >= 0.5) {
-      return true; // 关键词重叠度超过 50% 直接合并
+      return true; // Direct merge if keyword overlap exceeds 50%
     }
 
-    // 4. SLM 语义分析（如果有）
+    // 4. SLM semantic analysis (if available)
     final leftProfile = _slmService.describeTextSemantics(
       title: left.topic,
       content: left.summary,
@@ -1395,12 +1297,12 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       tags: right.keywords,
     );
 
-    // 5. 检查语义对齐
+    // 5. Check semantic alignment
     if (_slmService.hasStableSemanticAlignment(leftProfile, rightProfile)) {
       return true;
     }
 
-    // 6. 综合评分
+    // 6. Comprehensive scoring
     final profileSimilarity = _slmService.calculateSemanticProfileSimilarity(
       leftProfile,
       rightProfile,
@@ -1412,7 +1314,7 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       right.summary,
     );
 
-    // 应用时间奖励
+    // Apply time bonus
     final adjustedThreshold = _policy.memoryUnitMergeThreshold - timeBonus;
 
     return max(profileSimilarity, textSimilarity) >= adjustedThreshold;
@@ -1420,38 +1322,38 @@ class RuleBasedMemoryMerger implements MemoryMerger {
 
   @override
   String compressSummaryForMerge(String content1, String content2) {
-    // 直接调用内部的压缩方法
+    // Directly call internal compression method
     return _compressSummary(<String>[content1, content2]);
   }
 
-  /// 智能压缩摘要
+  /// Intelligent summary compression
   ///
-  /// 根据 SLM 可用性选择策略：
-  /// - SLM 开启：使用语义分析进行智能合并
-  /// - SLM 关闭：使用基于规则的结构化合并（拆分→归一化→去重→去噪→保留要点）
+  /// Strategy selection based on SLM availability:
+  /// - SLM enabled: use semantic analysis for intelligent merge
+  /// - SLM disabled: use rule-based structural merge (split → normalize → deduplicate → denoise → keep key points)
   String _compressSummary(List<String> parts) {
-    // 检查 SLM 是否已初始化（可用）
+    // Check if SLM has been initialized (available)
     final slmAvailable = _slmService.isInitialized;
 
     if (slmAvailable) {
-      // SLM 路径：使用语义分析
+      // SLM path: use semantic analysis
       return _compressSummaryWithSLM(parts);
     } else {
-      // 规则路径：基于结构化合并
+      // Rule path: structural merge based on rules
       return _compressSummaryWithRules(parts);
     }
   }
 
-  /// 使用 SLM 进行智能压缩
+  /// Intelligent compression using SLM
   ///
-  /// 核心思路：利用 SLM 语义分析结果指导规则压缩
-  /// 1. 先尝试直接拼接，如果不超过限制就直接返回
-  /// 2. 超过限制时，使用 SLM 语义信息指导压缩优先级
+  /// Core idea: Use SLM semantic analysis results to guide rule compression
+  /// 1. Try direct concatenation first, return directly if within limit
+  /// 2. When exceeding limit, use SLM semantic information to guide compression priority
   String _compressSummaryWithSLM(List<String> parts) {
-    // 1. 先尝试直接拼接，如果不超过限制就直接返回
+    // 1. Try direct concatenation first, return directly if within limit
     final directJoin = parts.where((p) => p.trim().isNotEmpty).join('\n\n');
 
-    // 合并时使用合理的字符限制（原始限制的 2 倍，最少 400 字符）
+    // Use reasonable character limit for merge (2x original limit, minimum 400 chars)
     final mergeCharLimit = max(
       _policy.maxCompressedSummaryChars * 2,
       400,
@@ -1461,12 +1363,12 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       return directJoin;
     }
 
-    // 2. SLM 辅助路径：使用语义分析增强压缩效果
+    // 2. SLM-assisted path: use semantic analysis for enhanced compression
     debugPrint(
         '🔍 [MemoryRuntime] Using SLM-assisted compression for ${parts.length} parts (${directJoin.length} chars)');
 
-    // 3. 利用 SLM 提取的语义信息指导压缩
-    // 将多个部分合并后提取语义画像，用于后续的句子评分
+    // 3. Use semantic information extracted by SLM to guide compression
+    // Combine multiple parts and extract semantic profile for subsequent sentence scoring
     final combinedText = parts.join(' ');
     final semanticProfile = _slmService.describeTextSemantics(
       title: 'Memory Merge',
@@ -1474,39 +1376,39 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       tags: [],
     );
 
-    // 4. 使用语义增强的规则引擎进行压缩
+    // 4. Use semantically enhanced rule engine for compression
     return _compressSummaryWithRules(parts, semanticProfile: semanticProfile);
   }
 
-  /// 使用规则进行结构化合并
+  /// Structural merge using rules
   ///
-  /// 遵循原则：压缩 = 结构 + 去重（不是重写）
+  /// Follows principle: Compression = Structure + Deduplication (not rewriting)
   ///
-  /// 参数:
-  /// - parts: 待合并的文本片段列表
-  /// - semanticProfile: 可选的语义画像，用于增强句子评分
+  /// Parameters:
+  /// - parts: Text fragments to merge
+  /// - semanticProfile: Optional semantic profile for enhanced sentence scoring
   String _compressSummaryWithRules(
     List<String> parts, {
     RuleSemanticProfile? semanticProfile,
   }) {
-    // 1. 将内容拆分成句子
+    // 1. Split content into sentences
     final sentences = <String>[];
     for (final part in parts) {
       final normalizedPart = part.trim();
       if (normalizedPart.isEmpty) continue;
 
-      // 按多种标点符号分割句子
+      // Split sentences by multiple punctuation marks
       final splitSentences = normalizedPart.split(RegExp(r'[。！？.!?]'));
       for (final sentence in splitSentences) {
         final clean = sentence.trim();
         if (clean.isNotEmpty && clean.length > 5) {
-          // 过滤过短的句子
+          // Filter too short sentences
           sentences.add(clean);
         }
       }
     }
 
-    // 2. 归一化（小写，修整）并去重
+    // 2. Normalize (lowercase, trim) and deduplicate
     final seenNormalized = <String>{};
     final uniqueSentences = <String>[];
     for (final sentence in sentences) {
@@ -1517,13 +1419,13 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       }
     }
 
-    // 3. 去除相似的行（基于编辑距离或关键词重叠）
+    // 3. Remove similar lines (based on edit distance or keyword overlap)
     final filteredSentences = _removeSimilarLines(uniqueSentences);
 
-    // 4. 移除信号较低的行
+    // 4. Remove low-signal lines
     final highSignalSentences = _filterLowSignalLines(filteredSentences);
 
-    // 5. 基于语义画像和重要性评分选择前 N 条要点
+    // 5. Select top N points based on semantic profile and importance scoring
     final topSentences = _selectTopPoints(
       highSignalSentences,
       min: 5,
@@ -1531,11 +1433,11 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       semanticProfile: semanticProfile,
     );
 
-    // 6. 输出为结构化项目符号，而非段落
+    // 6. Output as structured bullet points, not paragraphs
     return _formatAsBulletPoints(topSentences);
   }
 
-  /// 去除相似的行
+  /// Remove similar lines
   List<String> _removeSimilarLines(List<String> lines) {
     if (lines.length <= 1) return lines;
 
@@ -1548,7 +1450,7 @@ class RuleBasedMemoryMerger implements MemoryMerger {
 
       result.add(lines[i]);
 
-      // 标记与当前行相似的所有行为已使用
+      // Mark all lines similar to current line as used
       for (int j = i + 1; j < lines.length; j++) {
         if (!used[j] &&
             _areLinesSimilar(normalizedLines[i], normalizedLines[j])) {
@@ -1560,9 +1462,9 @@ class RuleBasedMemoryMerger implements MemoryMerger {
     return result;
   }
 
-  /// 判断两行是否相似（基于关键词重叠度）
+  /// Determine if two lines are similar (based on keyword overlap)
   bool _areLinesSimilar(String normalizedA, String normalizedB) {
-    // 简单的相似度判断：共同的词占比
+    // Simple similarity judgment: common word proportion
     final wordsA = normalizedA.split(RegExp(r'\s+')).toSet();
     final wordsB = normalizedB.split(RegExp(r'\s+')).toSet();
 
@@ -1571,30 +1473,14 @@ class RuleBasedMemoryMerger implements MemoryMerger {
     final intersection = wordsA.intersection(wordsB);
     final union = wordsA.union(wordsB);
 
-    // Jaccard 相似度 >= 0.5 认为相似
+    // Jaccard similarity >= 0.5 considered similar
     return intersection.length / union.length >= 0.5;
   }
 
-  /// 过滤低信号行
+  /// Filter low-signal lines
+  /// Filter low-signal lines
   List<String> _filterLowSignalLines(List<String> lines) {
-    // 低信号模式：模糊、空洞的表达
-    final lowSignalPatterns = [
-      RegExp(r'^这个.*'), // "这个..."
-      RegExp(r'^那个.*'), // "那个..."
-      RegExp(r'^一些.*'), // "一些..."
-      RegExp(r'^可能.*'), // "可能..."
-      RegExp(r'^也许.*'), // "也许..."
-      RegExp(r'^好像.*'), // "好像..."
-      RegExp(r'^似乎.*'), // "似乎..."
-      RegExp(r'^一般来说.*'), // "一般来说..."
-      RegExp(r'^通常情况下.*'), // "通常情况下..."
-      RegExp(r'^总的来说.*'), // "总的来说..."
-      RegExp(r'^总之.*'), // "总之..."
-      RegExp(r'^简单来说.*'), // "简单来说..."
-      RegExp(r'^基本上.*'), // "基本上..."
-      RegExp(r'^大概.*'), // "大概..."
-      RegExp(r'^大约.*'), // "大约..."
-    ];
+    final lowSignalPatterns = LowSignalPatterns.getAllPatterns();
 
     return lines.where((line) {
       final normalized = _normalize(line);
@@ -1602,13 +1488,13 @@ class RuleBasedMemoryMerger implements MemoryMerger {
     }).toList();
   }
 
-  /// 选择前 N 条要点
+  /// Select top N points
   ///
-  /// 参数:
-  /// - points: 候选要点列表
-  /// - min: 最少保留数量
-  /// - max: 最多保留数量
-  /// - semanticProfile: 可选的语义画像，用于增强评分
+  /// Parameters:
+  /// - points: Candidate points list
+  /// - min: Minimum number to keep
+  /// - max: Maximum number to keep
+  /// - semanticProfile: Optional semantic profile for enhanced scoring
   List<String> _selectTopPoints(
     List<String> points, {
     required int min,
@@ -1617,11 +1503,11 @@ class RuleBasedMemoryMerger implements MemoryMerger {
   }) {
     if (points.isEmpty) return [];
 
-    // 按信息量排序（长度 + 包含数字/关键词 + 语义相关性）
+    // Score by information content (length + contains numbers/keywords + semantic relevance)
     final scored = points.map((point) {
       double score = 0;
 
-      // 长度适中得分高（20-100 字）
+      // Medium length scores high (20-100 chars)
       final length = point.length;
       if (length >= 20 && length <= 100) {
         score += 1.0;
@@ -1631,35 +1517,24 @@ class RuleBasedMemoryMerger implements MemoryMerger {
         score += 0.3;
       }
 
-      // 包含数字得分高（数据、版本等）
+      // Contains numbers scores high (data, versions, etc.)
       if (RegExp(r'\d').hasMatch(point)) {
         score += 0.5;
       }
 
-      // 包含关键词得分高
-      final importantKeywords = [
-        '核心',
-        '关键',
-        '重要',
-        '必须',
-        '应该',
-        '建议',
-        '主要',
-        '重点'
-      ];
-      if (importantKeywords.any((kw) => point.contains(kw))) {
+      // Contains important keywords scores high
+      if (ImportantKeywords.containsAny(point)) {
         score += 0.3;
       }
 
-      // 以动词开头得分高
-      final actionVerbs = ['实现', '完成', '创建', '建立', '设置', '配置', '优化', '改进'];
-      if (actionVerbs.any((verb) => point.startsWith(verb))) {
+      // Starts with verb scores high
+      if (ActionVerbs.startsWithAny(point)) {
         score += 0.2;
       }
 
-      // 如果有语义画像，检查与主题的相關性
+      // If has semantic profile, check relevance to topic
       if (semanticProfile != null) {
-        // 包含主题关键词的句子得分更高
+        // Sentences containing topic keywords score higher
         final topicKeywords = [
           if (semanticProfile.displayTopic.isNotEmpty)
             semanticProfile.displayTopic,
@@ -1676,7 +1551,7 @@ class RuleBasedMemoryMerger implements MemoryMerger {
           }
         }
 
-        // 包含画像中的高权重关键词额外加分
+        // Extra points for containing high-weight keywords from profile
         if (semanticProfile.facetKey.isNotEmpty &&
             point.contains(semanticProfile.facetKey)) {
           score += 0.3;
@@ -1686,48 +1561,48 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       return MapEntry(point, score);
     }).toList();
 
-    // 按分数降序排序
+    // Sort by score descending
     scored.sort((a, b) => b.value.compareTo(a.value));
 
-    // 取前 max 个，至少保留 min 个
+    // Take top max items, at least min items
     final count = scored.length.clamp(min, max);
     return scored.take(count).map((e) => e.key).toList();
   }
 
-  /// 格式化为结构化项目符号
+  /// Format as structured bullet points
   String _formatAsBulletPoints(List<String> points) {
     if (points.isEmpty) return '';
 
-    // 每个要点一行，使用 • 符号
+    // Each point on one line, using • symbol
     return points.map((point) => '• $point').join('\n');
   }
 
-  /// 计算合并后的重要性
+  /// Calculate merged importance
   double _calculateMergedImportance(MemoryUnit left, MemoryUnit right) {
-    // 1. 基础重要性（取最大值）
+    // 1. Base importance (take maximum)
     final baseImportance = max(left.importance, right.importance);
 
-    // 2. 访问频率奖励（基于 sourceIds 数量）
+    // 2. Access frequency reward (based on sourceIds count)
     final maxAccessCount = max(left.sourceIds.length, right.sourceIds.length);
     final accessBonus =
-        min(0.2, maxAccessCount * 0.02); // 每个 source +0.02，最多 0.2
+        min(0.2, maxAccessCount * 0.02); // +0.02 per source, max 0.2
 
-    // 3. 时效性奖励（最近的记录）
+    // 3. Recency reward (recent records)
     final now = DateTime.now();
     final leftAge = now.difference(left.updatedAt).inDays;
     final rightAge = now.difference(right.updatedAt).inDays;
     final recencyBonus = max(
-      0.1 * (1 - leftAge / 30), // 30 天内衰减
+      0.1 * (1 - leftAge / 30), // Decay within 30 days
       0.1 * (1 - rightAge / 30),
     ).clamp(0.0, 0.1);
 
-    // 4. 综合计算
+    // 4. Comprehensive calculation
     final mergedImportance = baseImportance + accessBonus + recencyBonus;
 
     return mergedImportance.clamp(0.0, 1.0);
   }
 
-  /// 智能合并 keywords
+  /// Intelligently merge keywords
   List<String> _mergeKeywordsIntelligently({
     required List<String> leftKeywords,
     required List<String> rightKeywords,
@@ -1736,7 +1611,7 @@ class RuleBasedMemoryMerger implements MemoryMerger {
     required String topic,
     required int maxKeywords,
   }) {
-    // 1. 过滤掉低质量的 tags（完整句子、片段词等）
+    // 1. Filter low-quality tags (complete sentences, fragments, etc.)
     final filteredUserTags = <String>[];
     for (final tag in [...leftKeywords, ...rightKeywords]) {
       if (_isValidKeyword(tag)) {
@@ -1744,7 +1619,7 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       }
     }
 
-    // 2. 合并所有来源
+    // 2. Merge all sources
     final allKeywords = <String>{
       ...filteredUserTags,
       ...slmKeywords,
@@ -1752,16 +1627,16 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       if (topic.isNotEmpty) topic,
     };
 
-    // 3. 去除语义重复（简化版：基于包含关系）
+    // 3. Remove semantic duplicates (simplified version: based on containment)
     final deduplicated = <String>{};
     final sortedKeywords = allKeywords.toList()
-      ..sort((a, b) => a.length.compareTo(b.length)); // 短的在前
+      ..sort((a, b) => a.length.compareTo(b.length)); // Shorter first
 
     for (final keyword in sortedKeywords) {
       final normalized = keyword.toLowerCase().trim();
       if (normalized.isEmpty) continue;
 
-      // 检查是否已被更长的词包含
+      // Check if contained by longer word
       final isContained = deduplicated.any(
         (existing) => existing.toLowerCase().contains(normalized),
       );
@@ -1771,20 +1646,20 @@ class RuleBasedMemoryMerger implements MemoryMerger {
       }
     }
 
-    // 4. 按重要性排序并截取
+    // 4. Rank by importance and truncate
     final ranked = deduplicated.toList()
       ..sort((a, b) {
-        // topic 优先级最高
+        // topic priority highest
         if (a == topic) return -1;
         if (b == topic) return 1;
 
-        // SLM 生成的关键词优先
+        // SLM generated keywords prioritized
         final aIsSlm = slmKeywords.contains(a) || slmTags.contains(a);
         final bIsSlm = slmKeywords.contains(b) || slmTags.contains(b);
         if (aIsSlm && !bIsSlm) return -1;
         if (!aIsSlm && bIsSlm) return 1;
 
-        // 否则按长度排序（适中的更好）
+        // Otherwise sort by length (medium is better)
         final aScore = (a.length - 5).abs();
         final bScore = (b.length - 5).abs();
         return aScore.compareTo(bScore);
@@ -1793,21 +1668,21 @@ class RuleBasedMemoryMerger implements MemoryMerger {
     return ranked.take(maxKeywords).toList();
   }
 
-  /// 判断是否是有效的关键词
+  /// Determine if it's a valid keyword
   bool _isValidKeyword(String keyword) {
     final trimmed = keyword.trim();
 
-    // 太短或太长都不是好关键词
+    // Too short or too long are not good keywords
     if (trimmed.length < 2 || trimmed.length > 30) {
       return false;
     }
 
-    // 包含完整句子标点的不是关键词
+    // Contains complete sentence punctuation is not a keyword
     if (RegExp(r'[,.!?;:]').hasMatch(trimmed)) {
       return false;
     }
 
-    // 以括号结尾的不是关键词
+    // Ends with parenthesis is not a keyword
     if (trimmed.endsWith(')') || trimmed.endsWith('）')) {
       return false;
     }
@@ -2070,32 +1945,32 @@ String _stableTopicFromParts({
 }) {
   final preferred = preferredTopic.trim();
 
-  // 1. 优先使用显式指定的 topic
+  // 1. Prioritize explicitly specified topic
   if (preferred.isNotEmpty &&
       !TopicPlaceholderUtils.isPlaceholderTopic(preferred)) {
     return preferred;
   }
 
-  // 2. 使用 SLM 语义分析结果
+  // 2. Use SLM semantic analysis result
   if (profile.displayTopic.isNotEmpty &&
       !TopicPlaceholderUtils.isPlaceholderTopic(profile.displayTopic)) {
     return profile.displayTopic.trim();
   }
 
-  // 3. 使用 title 兜底
+  // 3. Fallback to title
   final fallback = fallbackTopic.trim();
   if (fallback.isNotEmpty && !SummaryTextUtils.isUnnamedTitleValue(fallback)) {
     return fallback;
   }
 
-  // 4. 终极兜底：从 content 提取或返回默认值
+  // 4. Ultimate fallback: extract from content or return default value
   return _getDefaultTopic(content);
 }
 
-/// 根据语言返回默认主题（终极兜底）
+/// Get default topic based on language (ultimate fallback)
 String _getDefaultTopic(String? content) {
   if (content != null && content.trim().isNotEmpty) {
-    // 尝试从内容第一句提取
+    // Try to extract from first sentence
     final firstSentence =
         content.trim().split(RegExp(r'[.!？!.!?.\n,,;]')).first.trim();
 
@@ -2103,13 +1978,13 @@ String _getDefaultTopic(String? content) {
       return firstSentence;
     }
 
-    // 如果第一句太长，尝试截取前 20 个字符作为主题
+    // If first sentence is too long, try to take first 20 characters as topic
     if (firstSentence.length > 20) {
-      // 对于中文内容，直接取前 20 个字符
+      // For Chinese content, directly take first 20 characters
       return firstSentence.substring(0, 20);
     }
 
-    // 或取前 10 个词（英文适用）
+    // Or take first 10 words (applicable for English)
     final words = content.trim().split(RegExp(r'\s+'));
     if (words.length >= 2) {
       final preview = words.take(10).join(' ');
@@ -2117,8 +1992,8 @@ String _getDefaultTopic(String? content) {
     }
   }
 
-  // 最终默认值（按语言）
+  // Final default value (by language)
   final hasCJK = content != null &&
       RegExp(r'[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]').hasMatch(content);
-  return hasCJK ? '未命名记忆' : 'Untitled Memory';
+  return hasCJK ? 'Unnamed Memory' : 'Untitled Memory';
 }

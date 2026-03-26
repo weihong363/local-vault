@@ -1,20 +1,20 @@
-/// 记忆状态枚举
+/// Memory State Enum
 ///
-/// 用于追踪记忆在晋升/降级流程中的状态
+/// Used to track memory state during promotion/demotion workflow
 enum MemoryState {
-  /// 会话记忆（临时）
+  /// Session memory (temporary)
   session,
 
-  /// 事实记忆（持久化）
+  /// Fact memory (persistent)
   fact,
 
-  /// 核心记忆（长期稳定）
+  /// Core memory (long-term stable)
   core,
 
-  /// 观察期（等待晋升为核心）
+  /// Observing (waiting for promotion to core)
   observing,
 
-  /// 已归档（不再活跃）
+  /// Archived (no longer active)
   archived,
 }
 

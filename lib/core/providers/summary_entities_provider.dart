@@ -7,12 +7,10 @@ import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 
-/// Summary UseCase Provider - 使用新架构
 final summaryUseCasesProvider = Provider<SummaryUseCases>((ref) {
   return sl<SummaryUseCases>();
 });
 
-/// Summary List Provider - 新架构
 class SummaryEntityNotifier
     extends StateNotifier<AsyncValue<List<SummaryEntity>>> {
   final SummaryUseCases useCases;

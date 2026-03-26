@@ -4,10 +4,10 @@ import 'package:local_vault/core/memory_runtime/router/memory_router.dart';
 
 import '../entities/memory_runtime_models.dart';
 
-/// 默认的MemoryRouter实现
+/// Default MemoryRouter implementation
 ///
-/// 将路由请求委托给底层的记忆能力实现
-/// 可以根据运行时条件和策略选择不同的处理路径
+/// Delegates routing requests to the underlying memory capability implementation
+/// Can select different processing paths based on runtime conditions and strategies
 class DefaultMemoryRouter implements MemoryRouter {
   final MemoryCapability _memoryCapability;
 

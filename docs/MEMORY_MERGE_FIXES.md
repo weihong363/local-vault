@@ -35,8 +35,7 @@ with the current memory record merge logic.
     {
       "id": "1774253645126",
       "title": "def：实现 实现注意力计算函数",
-      "topic": null
-       // ← Empty topic
+      "topic": null // ← Empty topic
     }
   ]
 }
@@ -88,15 +87,15 @@ String _stableTopicFromParts({
       !SummaryTextUtils.isUnnamedTitleValue(fallbackTopic)) {
     return fallbackTopic.trim();
   }
-  return preferred; // ← 如果所有条件都不满足，返回空字符串！
+  return preferred; // ← If all conditions are not met, return an empty string!
 }
 ```
 
-#### 修复方案
+#### Fix Plan
 
-**修改文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File to Modify**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
-**修改内容**:
+**Changes**:
 
 ```dart
 String _stableTopic(SummaryEntity summary, RuleSemanticProfile profile) {
@@ -116,35 +115,35 @@ String _stableTopicFromParts({
 }) {
   final preferred = preferredTopic.trim();
 
-  // 1. 优先使用显式指定的 topic
+  // 1. Prioritize explicitly specified topic
   if (preferred.isNotEmpty &&
       !TopicPlaceholderUtils.isPlaceholderTopic(preferred)) {
     return preferred;
   }
 
-  // 2. 使用 SLM 语义分析结果
+  // 2. Use SLM semantic analysis result
   if (profile.displayTopic.isNotEmpty &&
       !TopicPlaceholderUtils.isPlaceholderTopic(profile.displayTopic)) {
     return profile.displayTopic.trim();
   }
 
-  // 3. 使用 title 兜底
+  // 3. Fallback to title
   final fallback = fallbackTopic.trim();
   if (fallback.isNotEmpty &&
       !SummaryTextUtils.isUnnamedTitleValue(fallback)) {
     return fallback;
   }
 
-  // 4. 终极兜底：从 content 提取或返回默认值
+  // 4. Ultimate fallback: extract from content or return default value
   return _getDefaultTopic(content);
 }
 
-/// 根据语言返回默认主题（终极兜底）
+/// Return default topic based on language (ultimate fallback)
 String _getDefaultTopic(String? content) {
   if (content != null && content
       .trim()
       .isNotEmpty) {
-    // 尝试从内容第一句提取
+    // Try to extract from first sentence
     final firstSentence = content
         .trim()
         .split(RegExp(r'[.!?!.!\n]'))
@@ -155,7 +154,7 @@ String _getDefaultTopic(String? content) {
       return firstSentence;
     }
 
-    // 或取前 10 个词
+    // Or take first 10 words
     final words = content.trim().split(RegExp(r'\s+'));
     if (words.length >= 2) {
       final preview = words.take(10).join(' ');
@@ -163,10 +162,10 @@ String _getDefaultTopic(String? content) {
     }
   }
 
-  // 最终默认值
+  // Final default value
   final hasCJK = content != null &&
       RegExp(r'[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]').hasMatch(content);
-  return hasCJK ? '未命名记忆' : 'Untitled Memory';
+  return hasCJK ? 'Untitled Memory' : 'Untitled Memory';
 }
 ```
 
@@ -226,11 +225,11 @@ String _compressSummary(List<String> parts) {
 }
 ```
 
-#### 修复方案
+#### Fix Plan
 
-**修改文件**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
+**File to Modify**: `lib/core/memory_runtime/services/rule_based_memory_runtime.dart`
 
-**修改内容**:
+**Changes**:
 
 ```dart
 String _compressSummary(List<String> parts) {
@@ -320,21 +319,21 @@ double _scoreSentenceImportance(String sentence) {
 
 ---
 
-### **问题 3: 合并判断过于依赖 SLM**
+### **Issue 3: Merge Judgment Over-Relies on SLM**
 
-**严重程度**: 🟡 中等  
-**影响范围**: 合并准确性、性能  
-**相关文件**:
+**Severity**: 🟡 Medium  
+**Impact Scope**: Merge accuracy, performance  
+**Related Files**:
 
 - `lib/core/memory_runtime/services/rule_based_memory_runtime.dart` (L1047-1073)
 
-#### 问题描述
+#### Problem Description
 
-`shouldMerge` 方法过度依赖 SLM 服务的语义分析结果：
+The `shouldMerge` method over-relies on SLM service's semantic analysis results:
 
-1. 如果 SLM 未启用或配置不当，合并逻辑失效
-2. 缺少时间维度考虑
-3. 阈值难以调优
+1. If SLM is not enabled or improperly configured, merge logic fails
+2. Lacks time dimension consideration
+3. Threshold is difficult to tune
 
 #### Fix Plan
 
