@@ -1,50 +1,55 @@
 # Local Vault
 
-一个隐私优先的本地 AI 记忆管理应用，帮助用户智能整理、检索和沉淀知识，同时确保数据完全离线存储。
+A privacy-first local AI memory management application that helps users intelligently organize, search, and refine
+knowledge while ensuring completely offline data storage.
 
-## ✨ 核心功能
+## ✨ Core Features
 
-### 🧠 智能记忆管理
+### 🧠 Intelligent Memory Management
 
-- **三层记忆模型** - Session（会话）→ Fact（事实）→ Core（核心），模拟人类记忆沉淀过程
-- **自动合并归类** - 基于语义相似度自动合并相关会话，形成结构化事实
-- **智能标签提取** - 自动从内容中提取关键词作为标签，便于后续检索
-- **遗忘曲线机制** - 长期未访问的记忆会自动降级或清理，保持知识库精简
+- **Three-Layer Memory Model** - Session → Fact → Core, simulating the human memory refinement process
+- **Automatic Merging & Categorization** - Automatically merges related sessions based on semantic similarity to form
+  structured facts
+- **Smart Tag Extraction** - Automatically extracts keywords from content as tags for easier retrieval
+- **Forgetting Curve Mechanism** - Memories not accessed for a long time are automatically downgraded or cleaned up to
+  keep the knowledge base streamlined
 
-### 🔐 隐私与安全
+### 🔐 Privacy & Security
 
-- **100% 本地存储** - 所有数据存储在设备本地，不上传云端
-- **完全离线运行** - 无需网络连接，保护用户隐私
-- **数据加密支持** - 敏感数据可选加密存储，加密主要用于保护“静态数据（存储）”和“备份数据（导出）”
-- **无追踪分析** - 不包含任何第三方统计或广告 SDK
+- **100% Local Storage** - All data stored locally on the device, never uploaded to the cloud
+- **Completely Offline Operation** - No network connection required, protecting user privacy
+- **Encryption Support** - Sensitive data can be optionally encrypted; encryption is primarily used to protect "static
+  data (storage)" and "backup data (export)"
+- **No Tracking or Analytics** - Contains no third-party analytics or advertising SDKs
 
-### ⚡ 快捷操作
+### ⚡ Quick Actions
 
-- **悬浮窗手势唤醒** - 支持双击、三击等手势快速唤起保存界面 -- 开发中
-- **文本/图片分享保存** - 从其他应用一键分享内容到 Local Vault -- 开发中
-- **剪贴板静默保存** - 自动检测剪贴板内容并快速保存
+- **Floating Window Gesture Activation** - Supports double-tap, triple-tap, and other gestures to quickly invoke the
+  save interface -- In Development
+- **Text/Image Share Save** - One-tap sharing from other apps to Local Vault -- In Development
+- **Clipboard Silent Save** - Automatically detects clipboard content and saves quickly
 
-### 🎯 模板系统
+### 🎯 Template System
 
-- **自定义模板库** - 预设常用格式，快速创建结构化笔记
-- **模板分类管理** - 按场景组织模板，提高复用效率
-- **默认模板初始化** - 内置会议记录、学习笔记等常用模板
+- **Custom Template Library** - Pre-configured common formats for quick structured note creation
+- **Template Category Management** - Organizes templates by scenario for improved reuse efficiency
+- **Default Template Initialization** - Built-in templates for meeting notes, learning notes, and more
 
-### 🔍 高效检索
+### 🔍 Efficient Search
 
-- **全文搜索** - 支持标题、内容、标签的多维度搜索
-- **语义筛选** - 按记忆类型（会话/事实/核心）、标签、时间范围筛选
-- **智能排序** - 按相关性、访问时间、重要性等多种排序方式
+- **Full-Text Search** - Multi-dimensional search across titles, content, and tags
+- **Semantic Filtering** - Filter by memory type (Session/Fact/Core), tags, and time range
+- **Smart Sorting** - Sort by relevance, access time, importance, and more
 
-### 🌍 多语言支持
+### 🌍 Multi-Language Support
 
-- **完整国际化** - 支持中文、英文、日文、韩文、德文、法文、西班牙文
-- **本地化 UI** - 所有用户可见文案均已适配多语言
-- **智能语言识别** - 自动识别输入内容的语言类型
+- **Complete Internationalization** - Supports Chinese, English, Japanese, Korean, German, French, and Spanish
+- **Localized UI** - All user-facing content adapted for multiple languages
+- **Smart Language Recognition** - Automatically identifies the language type of input content
 
-## 🏗️ 架构设计
+## 🏗️ Architecture Design
 
-项目采用**清洁架构（Clean Architecture）** + **领域驱动设计（DDD）**，分为以下层次：
+The project adopts **Clean Architecture** + **Domain-Driven Design (DDD)**, organized into the following layers:
 
 ```
 lib/
@@ -61,73 +66,74 @@ lib/
 └── l10n/                    # 国际化资源
 ```
 
-### 架构文档
+### Architecture Documentation
 
-- [项目架构图](docs/PROJECT_ARCHITECTURE.md) - 完整架构图和目录结构
-- [开发进度](docs/PROGRESS.md) - 详细的功能完成情况和待办事项
-- [记忆架构](docs/MEMORY_ARCHITECTURE.md) - 三层记忆模型详解
-- [SLM 集成指南](docs/SLM_INTEGRATION_GUIDE.md) - SLM 规则引擎集成方案 -- 待更新
-- [增强处理流程](docs/ENHANCEMENT_PROCESS.md) - 状态压缩与标题生成增强
+- [Project Architecture](docs/PROJECT_ARCHITECTURE.md) - Complete architecture diagram and directory structure
+- [Development Progress](docs/PROGRESS.md) - Detailed feature completion status and pending items
+- [Memory Architecture](docs/MEMORY_ARCHITECTURE.md) - Three-layer memory model details
+- [SLM Integration Guide](docs/SLM_INTEGRATION_GUIDE.md) - SLM rule engine integration plan -- To be updated
+- [Enhancement Process](docs/ENHANCEMENT_PROCESS.md) - State compression and title generation enhancements
 
-## 🛠️ 技术栈
+## 🛠️ Technology Stack
 
-### 核心框架
+### Core Frameworks
 
-- **Flutter** 3+ - 跨平台 UI 框架
-- **Dart** 3+ - 类型安全的编程语言
+- **Flutter** 3+ - Cross-platform UI framework
+- **Dart** 3+ - Type-safe programming language
 
-### 状态管理
+### State Management
 
-- **Riverpod** - 编译时安全的状态管理
-- **GoRouter** - 声明式路由导航
+- **Riverpod** - Compile-time safe state management
+- **GoRouter** - Declarative routing navigation
 
-### 数据存储
+### Data Storage
 
-- **Hive** - 轻量级 NoSQL 本地数据库
-- **SharedPreferences** - 偏好设置存储
-- **JSON** - 备份文件格式
+- **Hive** - Lightweight NoSQL local database
+- **SharedPreferences** - Preferences storage
+- **JSON** - Backup file format
 
-### 架构模式
+### Architecture Patterns
 
-- **Clean Architecture** - 清洁架构
-- **Domain-Driven Design** - 领域驱动设计
-- **Repository Pattern** - 仓库模式
+- **Clean Architecture** - Clean architecture
+- **Domain-Driven Design** - Domain-driven design
+- **Repository Pattern** - Repository pattern
 
-### 工具与库
+### Tools & Libraries
 
-- **GetIt** - 服务定位器（依赖注入）
-- **path_provider** - 文件系统路径获取
-- **share_plus** - 系统分享功能
-- **permission_handler** - 权限管理
-- **image_picker** - 图片选择能力
+- **GetIt** - Service locator (dependency injection)
+- **path_provider** - File system path retrieval
+- **share_plus** - System sharing functionality
+- **permission_handler** - Permission management
+- **image_picker** - Image selection capability
 
-### SLM 与智能处理
+### SLM & Intelligent Processing
 
-- **纯规则引擎** - 基于关键词匹配、BM25-lite 和 Jaccard 相似度的本地智能处理
-- **降级策略** - 模型不可用时自动回退到规则引擎，保证主流程不中断
+- **Pure Rule Engine** - Local intelligent processing based on keyword matching, BM25-lite, and Jaccard similarity
+- **Fallback Strategy** - Automatically falls back to rule engine when model is unavailable, ensuring uninterrupted main
+  workflow
 
-## 📱 快速开始
+## 📱 Quick Start
 
-### 环境要求
+### Environment Requirements
 
 - Flutter SDK >= 3.16
 - Dart SDK >= 3.2
 - Android Studio / Xcode
 - Android API 21+ / iOS 12+
 
-### 1. 克隆项目
+### 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
 cd local-vault
 ```
 
-### 2. 安装依赖
+### 2. Install Dependencies
 ```bash
 flutter pub get
 ```
 
-### 3. 运行应用
+### 3. Run the Application
 ```bash
 # Android
 flutter run
@@ -136,7 +142,7 @@ flutter run
 flutter run -d ios
 ```
 
-### 4. 构建发布版本
+### 4. Build Release Version
 
 ```bash
 # Android APK
@@ -149,74 +155,74 @@ flutter build appbundle --release
 flutter build ios --release
 ```
 
-### 5. 运行测试
+### 5. Run Tests
 
 ```bash
-# 单元测试
+# Unit tests
 flutter test
 
-# 带覆盖率报告
+# With coverage report
 flutter test --coverage
 
-# 真机数据测试（需先导出数据）
+# Real device data test (requires data export first)
 flutter test test/core/services/memory_rule_engine_real_data_test.dart
 ```
 
-## 📚 文档索引
+## 📚 Documentation Index
 
-### 架构与设计
+### Architecture & Design
 
-- [项目架构图](docs/PROJECT_ARCHITECTURE.md) - 完整架构图和目录结构
-- [开发进度](docs/PROGRESS.md) - 详细的功能完成情况和待办事项
+- [Project Architecture](docs/PROJECT_ARCHITECTURE.md) - Complete architecture diagram and directory structure
+- [Development Progress](docs/PROGRESS.md) - Detailed feature completion status and pending items
 
-### 功能说明
+### Feature Documentation
 
-- [记忆架构](docs/MEMORY_ARCHITECTURE.md) - 三层记忆模型详解
-- [SLM 集成指南](docs/SLM_INTEGRATION_GUIDE.md) - 规则引擎与 SLM 增强方案
-- [记忆合并优化](docs/MEMORY_MERGE_FIXES.md) - 智能合并与主题提取机制
-- [升级机制](docs/MEMORY_PROMOTION_MECHANISM.md) - Fact 到 Core 的自动升级逻辑
+- [Memory Architecture](docs/MEMORY_ARCHITECTURE.md) - Three-layer memory model details
+- [SLM Integration Guide](docs/SLM_INTEGRATION_GUIDE.md) - Rule engine and SLM enhancement plan
+- [Memory Merge Optimization](docs/MEMORY_MERGE_FIXES.md) - Intelligent merging and theme extraction mechanism
+- [Promotion Mechanism](docs/MEMORY_PROMOTION_MECHANISM.md) - Automatic upgrade logic from Fact to Core
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-## 🎯 核心功能使用
+## 🎯 Core Feature Usage
 
-### 记忆管理流程
+### Memory Management Workflow
 
-#### 1. 保存内容
+#### 1. Save Content
 
 ```dart
-// 通过 SaveCoordinator 保存内容
+// Save content via SaveCoordinator
 final coordinator = sl<SaveCoordinator>();
 await
 coordinator.saveContent
 (
-text: '今天学习了 Flutter 的 Riverpod 状态管理...',
+text: 'Learned about Flutter\'s Riverpod state management today...',
 source: SaveSource.share,
 );
 ```
 
-#### 2. 查看和管理记忆
+#### 2. View and Manage Memories
 
-- 打开「记忆」标签页
-- 按类型筛选：会话 / 事实 / 核心
-- 搜索关键词或标签
-- 长按可进行编辑、删除、升级等操作
+- Open the "Memories" tab
+- Filter by type: Session/Fact/Core
+- Search by keywords or tags
+- Long-press to edit, delete, upgrade, etc.
 
-#### 3. 使用模板
+#### 3. Use Templates
 
 ```dart
-// 在保存页面选择模板
+// Select a template on the save page
 final template = TemplateEntity(
-  title: '会议记录',
-  content: '## 会议主题\n## 参会人员\n## 讨论内容\n## 待办事项',
+  title: 'Meeting Notes',
+  content: '## Meeting Topic\n## Attendees\n## Discussion Points\n## Action Items',
 );
 ```
 
-### 代码示例
+### Code Examples
 
-#### 直接使用 UseCase
+#### Using UseCase Directly
 ```dart
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
@@ -225,33 +231,33 @@ final useCases = sl<SummaryUseCases>();
 await useCases.addSummary(summary);
 ```
 
-#### 使用 Riverpod Provider
+#### Using Riverpod Provider
 ```dart
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
 
 final summaries = ref.watch(summaryEntityNotifierProvider);
 ```
 
-#### 调用规则引擎
+#### Calling the Rule Engine
 
 ```dart
 import 'package:local_vault/core/services/memory_slm_service.dart';
 
 final engine = sl<MemorySLMService>();
 
-// 提取主题
+// Extract topic
 final topicResponse = await
 engine.extractTopic
 (title, content);
 
 final topic = topicResponse.data;
 
-// 判断相似度
+// Check similarity
 final isSame = await
 engine.isSameTopic
 (entityA, entityB);
 
-// 合并会话
+// Merge sessions
 final result = await
 engine.mergeSessions
 (
@@ -259,18 +265,21 @@ sessions
 );
 ```
 
-### 技术路线说明
+### Technical Roadmap
 
-当前 SLM 相关能力采用**纯规则引擎 + 可选云端增强**方案：
+Current SLM capabilities use a **pure rule engine + optional cloud enhancement** approach:
 
-- ✅ **规则引擎**：基于关键词匹配、BM25-lite 相似度、Jaccard 系数实现本地智能处理
-- ✅ **降级策略**：模型不可用时自动回退到规则引擎，保证主流程不中断
-- ❌ **MediaPipe + GGUF**：因兼容性问题已废弃
-- 🔮 **未来扩展**：保留 SLM 接口，支持后续接入 llama.cpp 或其他端侧推理框架
+- ✅ **Rule Engine**: Local intelligent processing based on keyword matching, BM25-lite similarity, and Jaccard
+  coefficient
+- ✅ **Fallback Strategy**: Automatically falls back to rule engine when model is unavailable, ensuring uninterrupted
+  main workflow
+- ❌ **MediaPipe + GGUF**: Deprecated due to compatibility issues
+- 🔮 **Future Extensions**: SLM interfaces preserved for future integration with llama.cpp or other edge inference
+  frameworks
 
-## 📄 许可证
+## 📄 License
 
-本项目采用 Apache License 2.0 许可证。
+This project is licensed under the Apache License 2.0.
 
-查看完整许可证：[LICENSE](LICENSE)
+View full license: [LICENSE](LICENSE)
 
