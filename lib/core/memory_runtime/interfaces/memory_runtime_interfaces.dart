@@ -1,15 +1,15 @@
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
 
-/// 记忆合并策略
+/// memory merging strategy
 enum MemoryMergeStrategy {
-  /// 保留旧版本（左边的内容）
+  /// Keep the old version (the content on the left).
   keepOld,
 
-  /// 保留新版本（右边的内容）
+  /// Keep the new version (the content on the right).
   keepNew,
 
-  /// 智能合并（压缩两边内容）
+  /// Intelligent merging (compressing content from both sides)
   smartMerge,
 }
 
@@ -43,7 +43,7 @@ abstract class MemoryMerger {
     MemoryMergeStrategy strategy = MemoryMergeStrategy.smartMerge,
   });
 
-  /// 压缩两条记忆的内容（用于预览）
+  /// Compress the contents of the two memories (for preview).
   String compressSummaryForMerge(String content1, String content2);
 }
 

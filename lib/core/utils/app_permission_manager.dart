@@ -8,7 +8,7 @@ class AppPermissionManager {
   static const MethodChannel _overlayChannel =
       MethodChannel('local_vault/floating_window');
 
-  /// 检查悬浮窗权限
+  /// Check overlay permission
   static Future<bool> checkOverlayPermission() async {
     try {
       final result =
@@ -19,7 +19,7 @@ class AppPermissionManager {
     }
   }
 
-  /// 请求悬浮窗权限
+  /// Request overlay permission
   static Future<void> requestOverlayPermission() async {
     try {
       await _overlayChannel.invokeMethod('requestOverlayPermission');
@@ -28,10 +28,10 @@ class AppPermissionManager {
     }
   }
 
-  /// 检查使用情况统计权限
+  /// Check usage stats permission
   static Future<bool> checkUsageStatsPermission() async {
     try {
-      // 通过 MethodChannel 调用原生代码检查
+      // Call native code via MethodChannel to check
       const MethodChannel channel = MethodChannel('local_vault/permissions');
       final result =
           await channel.invokeMethod<bool>('checkUsageStatsPermission');
@@ -41,13 +41,13 @@ class AppPermissionManager {
     }
   }
 
-  /// 请求使用情况统计权限
+  /// Request usage stats permission
   static Future<bool> requestUsageStatsPermission() async {
     try {
-      // 通过 MethodChannel 调用原生代码打开设置
+      // Call native code via MethodChannel to open settings
       const MethodChannel channel = MethodChannel('local_vault/permissions');
       await channel.invokeMethod('requestUsageStatsPermission');
-      // 等待用户返回后再次检查
+      // Wait and check again after user returns
       await Future.delayed(const Duration(seconds: 2));
       return await checkUsageStatsPermission();
     } catch (e) {
@@ -55,7 +55,7 @@ class AppPermissionManager {
     }
   }
 
-  /// 检查所有必需的权限
+  /// Check all required permissions
   static Future<Map<String, bool>> checkAllPermissions() async {
     final overlayGranted = await checkOverlayPermission();
     final usageStatsGranted = await checkUsageStatsPermission();
@@ -67,20 +67,20 @@ class AppPermissionManager {
     };
   }
 
-  /// 请求所有必需的权限
+  /// Request all required permissions
   static Future<bool> requestAllPermissions() async {
-    // 请求悬浮窗权限
+    // Request overlay permission
     await requestOverlayPermission();
     await Future.delayed(const Duration(milliseconds: 500));
 
-    // 检查使用情况统计权限，如果没有则请求
+    // Check usage stats permission, request if not granted
     final usageStatsGranted = await checkUsageStatsPermission();
     if (!usageStatsGranted) {
-      // 用户可能已经在设置页面授权了，等待一下再检查
+      // User may have already authorized in settings page, wait a bit and check again
       await Future.delayed(const Duration(seconds: 1));
       final grantedAfterDelay = await checkUsageStatsPermission();
       if (!grantedAfterDelay) {
-        // 仍然没有权限，需要用户手动去设置页面
+        // Still no permission, user needs to manually go to settings page
         return false;
       }
     }
@@ -90,7 +90,7 @@ class AppPermissionManager {
     return overlayGranted && usageStatsGranted;
   }
 
-  /// 显示权限说明对话框
+  /// Show permission explanation dialog
   static void showPermissionExplanation(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     showDialog(

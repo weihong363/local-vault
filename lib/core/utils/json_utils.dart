@@ -1,16 +1,16 @@
 import 'dart:convert';
 
-/// JSON 和 Map 转换工具类
+/// JSON and Map conversion utility class
 class JsonUtils {
   JsonUtils._();
 
-  /// 将任意对象转换为 Map<String, dynamic>
+  /// Convert any object to Map<String, dynamic>
   ///
-  /// 支持以下类型:
-  /// - Map<String, dynamic>: 直接返回
-  /// - Map: 转换为 Map<String, dynamic>
-  /// - null: 返回空 Map
-  /// - 其他: 抛出 FormatException
+  /// Supports the following types:
+  /// - Map<String, dynamic>: return directly
+  /// - Map: convert to Map<String, dynamic>
+  /// - null: return empty Map
+  /// - Other: throw FormatException
   static Map<String, dynamic> asMap(Object? raw) {
     if (raw is Map<String, dynamic>) {
       return raw;
@@ -23,7 +23,7 @@ class JsonUtils {
     return <String, dynamic>{};
   }
 
-  /// 安全地将 JSON 字符串解析为 Map
+  /// Safely parse JSON string to Map
   static Map<String, dynamic> parseJson(String jsonString) {
     try {
       final parsed = jsonDecode(jsonString);

@@ -1,45 +1,45 @@
 import 'memory_content_type.dart';
 
-/// 类型权重配置
+/// Type Weight Configuration
 class TypeWeights {
   const TypeWeights(
     this.promotionSpeed,
     this.demotionThreshold,
   );
 
-  /// 晋升速度系数 (0.5-2.0)
-  /// > 1.0 加速，< 1.0 减速
+  /// Promotion speed coefficient (0.5-2.0)
+  /// > 1.0 accelerate, < 1.0 decelerate
   final double promotionSpeed;
 
-  /// 降级阈值系数 (0.8-1.5)
-  /// > 1.0 更难降级，< 1.0 更容易降级
+  /// Demotion threshold coefficient (0.8-1.5)
+  /// > 1.0 harder to demote, < 1.0 easier to demote
   final double demotionThreshold;
 
-  /// 临时任务：难升易降
+  /// Temporary task: hard to promote, easy to demote
   static const temporaryTask = TypeWeights(0.3, 0.5);
 
-  /// 用户偏好：易升难降
+  /// User preference: easy to promote, hard to demote
   static const userPreference = TypeWeights(1.2, 1.3);
 
-  /// 项目上下文：易升，仅主线进 core
+  /// Project context: easy to promote, only mainline enters core
   static const projectContext = TypeWeights(1.5, 1.0);
 
-  /// 长期目标：中等偏快
+  /// Long-term goal: medium-fast
   static const longTermGoal = TypeWeights(1.3, 1.2);
 
-  /// 核心项目：易升，谨慎降
+  /// Core project: easy to promote, cautious demotion
   static const coreProject = TypeWeights(1.5, 1.1);
 
-  /// 关键约束：中等，升 core 要确认
+  /// Key constraint: medium, needs confirmation for core promotion
   static const keyConstraint = TypeWeights(1.2, 1.3);
 
-  /// 身份级：中等，极难降
+  /// Identity level: medium, extremely hard to demote
   static const identityLevel = TypeWeights(1.0, 1.5);
 
-  /// 一次性细节：不升自降
+  /// One-time detail: no promotion, auto-demotion
   static const oneTimeDetail = TypeWeights(0.1, 0.2);
 
-  /// 根据内容类型获取权重
+  /// Get weights by content type
   static TypeWeights forType(MemoryContentType type) {
     switch (type) {
       case MemoryContentType.temporaryTask:

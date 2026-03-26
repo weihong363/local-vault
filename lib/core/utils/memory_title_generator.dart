@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:flutter/services.dart' show rootBundle;
 
-/// 结构化标题数据模型
+/// Structured title data model
 class StructuredTitleData {
   final String? subject;
   final String? action;
@@ -18,7 +18,7 @@ class StructuredTitleData {
   });
 }
 
-/// 标题候选
+/// Title candidate
 class TitleCandidate {
   final String title;
   final double score;
@@ -31,7 +31,7 @@ class TitleCandidate {
   });
 }
 
-/// 结构化标题生成结果
+/// Structured title generation result
 class StructuredTitleResult {
   final String title;
   final List<TitleCandidate> candidates;
@@ -46,55 +46,55 @@ class StructuredTitleResult {
   });
 }
 
-/// 结构化记忆标题生成器
+/// Structured memory title generator
 ///
-/// 实现完整的标题生成流程：
-/// raw memory → 抽 subject / action / topic → canonical normalize
-/// → 生成 2~3 个标题候选 → 打分选择 → 输出 title
+/// Implements complete title generation workflow:
+/// raw memory → extract subject / action / topic → canonical normalize
+/// → generate 2~3 title candidates → score selection → output title
 class StructuredMemoryTitleGenerator {
-  /// Topic Taxonomy 白名单 - 标准主题列表（运行时从外部文件加载）
+  /// Topic Taxonomy whitelist - standard topic list (loaded from external file at runtime)
   static Set<String> _topicTaxonomy = {};
 
-  /// 同义词映射表（运行时从外部文件加载）
+  /// Synonym mapping table (loaded from external file at runtime)
   static Map<String, String> _synonymMappings = {};
 
-  /// 是否已加载配置
+  /// Whether configuration is loaded
   static bool _isInitialized = false;
 
-  /// 是否正在加载中
+  /// Whether loading is in progress
   static bool _isLoading = false;
 
-  /// 获取当前可用的 Topic Taxonomy（优先返回已加载的，否则返回默认值）
+  /// Get currently available Topic Taxonomy (returns loaded if available, otherwise returns default)
   static Set<String> get _currentTopicTaxonomy {
     if (_isInitialized && _topicTaxonomy.isNotEmpty) {
       return _topicTaxonomy;
     }
-    // 未初始化或为空时，立即返回默认配置
+    // Return default immediately when uninitialized or empty
     return _defaultTopicTaxonomy;
   }
 
-  /// 获取当前可用的同义词映射（优先返回已加载的，否则返回默认值）
+  /// Get currently available synonym mappings (returns loaded if available, otherwise returns default)
   static Map<String, String> get _currentSynonymMappings {
     if (_isInitialized && _synonymMappings.isNotEmpty) {
       return _synonymMappings;
     }
-    // 未初始化或为空时，立即返回默认配置
+    // Return default immediately when uninitialized or empty
     return _defaultSynonymMappings;
   }
 
-  /// 初始化并加载 Topic Taxonomy 配置
+  /// Initialize and load Topic Taxonomy configuration
   static Future<void> initialize() async {
     if (_isInitialized || _isLoading) return;
 
     _isLoading = true;
     try {
-      debugPrint('📦 [TopicTaxonomy] 开始加载配置文件...');
-      // 从 assets 加载配置文件
+      debugPrint('📦 [TopicTaxonomy] Loading configuration file...');
+      // Load configuration from assets
       final jsonString =
           await rootBundle.loadString('assets/config/topic_taxonomy.json');
       final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
 
-      // 解析主题分类
+      // Parse topic taxonomy
       final topicsJson = jsonData['topics'] as Map<String, dynamic>;
       final allTopics = <String>{};
       for (final category in topicsJson.values) {
@@ -104,7 +104,7 @@ class StructuredMemoryTitleGenerator {
       }
       _topicTaxonomy = allTopics;
 
-      // 解析同义词映射
+      // Parse synonym mappings
       final synonymsJson = jsonData['synonyms'] as Map<String, dynamic>;
       final synonymMap = <String, String>{};
       synonymsJson.forEach((standardTopic, variants) {
@@ -120,11 +120,12 @@ class StructuredMemoryTitleGenerator {
 
       _isInitialized = true;
       debugPrint(
-          '✅ [TopicTaxonomy] 加载成功：${_topicTaxonomy.length} 个主题，${_synonymMappings.length} 个同义词映射');
+          '✅ [TopicTaxonomy] Loaded successfully: ${_topicTaxonomy.length} topics, ${_synonymMappings.length} synonym mappings');
     } catch (e, stackTrace) {
-      debugPrint('⚠️ [TopicTaxonomy] 加载失败：$e，使用默认配置');
+      debugPrint(
+          '⚠️ [TopicTaxonomy] Load failed: $e, using default configuration');
       debugPrintStack(stackTrace: stackTrace);
-      // 使用默认兜底配置
+      // Use default fallback configuration
       _topicTaxonomy = _defaultTopicTaxonomy;
       _synonymMappings = _defaultSynonymMappings;
       _isInitialized = true;
@@ -133,7 +134,7 @@ class StructuredMemoryTitleGenerator {
     }
   }
 
-  /// 默认 Topic Taxonomy（兜底配置）
+  /// Default Topic Taxonomy (fallback configuration)
   static const Set<String> _defaultTopicTaxonomy = {
     '软件开发',
     '移动开发',
@@ -159,7 +160,7 @@ class StructuredMemoryTitleGenerator {
     'OCR',
   };
 
-  /// 默认同义词映射（兜底配置）
+  /// Default synonym mappings (fallback configuration)
   static const Map<String, String> _defaultSynonymMappings = {
     '编程': '软件开发',
     'coding': '软件开发',
@@ -175,14 +176,14 @@ class StructuredMemoryTitleGenerator {
     '文字识别': 'OCR',
   };
 
-  /// 格式基础分映射表
+  /// Format base score mapping table
   static const Map<String, double> _formatBaseScores = {
     'subject_action': 0.9,
     'topic_action': 0.8,
     'object_action': 0.7,
   };
 
-  /// 预编译的正则表达式模式
+  /// Precompiled regular expression patterns
   static final List<RegExp> _subjectPatterns = [
     RegExp(r'(\w+(?:\s+\w+)*?)\s+的？\s*(?:设计 | 优化 | 实现 | 分析)',
         caseSensitive: false),
@@ -344,12 +345,12 @@ class StructuredMemoryTitleGenerator {
     final normalizedText = text.toLowerCase();
     final synonymMappings = _currentSynonymMappings;
 
-    // 1. 优先从同义词映射中提取（关键词匹配）- 按长度降序排列，优先匹配长短语
+    // 1. Prioritize extraction from synonym mappings (keyword matching) - sorted by length descending, match longer phrases first
     final sortedSynonyms = synonymMappings.entries.toList()
       ..sort((a, b) => b.key.length.compareTo(a.key.length));
 
     for (final entry in sortedSynonyms) {
-      // 使用单词边界匹配，避免误匹配（如 "ui" 被匹配到单词中的字母组合）
+      // Use word boundary matching to avoid false matches (e.g., "ui" matched to letter combinations in words)
       final wordBoundaryRegex = RegExp(
         r'\b' + RegExp.escape(entry.key) + r'\b',
         caseSensitive: false,
@@ -359,7 +360,7 @@ class StructuredMemoryTitleGenerator {
       }
     }
 
-    // 2. 使用原有的正则表达式模式提取
+    // 2. Extract using existing regex patterns
     for (final pattern in _topicPatterns) {
       final match = pattern.firstMatch(text);
       if (match != null && match.group(1) != null) {
@@ -370,7 +371,7 @@ class StructuredMemoryTitleGenerator {
       }
     }
 
-    // 3. 尝试从文本中提取名词短语作为 topic
+    // 3. Try to extract noun phrases as topic from text
     final words = text.split(RegExp(r'\s+'));
     for (final word in words) {
       final cleanWord = word.replaceAll(RegExp(r'[^\w\u4e00-\u9fa5]'), '');
@@ -391,7 +392,7 @@ class StructuredMemoryTitleGenerator {
     );
   }
 
-  /// 将主题映射到标准主题（canonical topic）
+  /// Map topic to canonical topic
   static String? _normalizeToCanonicalTopic(String? topic) {
     if (topic == null || topic.trim().isEmpty) {
       return null;
@@ -401,17 +402,17 @@ class StructuredMemoryTitleGenerator {
     final synonymMappings = _currentSynonymMappings;
     final topicTaxonomy = _currentTopicTaxonomy;
 
-    // 1. 直接匹配同义词映射（精确匹配优先）
+    // 1. Direct match in synonym mappings (exact match priority)
     if (synonymMappings.containsKey(normalizedTopic)) {
       return synonymMappings[normalizedTopic];
     }
 
-    // 2. 完整单词匹配 - 检查是否包含同义词（按长度降序，优先匹配长短语）
+    // 2. Full word match - check if contains synonyms (sorted by length descending, match longer phrases first)
     final sortedSynonyms = synonymMappings.entries.toList()
       ..sort((a, b) => b.key.length.compareTo(a.key.length));
 
     for (final entry in sortedSynonyms) {
-      // 使用单词边界匹配，避免部分匹配（如 "rag" 被匹配到 "graphrag"）
+      // Use word boundary matching to avoid partial matches (e.g., "rag" matched to "graphrag")
       final wordBoundaryRegex = RegExp(
         r'\b' + RegExp.escape(entry.key) + r'\b',
         caseSensitive: false,
@@ -421,7 +422,7 @@ class StructuredMemoryTitleGenerator {
       }
     }
 
-    // 3. 检查是否在 Topic Taxonomy 白名单中（优化：缓存 lowercase 比较）
+    // 3. Check if in Topic Taxonomy whitelist (optimized: cache lowercase comparison)
     for (final standardTopic in topicTaxonomy) {
       final lowerStandard = standardTopic.toLowerCase();
       if (lowerStandard == normalizedTopic ||
@@ -431,14 +432,14 @@ class StructuredMemoryTitleGenerator {
       }
     }
 
-    // 4. 无法匹配，返回原始主题
+    // 4. Unable to match, return original topic
     return topic;
   }
 
   static const int _minTitleLength = 8;
   static const int _maxTitleLength = 20;
 
-  /// 构建标题候选（优化：提取公共逻辑减少重复）
+  /// Build title candidate (optimized: extract common logic to reduce duplication)
   static TitleCandidate _buildCandidate({
     required String part1,
     required String part2,
@@ -466,7 +467,7 @@ class StructuredMemoryTitleGenerator {
   ) {
     final candidates = <TitleCandidate>[];
 
-    // 候选 1: subject_action - 最高优先级
+    // Candidate 1: subject_action - highest priority
     if (data.subject != null && data.action != null) {
       candidates.add(_buildCandidate(
         part1: data.subject!,
@@ -478,7 +479,7 @@ class StructuredMemoryTitleGenerator {
       ));
     }
 
-    // 候选 2: topic_action - 如果有标准主题，提高优先级
+    // Candidate 2: topic_action - if has standard topic, increase priority
     if (data.topic != null && data.action != null) {
       final isCanonical = _isCanonicalTopic(data.topic!);
       candidates.add(_buildCandidate(
@@ -492,7 +493,7 @@ class StructuredMemoryTitleGenerator {
       ));
     }
 
-    // 候选 3: object_action
+    // Candidate 3: object_action
     if (data.object != null && data.action != null) {
       candidates.add(_buildCandidate(
         part1: data.object!,
@@ -504,7 +505,7 @@ class StructuredMemoryTitleGenerator {
       ));
     }
 
-    // 备用方案
+    // Fallback
     if (candidates.isEmpty) {
       final fallback = _generateFallbackTitle(rawMemory);
       candidates.add(TitleCandidate(
@@ -517,7 +518,7 @@ class StructuredMemoryTitleGenerator {
     return candidates;
   }
 
-  /// 计算候选标题得分（优化：使用 Map 替代 switch）
+  /// Calculate candidate title score (optimized: use Map instead of switch)
   static double _calculateCandidateScore({
     required String format,
     required bool hasSubject,
@@ -528,20 +529,20 @@ class StructuredMemoryTitleGenerator {
   }) {
     var score = _formatBaseScores[format] ?? 0.5;
 
-    // 长度奖励：符合 8-20 字范围
+    // Length reward:符合 8-20 character range
     if (titleLength >= _minTitleLength && titleLength <= _maxTitleLength) {
       score += 0.05;
     }
 
-    // 信息完整性奖励
+    // Information completeness reward
     if (hasSubject) score += 0.03;
     if (hasAction) score += 0.04;
     if (hasTopic) score += 0.03;
 
-    return (score * 100).roundToDouble() / 100; // 保留两位小数
+    return (score * 100).roundToDouble() / 100; // Keep two decimal places
   }
 
-  /// 检查是否是标准主题
+  /// Check if it's a canonical topic
   static bool _isCanonicalTopic(String topic) {
     final normalized = topic.trim().toLowerCase();
     final topicTaxonomy = _currentTopicTaxonomy;
@@ -551,25 +552,25 @@ class StructuredMemoryTitleGenerator {
         normalized.contains(standard.toLowerCase()));
   }
 
-  /// 标题长度动态压缩（8-20 字）
+  /// Title length dynamic compression (8-20 characters)
   static String _compressTitle(String title, String rawMemory) {
-    // 1. 如果已经在范围内，直接返回
+    // 1. Return directly if already in range
     if (title.length >= _minTitleLength && title.length <= _maxTitleLength) {
       return title;
     }
 
-    // 2. 太短则尝试从原文补充信息
+    // 2. If too short, try to supplement information from original text
     if (title.length < _minTitleLength) {
       return _enrichTitle(title, rawMemory);
     }
 
-    // 3. 太长则压缩
+    // 3. Compress if too long
     return _shortenTitle(title);
   }
 
-  /// 丰富过短的标题（优化：使用更高效的关键词提取）
+  /// Enrich overly short titles (optimized: more efficient keyword extraction)
   static String _enrichTitle(String title, String rawMemory) {
-    // 优先尝试名词/专业术语（通常更有信息量）
+    // Prefer nouns/professional terms (usually more informative)
     final keywords = RegExp(r'[\w\u4e00-\u9fa5]{3,}')
         .allMatches(rawMemory)
         .map((m) => m.group(0)!)
@@ -583,28 +584,28 @@ class StructuredMemoryTitleGenerator {
       }
     }
 
-    // 无法 enrich，返回原标题
+    // Unable to enrich, return original title
     return title;
   }
 
-  /// 缩短过长的标题
+  /// Shorten overly long titles
   static String _shortenTitle(String title) {
     if (title.length <= _maxTitleLength) {
       return title;
     }
 
-    // 1. 优先保留冒号前的部分
-    final parts = title.split('：');
+    // 1. Prefer to keep the part before colon
+    final parts = title.split(':');
     if (parts.length > 1) {
       final mainPart = parts.first;
       if (mainPart.length <= _maxTitleLength) {
         return mainPart;
       }
-      // 主部分也过长，截断
+      // Main part also too long, truncate
       return '${mainPart.substring(0, _maxTitleLength)}...';
     }
 
-    // 2. 没有冒号，直接截断并添加省略号
+    // 2. No colon, directly truncate and add ellipsis
     return '${title.substring(0, _maxTitleLength)}...';
   }
 

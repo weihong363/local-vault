@@ -1,13 +1,13 @@
 import 'dart:math';
 
-/// 相似度计算工具类
+/// Similarity calculation utility class
 class SimilarityUtils {
   static final RegExp _latinTokenRegex = RegExp(r'[A-Za-zÀ-ÖØ-öø-ÿĀ-žẞß0-9]+');
   static final RegExp _cjkChunkRegex =
       RegExp(r'[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]+');
 
-  /// 计算两个文本的 Jaccard 相似度
-  /// 取值范围: 0.0 (完全不相似) - 1.0 (完全相同)
+  /// Calculate Jaccard similarity between two texts
+  /// Range: 0.0 (completely dissimilar) - 1.0 (identical)
   static double jaccardSimilarity(String text1, String text2) {
     final words1 = _tokenizeToSet(text1);
     final words2 = _tokenizeToSet(text2);
@@ -18,7 +18,7 @@ class SimilarityUtils {
     return union == 0 ? 0.0 : intersection / union;
   }
 
-  /// 使用成对文档频率估算的 BM25-lite 相似度。
+  /// BM25-lite similarity using paired document frequency estimation.
   static double bm25Similarity(String text1, String text2) {
     final normalized1 = _normalizeForComparison(text1);
     final normalized2 = _normalizeForComparison(text2);
@@ -40,7 +40,7 @@ class SimilarityUtils {
     return ((forward + backward) / 2).clamp(0.0, 1.0);
   }
 
-  /// 计算 token overlap coefficient，用于放大短文本间的共享关键信号。
+  /// Calculate token overlap coefficient to amplify shared key signals in short texts.
   static double tokenOverlapCoefficient(String text1, String text2) {
     final tokens1 = _tokenizeToSet(text1);
     final tokens2 = _tokenizeToSet(text2);
@@ -53,8 +53,8 @@ class SimilarityUtils {
     return minSize == 0 ? 0.0 : intersection / minSize;
   }
 
-  /// 计算两个记忆的综合相似度。
-  /// 同时考虑 Jaccard、BM25-lite、token overlap 和包含关系。
+  /// Calculate comprehensive similarity between two memories.
+  /// Considers Jaccard, BM25-lite, token overlap, and containment.
   static double calculateMemorySimilarity(
     String title1,
     String content1,

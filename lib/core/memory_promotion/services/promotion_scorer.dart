@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/memory_content_type.dart';
 import '../models/type_weights.dart';
 
-/// 记忆晋升计分引擎
+/// Memory Promotion Scoring Engine
 class PromotionScorer {
-  /// Session → Fact 计分（满分 100，≥70 且无冲突可晋升）
+  /// Session → Fact scoring (max 100, ≥70 and no conflict can promote)
   static double scoreForSessionToFact({
     required int sessionSpan,
     required bool userExplicitSave,
@@ -15,38 +16,38 @@ class PromotionScorer {
   }) {
     double score = 0;
 
-    // 主规则 1：跨 2 个 session 重复出现
+    // Main Rule 1: Appears repeatedly across 2+ sessions
     if (sessionSpan >= 2) {
-      score += 40; // 高权重
+      score += 40; // High weight
       debugPrint('📊 [Scorer] sessionSpan >= 2: +40');
     }
 
-    // 主规则 2：用户明确要求记住
+    // Main Rule 2: User explicitly requested to remember
     if (userExplicitSave) {
-      score += 40; // 高权重
+      score += 40; // High weight
       debugPrint('📊 [Scorer] userExplicitSave: +40');
     }
 
-    // 主规则 3：后续检索/引用过
+    // Main Rule 3: Referenced/accessed subsequently
     if (referenceCount > 0 || accessCount > 0) {
-      score += 30; // 中权重
+      score += 30; // Medium weight
       debugPrint('📊 [Scorer] referenceCount/accessCount > 0: +30');
     }
 
-    // 主规则 4：明显属于稳定偏好或项目事实
+    // Main Rule 4: Clearly belongs to stable preference or project fact
     if (contentType == MemoryContentType.userPreference ||
         contentType == MemoryContentType.projectContext) {
-      score += 30; // 中权重
+      score += 30; // Medium weight
       debugPrint('📊 [Scorer] stable type: +30');
     }
 
-    // 类型加权
+    // Type weighting
     final weights = TypeWeights.forType(contentType);
     score *= weights.promotionSpeed;
     debugPrint(
         '📊 [Scorer] After type weight (${weights.promotionSpeed}): $score');
 
-    // 冲突惩罚（如果有冲突，直接归零）
+    // Conflict penalty (if has conflict, set to zero directly)
     if (hasConflict) {
       debugPrint('📊 [Scorer] Has conflict, score set to 0');
       return 0;
@@ -57,7 +58,7 @@ class PromotionScorer {
     return finalScore;
   }
 
-  /// Fact → Core 计分（满分 100，≥75 且通过观察期可晋升）
+  /// Fact → Core scoring (max 100, ≥75 and passed observation period can promote)
   static double scoreForFactToCore({
     required int sessionSpan,
     required double stabilityScore,
@@ -70,48 +71,48 @@ class PromotionScorer {
     double score = 0;
     int rulesMet = 0;
 
-    // 主规则 1：跨 3+ 个 session 保持一致
+    // Main Rule 1: Consistent across 3+ sessions
     if (sessionSpan >= 3 && stabilityScore >= 0.8) {
       score += 25;
       rulesMet++;
       debugPrint('📊 [Scorer] sessionSpan >= 3 && stability >= 0.8: +25');
     }
 
-    // 主规则 2：对后续输出持续有影响
+    // Main Rule 2: Continues to have impact on output
     if (hasImpactOnOutput || usageInRecommendations >= 5) {
       score += 25;
       rulesMet++;
       debugPrint('📊 [Scorer] has impact on output: +25');
     }
 
-    // 主规则 3：属于长期偏好/目标/项目/约束
+    // Main Rule 3: Belongs to long-term preference/goal/project/constraint
     if (_isLongTermType(contentType)) {
       score += 25;
       rulesMet++;
       debugPrint('📊 [Scorer] long term type: +25');
     }
 
-    // 主规则 4：用户明确确认长期有效
+    // Main Rule 4: User explicitly confirmed long-term validity
     if (userConfirmedLongTerm) {
       score += 25;
       rulesMet++;
       debugPrint('📊 [Scorer] user confirmed long term: +25');
     }
 
-    // 主规则 5：一段时间内没有冲突更新
+    // Main Rule 5: No conflicting updates for a period
     if (!hasRecentConflict) {
       score += 20;
       rulesMet++;
       debugPrint('📊 [Scorer] no recent conflict: +20');
     }
 
-    // 至少满足 2-3 条才能进入观察期
+    // Must meet at least 2-3 rules to enter observation period
     if (rulesMet < 2) {
       debugPrint('📊 [Scorer] Rules met ($rulesMet) < 2, score set to 0');
       return 0;
     }
 
-    // 类型加权
+    // Type weighting
     final weights = TypeWeights.forType(contentType);
     score *= weights.promotionSpeed;
     debugPrint(
@@ -122,7 +123,7 @@ class PromotionScorer {
     return finalScore;
   }
 
-  /// 降级风险评估（满分 100，≥60 考虑降级）
+  /// Demotion risk assessment (max 100, ≥60 consider demotion)
   static double scoreForDemotion({
     required bool hasNewerConflictingFact,
     required bool isLongUnusedAndTemporary,
@@ -132,27 +133,27 @@ class PromotionScorer {
   }) {
     double score = 0;
 
-    // 降级条件 1：被新事实冲突覆盖
+    // Demotion condition 1: Overridden by newer conflicting fact
     if (hasNewerConflictingFact) {
       score += 50;
       debugPrint('📊 [Scorer] has newer conflicting fact: +50');
     }
 
-    // 降级条件 2：长时间未使用且是阶段性
+    // Demotion condition 2: Long unused and temporary
     if (isLongUnusedAndTemporary) {
       score += 40;
       debugPrint('📊 [Scorer] long unused and temporary: +40');
     }
 
-    // 降级条件 3：用户主动修改或撤销
+    // Demotion condition 3: User actively modified or revoked
     if (userModified || userRevoked) {
-      score += 60; // 用户行为权重最高
+      score += 60; // User behavior weight is highest
       debugPrint('📊 [Scorer] user modified/revoked: +60');
     }
 
-    // Core 降级需要更保守
+    // Core demotion needs to be more conservative
     if (isCore) {
-      score *= 0.7; // 降低 30%
+      score *= 0.7; // Reduce by 30%
       debugPrint('📊 [Scorer] is core, multiply by 0.7: $score');
     }
 

@@ -4,10 +4,10 @@ import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interf
 
 import '../entities/memory_runtime_models.dart';
 
-/// 默认的MemoryFacade实现
+/// Default MemoryFacade implementation
 ///
-/// 将统一API调用委托给底层的RuleBasedMemoryCapability
-/// 实现了readMemory/writeMemory/compressMemory等方法
+/// Delegates unified API calls to the underlying RuleBasedMemoryCapability
+/// Implements methods such as readMemory/writeMemory/compressMemory
 class DefaultMemoryFacade implements MemoryFacade {
   final MemoryCapability _memoryCapability;
 

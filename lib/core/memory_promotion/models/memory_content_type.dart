@@ -1,60 +1,43 @@
-/// 记忆内容类型分类
+import '../../utils/memory_multilingual_keywords.dart';
+
+/// Memory Content Type Classification
 ///
-/// 用于决定晋升/降级的差异化策略
+/// Used to determine differentiated policies for promotion/demotion
 enum MemoryContentType {
-  /// 临时任务（难升易降）
+  /// Temporary task (hard to promote, easy to demote)
   temporaryTask,
 
-  /// 用户偏好（易升难降）
+  /// User preference (easy to promote, hard to demote)
   userPreference,
 
-  /// 项目上下文（易升，仅主线进 core）
+  /// Project context (easy to promote, only mainline enters core)
   projectContext,
 
-  /// 长期目标
+  /// Long-term goal
   longTermGoal,
 
-  /// 核心项目
+  /// Core project
   coreProject,
 
-  /// 关键约束（中等，升 core 要确认）
+  /// Key constraint (medium, needs confirmation for core promotion)
   keyConstraint,
 
-  /// 身份级约束（较容易但要确认）
+  /// Identity-level constraint (easier, but needs confirmation)
   identityLevel,
 
-  /// 一次性细节（不建议，不会）
+  /// One-time detail (not recommended, will not promote)
   oneTimeDetail;
 
-  /// 从文本内容自动推断类型
+  /// Automatically infer type from text content
   static MemoryContentType inferFromText(String title, String content) {
-    final text = '$title $content'.toLowerCase();
+    final inferredType = MemoryTypeKeywords.inferType(title, content);
 
-    // 临时任务关键词
-    if (_containsAny(text, ['记得', '别忘了', '提醒', 'todo', '待办'])) {
-      return temporaryTask;
-    }
-
-    // 身份级关键词
-    if (_containsAny(text, ['我是', '我喜欢', '我总是', '我不'])) {
-      return identityLevel;
-    }
-
-    // 项目关键词
-    if (_containsAny(text, ['项目', 'project', '开发', 'product', 'app'])) {
-      return projectContext;
-    }
-
-    // 偏好关键词
-    if (_containsAny(text, ['喜欢', '偏好', '习惯', 'prefer', 'like'])) {
-      return userPreference;
-    }
-
-    // 默认返回项目上下文
-    return projectContext;
-  }
-
-  static bool _containsAny(String text, List<String> keywords) {
-    return keywords.any((keyword) => text.contains(keyword));
+    return switch (inferredType) {
+      'temporaryTask' => temporaryTask,
+      'identityLevel' => identityLevel,
+      'projectContext' => projectContext,
+      'userPreference' => userPreference,
+      _ => projectContext,
+    };
   }
 }
