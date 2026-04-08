@@ -15,4 +15,5 @@ class AppRoutes {
   static const String memoryManagement = '/memory-management';
   static const String databaseInspector = '/database-inspector';
   static const String diagnostics = '/diagnostics';
+  static const String memoryProcessingDetail = '/memory-processing-detail';
 }

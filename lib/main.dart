@@ -8,10 +8,12 @@ import 'package:local_vault/core/constants/app_routes.dart';
 import 'package:local_vault/core/constants/app_theme.dart';
 import 'package:local_vault/core/di/service_locator.dart';
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
+import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
 import 'package:local_vault/core/providers/locale_provider.dart';
 import 'package:local_vault/core/providers/summary_entities_provider.dart';
 import 'package:local_vault/core/providers/theme_provider.dart';
 import 'package:local_vault/core/services/memory_slm_diagnostics_service.dart';
+import 'package:local_vault/core/memory_runtime/repositories/state_repository.dart';
 import 'package:local_vault/core/services/save_coordinator.dart';
 import 'package:local_vault/core/services/share_service.dart';
 import 'package:local_vault/core/utils/app_permission_manager.dart';
@@ -22,6 +24,7 @@ import 'package:local_vault/core/widgets/quick_action_activity_page.dart';
 import 'package:local_vault/features/app_whitelist/presentation/pages/app_whitelist_page.dart';
 import 'package:local_vault/features/gesture_config/presentation/pages/gesture_config_page.dart';
 import 'package:local_vault/features/inject/presentation/pages/inject_page.dart';
+import 'package:local_vault/features/home/presentation/pages/memory_processing_detail_page.dart';
 import 'package:local_vault/features/quick_action/models/quick_action_type.dart';
 import 'package:local_vault/features/quick_action/presentation/pages/quick_action_page.dart';
 import 'package:local_vault/features/save/presentation/pages/save_page.dart';
@@ -368,6 +371,21 @@ class _LocalVaultAppState extends ConsumerState<LocalVaultApp>
         GoRoute(
           path: AppRoutes.memoryManagement,
           builder: (context, state) => const BottomNavigation(currentIndex: 2),
+        ),
+        GoRoute(
+          path: AppRoutes.memoryProcessingDetail,
+          builder: (context, state) {
+            final args = state.extra is MemoryProcessingDetailArgs
+                ? state.extra as MemoryProcessingDetailArgs
+                : const MemoryProcessingDetailArgs();
+            final summaries = sl<SummaryUseCases>().getAllSummaries();
+            final stateRecords = sl<StateRepository>().getAllStateRecords();
+            return MemoryProcessingDetailPage(
+              summaries: summaries,
+              stateRecords: stateRecords,
+              args: args,
+            );
+          },
         ),
       ],
     );
