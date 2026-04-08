@@ -9,7 +9,10 @@ import '../entities/memory_runtime_models.dart';
 abstract class MemoryFacade {
   Future<MemoryRetrievalResult> readMemory(MemoryRetrievalRequest request);
 
-  Future<void> writeMemory(SummaryEntity summary);
+  Future<WriteMemoryResult> writeMemory(WriteMemoryInput input);
+
+  /// Temporary compatibility adapter for legacy SummaryEntity writes.
+  Future<WriteMemoryResult> writeSummaryMemory(SummaryEntity summary);
 
   Future<int> compressMemory();
 }

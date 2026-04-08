@@ -446,6 +446,166 @@ class SessionCompactionResult {
   int get mergedCount => mergedFacts.length;
 }
 
+class WriteMemoryInput {
+  const WriteMemoryInput({
+    required this.rawText,
+    this.metadata = const <String, String>{},
+    this.createdAt,
+    this.sourceId,
+    this.legacySummary,
+    this.forwardToLegacyIngest = true,
+  });
+
+  factory WriteMemoryInput.fromSummaryEntity(SummaryEntity summary) {
+    return WriteMemoryInput(
+      rawText: summary.content.trim().isEmpty ? summary.title : summary.content,
+      metadata: <String, String>{
+        'summaryId': summary.id,
+        'title': summary.title,
+        'type': summary.type.name,
+        if (summary.topic != null && summary.topic!.isNotEmpty)
+          'topic': summary.topic!,
+      },
+      createdAt: summary.createdAt,
+      sourceId: summary.id,
+      legacySummary: summary,
+      forwardToLegacyIngest: true,
+    );
+  }
+
+  final String rawText;
+  final Map<String, String> metadata;
+  final DateTime? createdAt;
+  final String? sourceId;
+  final SummaryEntity? legacySummary;
+  final bool forwardToLegacyIngest;
+}
+
+class MemoryDoc {
+  const MemoryDoc({
+    required this.docId,
+    required this.rawText,
+    required this.metadata,
+    required this.createdAt,
+    this.sourceId,
+  });
+
+  final String docId;
+  final String rawText;
+  final Map<String, String> metadata;
+  final DateTime createdAt;
+  final String? sourceId;
+}
+
+class MemoryChunk {
+  const MemoryChunk({
+    required this.chunkId,
+    required this.docId,
+    required this.text,
+    required this.startOffset,
+    required this.endOffset,
+    required this.index,
+  });
+
+  final String chunkId;
+  final String docId;
+  final String text;
+  final int startOffset;
+  final int endOffset;
+  final int index;
+}
+
+class TopicCandidate {
+  const TopicCandidate({
+    required this.topic,
+    required this.confidence,
+  });
+
+  final String topic;
+  final double confidence;
+}
+
+class ExtractedInfo {
+  const ExtractedInfo({
+    required this.chunkId,
+    required this.entities,
+    required this.actions,
+    required this.timeCandidates,
+    required this.topicCandidates,
+    required this.confidence,
+  });
+
+  final String chunkId;
+  final List<String> entities;
+  final List<String> actions;
+  final List<String> timeCandidates;
+  final List<TopicCandidate> topicCandidates;
+  final double confidence;
+}
+
+class MemoryEvent {
+  const MemoryEvent({
+    required this.eventId,
+    required this.docId,
+    required this.eventType,
+    required this.entity,
+    required this.action,
+    required this.timeHint,
+    required this.topics,
+    required this.confidence,
+  });
+
+  final String eventId;
+  final String docId;
+  final String eventType;
+  final String entity;
+  final String action;
+  final String? timeHint;
+  final List<TopicCandidate> topics;
+  final double confidence;
+}
+
+enum StateOperation {
+  append,
+  overwrite,
+  dedup,
+  defer,
+}
+
+class StateUpdate {
+  const StateUpdate({
+    required this.eventId,
+    required this.namespace,
+    required this.stateKey,
+    required this.operation,
+    required this.rationale,
+    required this.payload,
+  });
+
+  final String eventId;
+  final String namespace;
+  final String stateKey;
+  final StateOperation operation;
+  final String rationale;
+  final Map<String, dynamic> payload;
+}
+
+class WriteMemoryResult {
+  const WriteMemoryResult({
+    required this.document,
+    required this.chunks,
+    required this.extracted,
+    required this.events,
+    required this.stateUpdates,
+  });
+
+  final MemoryDoc document;
+  final List<MemoryChunk> chunks;
+  final List<ExtractedInfo> extracted;
+  final List<MemoryEvent> events;
+  final List<StateUpdate> stateUpdates;
+}
+
 class MemoryRetrievalRequest {
   const MemoryRetrievalRequest({
     this.query = '',

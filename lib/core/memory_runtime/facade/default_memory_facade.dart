@@ -1,6 +1,7 @@
 import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/memory_runtime/facade/memory_facade.dart';
 import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
+import 'package:local_vault/core/memory_runtime/services/write_memory_pipeline.dart';
 
 import '../entities/memory_runtime_models.dart';
 
@@ -10,8 +11,12 @@ import '../entities/memory_runtime_models.dart';
 /// Implements methods such as readMemory/writeMemory/compressMemory
 class DefaultMemoryFacade implements MemoryFacade {
   final MemoryCapability _memoryCapability;
+  final MemoryWritePipeline _writePipeline;
 
-  DefaultMemoryFacade(this._memoryCapability);
+  DefaultMemoryFacade(
+    this._memoryCapability, {
+    MemoryWritePipeline? writePipeline,
+  }) : _writePipeline = writePipeline ?? MemoryWritePipeline();
 
   @override
   Future<MemoryRetrievalResult> readMemory(
@@ -21,8 +26,19 @@ class DefaultMemoryFacade implements MemoryFacade {
   }
 
   @override
-  Future<void> writeMemory(SummaryEntity summary) {
-    return _memoryCapability.ingestSession(summary);
+  Future<WriteMemoryResult> writeMemory(WriteMemoryInput input) async {
+    final result = _writePipeline.run(input);
+
+    if (input.forwardToLegacyIngest && input.legacySummary != null) {
+      await _memoryCapability.ingestSession(input.legacySummary!);
+    }
+
+    return result;
+  }
+
+  @override
+  Future<WriteMemoryResult> writeSummaryMemory(SummaryEntity summary) {
+    return writeMemory(WriteMemoryInput.fromSummaryEntity(summary));
   }
 
   @override
