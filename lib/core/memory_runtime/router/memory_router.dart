@@ -9,7 +9,10 @@ import '../entities/memory_runtime_models.dart';
 abstract class MemoryRouter {
   Future<MemoryRetrievalResult> routeRead(MemoryRetrievalRequest request);
 
-  Future<void> routeWrite(SummaryEntity summary);
+  Future<WriteMemoryResult> routeWrite(WriteMemoryInput input);
+
+  /// Temporary compatibility adapter for legacy SummaryEntity writes.
+  Future<WriteMemoryResult> routeWriteSummary(SummaryEntity summary);
 
   Future<int> routeCompact();
 }
