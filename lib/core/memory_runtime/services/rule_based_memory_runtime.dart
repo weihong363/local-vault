@@ -8,6 +8,7 @@ import 'package:local_vault/core/domain/repositories/summary_repository_interfac
 import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
 import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
 import 'package:local_vault/core/memory_runtime/repositories/memory_sidecar_repository.dart';
+import 'package:local_vault/core/memory_runtime/repositories/state_repository.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/utils/memory_multilingual_keywords.dart';
 import 'package:local_vault/core/utils/similarity_utils.dart';
@@ -28,6 +29,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
   RuleBasedMemoryCapability({
     required SummaryRepositoryInterface summaryRepository,
     required MemorySidecarRepository sidecarRepository,
+    required StateRepository stateRepository,
     required MemoryCompressor compressor,
     required MemoryMerger merger,
     required MemoryRetriever retriever,
@@ -38,6 +40,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
     required ModelRuntimeProvider modelRuntimeProvider,
   })  : _summaryRepository = summaryRepository,
         _sidecarRepository = sidecarRepository,
+        _stateRepository = stateRepository,
         _compressor = compressor,
         _merger = merger,
         _retriever = retriever,
@@ -49,6 +52,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
 
   final SummaryRepositoryInterface _summaryRepository;
   final MemorySidecarRepository _sidecarRepository;
+  final StateRepository _stateRepository;
   final MemoryCompressor _compressor;
   final MemoryMerger _merger;
   final MemoryRetriever _retriever;
@@ -105,7 +109,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
 
       // 新增：处理直接生成的状态记录
       if (compressionResult.stateUpdates.isNotEmpty) {
-        final previousRecords = _sidecarRepository.getAllStateRecords();
+        final previousRecords = _stateRepository.getAllStateRecords();
         final allStates = <StateRecord>[
           ...compressionResult.stateUpdates,
           ..._rebuildStateRecords(
@@ -123,16 +127,16 @@ class RuleBasedMemoryCapability implements MemoryCapability {
         final finalStates = uniqueStates.values.toList()
           ..sort((a, b) => b.importance.compareTo(a.importance));
 
-        await _sidecarRepository.replaceStateRecords(finalStates);
+        await _stateRepository.applyUpdates(_toStateUpdates(finalStates));
       } else {
         final rebuiltUnits = await _rebuildMemoryUnits();
         final rebuiltStates = _rebuildStateRecords(
           rebuiltUnits,
-          previousRecords: _sidecarRepository.getAllStateRecords(),
+          previousRecords: _stateRepository.getAllStateRecords(),
         );
 
         await _sidecarRepository.replaceMemoryUnits(rebuiltUnits);
-        await _sidecarRepository.replaceStateRecords(rebuiltStates);
+        await _stateRepository.applyUpdates(_toStateUpdates(rebuiltStates));
       }
 
       _worker.completeProcessing();
@@ -146,7 +150,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
   @override
   Future<MemoryRuntimeDiagnostics> diagnose() async {
     await _modelRuntimeProvider.isAvailable();
-    final stateCount = _sidecarRepository.getAllStateRecords().length;
+    final stateCount = _stateRepository.getAllStateRecords().length;
     final unitCount = _sidecarRepository.getAllMemoryUnits().length;
     final archiveCount = _sidecarRepository.getAllArchiveRecords().length;
     return _worker.snapshot(
@@ -165,6 +169,53 @@ class RuleBasedMemoryCapability implements MemoryCapability {
   @override
   Future<MemoryRetrievalResult> retrieve(MemoryRetrievalRequest request) {
     return _retriever.retrieve(request);
+  }
+
+  List<StateUpdate> _toStateUpdates(List<StateRecord> records) {
+    final previous = <String, StateRecord>{
+      for (final record in _stateRepository.getAllStateRecords())
+        record.storageKey: record,
+    };
+    final next = <String, StateRecord>{
+      for (final record in records) record.storageKey: record,
+    };
+    final updates = <StateUpdate>[];
+
+    for (final entry in next.entries) {
+      final existing = previous[entry.key];
+      final value = entry.value.toJson();
+      if (existing == null) {
+        updates.add(StateUpdate.append(entry.key, value));
+        continue;
+      }
+
+      if (_hasMeaningfulStateDelta(existing, entry.value)) {
+        updates.add(StateUpdate.overwrite(entry.key, value));
+      } else {
+        updates.add(
+          StateUpdate.dedup(
+            entry.key,
+            <String, dynamic>{
+              'updatedAt': value['updatedAt'],
+            },
+          ),
+        );
+      }
+    }
+
+    final removedKeys = previous.keys.toSet().difference(next.keys.toSet());
+    for (final key in removedKeys) {
+      updates.add(StateUpdate.defer(key));
+    }
+
+    return updates;
+  }
+
+  bool _hasMeaningfulStateDelta(StateRecord previous, StateRecord next) {
+    return previous.summary != next.summary ||
+        previous.topic != next.topic ||
+        (previous.importance - next.importance).abs() > 0.001 ||
+        !_sameStrings(previous.keywords, next.keywords);
   }
 
   /// Rebuild state records, supporting multi-type state derivation
@@ -1718,13 +1769,16 @@ class RuleBasedMemoryMerger implements MemoryMerger {
 class RuleBasedMemoryRetriever implements MemoryRetriever {
   RuleBasedMemoryRetriever({
     required MemorySidecarRepository sidecarRepository,
+    required StateRepository stateRepository,
     required MemorySLMService slmService,
     required MemoryPolicy policy,
   })  : _sidecarRepository = sidecarRepository,
+        _stateRepository = stateRepository,
         _slmService = slmService,
         _policy = policy;
 
   final MemorySidecarRepository _sidecarRepository;
+  final StateRepository _stateRepository;
   final MemorySLMService _slmService;
   final MemoryPolicy _policy;
 
@@ -1738,7 +1792,7 @@ class RuleBasedMemoryRetriever implements MemoryRetriever {
     final maxItems = request.maxItems.clamp(1, _policy.maxContextItems);
     final maxStateItems = request.maxStateItems.clamp(0, maxItems);
 
-    final stateScores = _sidecarRepository
+    final stateScores = _stateRepository
         .getAllStateRecords()
         .map((record) =>
             MapEntry(record, _scoreStateRecord(record, request, queryProfile)))

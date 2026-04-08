@@ -194,7 +194,6 @@ class IndexedStateRepository implements MemorySidecarRepository {
     return results;
   }
 
-  @override
   List<StateRecord> getAllStateRecords() {
     final records = _states.values.map((json) => _parseRecord(json)).toList();
     records.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -245,7 +244,6 @@ class IndexedStateRepository implements MemorySidecarRepository {
     return records;
   }
 
-  @override
   Future<void> replaceStateRecords(List<StateRecord> records) async {
     await _states.clear();
     for (final record in records) {

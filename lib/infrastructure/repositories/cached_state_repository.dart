@@ -158,7 +158,6 @@ class CachedStateRepository implements MemorySidecarRepository {
     debugPrint('🗑️ [CachedStateRepository] Evicted oldest: $oldestKey');
   }
 
-  @override
   List<StateRecord> getAllStateRecords() {
     final records = _states.values.map((json) => _parseRecord(json)).toList();
     records.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -181,7 +180,6 @@ class CachedStateRepository implements MemorySidecarRepository {
     return records;
   }
 
-  @override
   Future<void> replaceStateRecords(List<StateRecord> records) async {
     await _states.clear();
     _stateCache.clear();

@@ -279,7 +279,6 @@ class LazyStateRepository implements MemorySidecarRepository {
     return accumulator;
   }
 
-  @override
   List<StateRecord> getAllStateRecords() {
     final records = <StateRecord>[];
     for (final key in _states.keys) {
@@ -314,7 +313,6 @@ class LazyStateRepository implements MemorySidecarRepository {
     return records;
   }
 
-  @override
   Future<void> replaceStateRecords(List<StateRecord> records) async {
     await _states.clear();
     for (final record in records) {
