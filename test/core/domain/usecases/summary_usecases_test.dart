@@ -5,6 +5,8 @@ import 'package:local_vault/core/domain/entities/summary_entity.dart';
 import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 import 'package:local_vault/core/domain/usecases/summary_usecases.dart';
+import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
+import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -528,6 +530,73 @@ void main() {
       expect(upgraded.importance, greaterThanOrEqualTo(0.8));
     });
   });
+
+  group('SummaryUseCases searchMemory', () {
+    late _InMemorySummaryRepository repository;
+    late _FakeMemoryCapability memoryCapability;
+    late SummaryUseCases useCases;
+
+    setUp(() async {
+      repository = _InMemorySummaryRepository();
+      memoryCapability = _FakeMemoryCapability(
+        retrievalResult: MemoryRetrievalResult(
+          states: [
+            StateRecord(
+              namespace: 'profile',
+              key: 'project_plan',
+              summary: 'Project plan includes launch checklist and timeline.',
+              topic: 'Project Plan',
+              keywords: const ['project', 'plan', 'launch'],
+              importance: 0.8,
+              version: 1,
+              updatedAt: DateTime.now(),
+            ),
+          ],
+          memoryUnits: [
+            MemoryUnit(
+              id: 'chunk_launch',
+              summary: 'Chunk note about launch dependencies.',
+              topic: 'Launch Chunk',
+              keywords: const ['launch', 'dependency'],
+              importance: 0.6,
+              sourceIds: const ['s1'],
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              confidence: 0.65,
+            ),
+          ],
+          queryProfile: const RuleSemanticProfile.empty(),
+        ),
+      );
+      useCases = SummaryUseCases(
+        repository,
+        _FakeMemorySlmService(),
+        memoryCapability: memoryCapability,
+      );
+
+      await repository.addSummary(
+        SummaryEntity.create(
+          title: 'Project plan summary',
+          content: 'Launch checklist draft and owners.',
+          type: MemoryType.fact,
+        ),
+      );
+    });
+
+    test('state hit ranks above summary and chunk hits', () async {
+      final results = await useCases.searchMemory('project plan');
+
+      expect(results, isNotEmpty);
+      expect(results.first.source, MemorySearchSource.state);
+      expect(
+        results.map((result) => result.source),
+        containsAll([
+          MemorySearchSource.summary,
+          MemorySearchSource.chunk,
+        ]),
+      );
+    });
+  });
 }
 
 class _FakeMemorySlmService extends MemorySLMService {
@@ -786,5 +855,44 @@ class _InMemorySummaryRepository implements SummaryRepositoryInterface {
   @override
   Future<void> updateSummary(SummaryEntity summary) async {
     _items[summary.id] = summary;
+  }
+}
+
+class _FakeMemoryCapability implements MemoryCapability {
+  _FakeMemoryCapability({required this.retrievalResult});
+
+  final MemoryRetrievalResult retrievalResult;
+
+  @override
+  Future<int> compact() async => 0;
+
+  @override
+  Future<MemoryContextBundle> buildContext(MemoryRetrievalRequest request) async {
+    return const MemoryContextBundle(
+      states: <StateRecord>[],
+      memoryUnits: <MemoryUnit>[],
+      contextText: '',
+    );
+  }
+
+  @override
+  Future<MemoryRuntimeDiagnostics> diagnose() async {
+    return const MemoryRuntimeDiagnostics(
+      queueDepth: 0,
+      isProcessing: false,
+      lastProcessedAt: null,
+      lastError: null,
+      stateRecordCount: 0,
+      memoryUnitCount: 0,
+      archiveRecordCount: 0,
+    );
+  }
+
+  @override
+  Future<void> ingestSession(SummaryEntity summary) async {}
+
+  @override
+  Future<MemoryRetrievalResult> retrieve(MemoryRetrievalRequest request) async {
+    return retrievalResult;
   }
 }

@@ -650,11 +650,39 @@ class MemoryRetrievalResult {
     required this.states,
     required this.memoryUnits,
     required this.queryProfile,
+    this.hits = const <MemorySearchHit>[],
   });
 
   final List<StateRecord> states;
   final List<MemoryUnit> memoryUnits;
   final RuleSemanticProfile queryProfile;
+  final List<MemorySearchHit> hits;
+}
+
+enum MemorySearchSource {
+  state,
+  summary,
+  chunk,
+}
+
+class MemorySearchHit {
+  const MemorySearchHit({
+    required this.payloadRef,
+    required this.source,
+    required this.reason,
+    required this.score,
+    this.summary,
+    this.state,
+    this.memoryUnit,
+  });
+
+  final String payloadRef;
+  final MemorySearchSource source;
+  final String reason;
+  final double score;
+  final SummaryEntity? summary;
+  final StateRecord? state;
+  final MemoryUnit? memoryUnit;
 }
 
 class MemoryContextBundle {

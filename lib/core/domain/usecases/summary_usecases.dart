@@ -9,6 +9,7 @@ import 'package:local_vault/core/domain/entities/summary_merge_models.dart';
 import 'package:local_vault/core/domain/repositories/memory_promotion_repository_interface.dart';
 import 'package:local_vault/core/domain/repositories/summary_repository_interface.dart';
 import 'package:local_vault/core/memory_promotion/memory_promotion.dart';
+import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.dart';
 import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
 import 'package:local_vault/core/services/memory_slm_service.dart';
 import 'package:local_vault/core/utils/memory_title_generator.dart';
@@ -289,6 +290,224 @@ class SummaryUseCases {
   /// Search summaries
   List<SummaryEntity> searchSummaries(String query) {
     return repository.searchSummaries(query);
+  }
+
+  /// Search across runtime state, summary records and memory chunks.
+  Future<List<MemorySearchHit>> searchMemory(
+    String query, {
+    int maxItems = 20,
+  }) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) {
+      return const <MemorySearchHit>[];
+    }
+
+    final hits = <MemorySearchHit>[];
+    final capability = memoryCapability;
+    final loweredQuery = normalizedQuery.toLowerCase();
+    final queryKeywords = loweredQuery
+        .split(RegExp(r'\s+'))
+        .where((keyword) => keyword.isNotEmpty)
+        .toList(growable: false);
+
+    // Phase 1: exact/fuzzy state key/value hits.
+    if (capability != null) {
+      final retrieval = await capability.retrieve(
+        MemoryRetrievalRequest(
+          query: normalizedQuery,
+          topic: normalizedQuery,
+          keywords: queryKeywords,
+          maxItems: maxItems,
+          maxStateItems: maxItems,
+        ),
+      );
+      for (final state in retrieval.states) {
+        final score = _scoreStateSearchHit(state, loweredQuery, queryKeywords);
+        if (score <= 0.0) {
+          continue;
+        }
+        hits.add(
+          MemorySearchHit(
+            payloadRef: state.storageKey,
+            source: MemorySearchSource.state,
+            reason: _buildStateReason(state, loweredQuery, queryKeywords, score),
+            score: score,
+            state: state,
+          ),
+        );
+      }
+
+      // Phase 3 fallback: semantic chunk candidates from runtime memory units.
+      for (final unit in retrieval.memoryUnits) {
+        final score = _scoreMemoryUnitSearchHit(unit, loweredQuery, queryKeywords);
+        if (score <= 0.0) {
+          continue;
+        }
+        hits.add(
+          MemorySearchHit(
+            payloadRef: unit.id,
+            source: MemorySearchSource.chunk,
+            reason: _buildChunkReason(unit, queryKeywords, score),
+            score: score,
+            memoryUnit: unit,
+          ),
+        );
+      }
+    }
+
+    // Phase 2: summary fallback (ranked below state hits).
+    for (final summary in repository.searchSummaries(normalizedQuery)) {
+      final score = _scoreSummarySearchHit(summary, loweredQuery, queryKeywords);
+      hits.add(
+        MemorySearchHit(
+          payloadRef: summary.id,
+          source: MemorySearchSource.summary,
+          reason: _buildSummaryReason(summary, loweredQuery, queryKeywords),
+          score: score,
+          summary: summary,
+        ),
+      );
+    }
+
+    final deduped = <String, MemorySearchHit>{};
+    for (final hit in hits) {
+      final existing = deduped[hit.payloadRef];
+      if (existing == null || hit.score > existing.score) {
+        deduped[hit.payloadRef] = hit;
+      }
+    }
+
+    final ordered = deduped.values.toList(growable: false)
+      ..sort((a, b) {
+        final sourcePriority = _sourceWeight(b.source).compareTo(
+          _sourceWeight(a.source),
+        );
+        if (sourcePriority != 0) {
+          return sourcePriority;
+        }
+        return b.score.compareTo(a.score);
+      });
+
+    return ordered.take(maxItems).toList(growable: false);
+  }
+
+  int _sourceWeight(MemorySearchSource source) {
+    return switch (source) {
+      MemorySearchSource.state => 3,
+      MemorySearchSource.summary => 2,
+      MemorySearchSource.chunk => 1,
+    };
+  }
+
+  double _scoreStateSearchHit(
+    StateRecord state,
+    String query,
+    List<String> queryKeywords,
+  ) {
+    final key = state.key.toLowerCase();
+    final summary = state.summary.toLowerCase();
+    final topic = state.topic.toLowerCase();
+    final keywordOverlap = SimilarityUtils.tokenOverlapCoefficient(
+      queryKeywords.join(' '),
+      state.keywords.join(' ').toLowerCase(),
+    );
+
+    final exactMatch = key == query || topic == query || summary.contains(query);
+    final fuzzyMatch = key.contains(query) ||
+        topic.contains(query) ||
+        queryKeywords.any(summary.contains);
+
+    return (exactMatch ? 0.65 : 0.0) +
+        (fuzzyMatch ? 0.2 : 0.0) +
+        (keywordOverlap * 0.15);
+  }
+
+  double _scoreSummarySearchHit(
+    SummaryEntity summary,
+    String query,
+    List<String> queryKeywords,
+  ) {
+    final textSimilarity = SimilarityUtils.calculateMemorySimilarity(
+      query,
+      queryKeywords.join(' '),
+      summary.title.toLowerCase(),
+      summary.content.toLowerCase(),
+    );
+    final keywordOverlap = SimilarityUtils.tokenOverlapCoefficient(
+      queryKeywords.join(' '),
+      summary.tags.join(' ').toLowerCase(),
+    );
+    return (textSimilarity * 0.75) + (keywordOverlap * 0.25);
+  }
+
+  double _scoreMemoryUnitSearchHit(
+    MemoryUnit unit,
+    String query,
+    List<String> queryKeywords,
+  ) {
+    final keywordOverlap = SimilarityUtils.tokenOverlapCoefficient(
+      queryKeywords.join(' '),
+      unit.keywords.join(' ').toLowerCase(),
+    );
+    final textSimilarity = SimilarityUtils.calculateMemorySimilarity(
+      query,
+      queryKeywords.join(' '),
+      unit.topic.toLowerCase(),
+      unit.summary.toLowerCase(),
+    );
+    return (textSimilarity * 0.6) + (keywordOverlap * 0.2) + (unit.confidence * 0.2);
+  }
+
+  String _buildStateReason(
+    StateRecord state,
+    String query,
+    List<String> queryKeywords,
+    double score,
+  ) {
+    if (state.key.toLowerCase() == query) {
+      return 'exact key match';
+    }
+    if (state.summary.toLowerCase().contains(query)) {
+      return 'matched state value';
+    }
+    final overlap = state.keywords
+        .where((keyword) => queryKeywords.contains(keyword.toLowerCase()))
+        .length;
+    if (overlap > 0) {
+      return 'keyword overlap ($overlap)';
+    }
+    return 'fuzzy state match (${score.toStringAsFixed(2)})';
+  }
+
+  String _buildSummaryReason(
+    SummaryEntity summary,
+    String query,
+    List<String> queryKeywords,
+  ) {
+    if (summary.title.toLowerCase().contains(query)) {
+      return 'matched summary title';
+    }
+    final overlap = summary.tags
+        .where((tag) => queryKeywords.contains(tag.toLowerCase()))
+        .length;
+    if (overlap > 0) {
+      return 'tag overlap ($overlap)';
+    }
+    return 'semantic summary fallback';
+  }
+
+  String _buildChunkReason(
+    MemoryUnit unit,
+    List<String> queryKeywords,
+    double score,
+  ) {
+    final overlap = unit.keywords
+        .where((keyword) => queryKeywords.contains(keyword.toLowerCase()))
+        .length;
+    if (overlap > 0) {
+      return 'chunk keyword overlap ($overlap)';
+    }
+    return 'semantic chunk fallback (${score.toStringAsFixed(2)})';
   }
 
   /// Update sort order
@@ -901,5 +1120,3 @@ class SummaryUseCases {
     await promotionRepository?.saveMetadata(metadata);
   }
 }
-
-
