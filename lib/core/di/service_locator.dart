@@ -9,6 +9,7 @@ import 'package:local_vault/core/domain/usecases/template_usecases.dart';
 import 'package:local_vault/core/memory_runtime/interfaces/memory_runtime_interfaces.dart';
 import 'package:local_vault/core/memory_runtime/policies/default_memory_policy.dart';
 import 'package:local_vault/core/memory_runtime/repositories/memory_sidecar_repository.dart';
+import 'package:local_vault/core/memory_runtime/repositories/state_repository.dart';
 import 'package:local_vault/core/memory_runtime/services/default_memory_worker.dart';
 import 'package:local_vault/core/memory_runtime/services/rule_based_memory_runtime.dart';
 import 'package:local_vault/core/services/app_settings_service.dart';
@@ -20,6 +21,7 @@ import 'package:local_vault/core/services/summary_metadata_service.dart';
 import 'package:local_vault/core/theme/memory_theme_config.dart';
 import 'package:local_vault/infrastructure/repositories/hive_memory_promotion_repository.dart';
 import 'package:local_vault/infrastructure/repositories/hive_memory_sidecar_repository.dart';
+import 'package:local_vault/infrastructure/repositories/hive_state_repository.dart';
 import 'package:local_vault/infrastructure/repositories/hive_summary_repository.dart';
 import 'package:local_vault/infrastructure/repositories/hive_template_repository.dart';
 
@@ -40,6 +42,9 @@ Future<void> initializeDependencies() async {
   );
   sl.registerLazySingleton<MemorySidecarRepository>(
     () => HiveMemorySidecarRepository(),
+  );
+  sl.registerLazySingleton<StateRepository>(
+    () => HiveStateRepository(),
   );
   sl.registerLazySingleton<MemoryPromotionRepositoryInterface>(
     () => HiveMemoryPromotionRepository(),
@@ -105,6 +110,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<MemoryRetriever>(
     () => RuleBasedMemoryRetriever(
       sidecarRepository: sl<MemorySidecarRepository>(),
+      stateRepository: sl<StateRepository>(),
       slmService: sl<MemorySLMService>(),
       policy: sl<MemoryPolicy>(),
     ),
@@ -118,6 +124,7 @@ Future<void> initializeDependencies() async {
     () => RuleBasedMemoryCapability(
       summaryRepository: sl<SummaryRepositoryInterface>(),
       sidecarRepository: sl<MemorySidecarRepository>(),
+      stateRepository: sl<StateRepository>(),
       compressor: sl<MemoryCompressor>(),
       merger: sl<MemoryMerger>(),
       retriever: sl<MemoryRetriever>(),
@@ -148,6 +155,7 @@ Future<void> initializeDependencies() async {
   await sl<SummaryRepositoryInterface>().init();
   await sl<TemplateRepositoryInterface>().init();
   await sl<MemorySidecarRepository>().init();
+  await sl<StateRepository>().init();
   await sl<MemoryPromotionRepositoryInterface>().init();
 
   debugPrint('✅ [DI] Dependency injection initialized');

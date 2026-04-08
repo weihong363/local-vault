@@ -5,17 +5,14 @@ import 'package:local_vault/core/memory_runtime/entities/memory_runtime_models.d
 import 'package:local_vault/core/memory_runtime/repositories/memory_sidecar_repository.dart';
 
 class HiveMemorySidecarRepository implements MemorySidecarRepository {
-  static final String _stateBoxName = AppStorage.memoryStateBoxName;
   static final String _unitBoxName = AppStorage.memoryUnitBoxName;
   static final String _archiveBoxName = AppStorage.memoryArchiveBoxName;
 
-  Box? _stateBox;
   Box? _unitBox;
   Box? _archiveBox;
 
   @override
   Future<void> init() async {
-    _stateBox ??= await _openBox(_stateBoxName);
     _unitBox ??= await _openBox(_unitBoxName);
     _archiveBox ??= await _openBox(_archiveBoxName);
   }
@@ -31,11 +28,6 @@ class HiveMemorySidecarRepository implements MemorySidecarRepository {
       await Hive.deleteBoxFromDisk(name);
       return Hive.openBox(name);
     }
-  }
-
-  Box get _states {
-    assert(_stateBox != null, 'Repository not initialized. Call init() first.');
-    return _stateBox!;
   }
 
   Box get _units {
@@ -70,7 +62,6 @@ class HiveMemorySidecarRepository implements MemorySidecarRepository {
 
   @override
   Future<void> clearAll() async {
-    await _states.clear();
     await _units.clear();
     await _archives.clear();
   }
@@ -94,27 +85,10 @@ class HiveMemorySidecarRepository implements MemorySidecarRepository {
   }
 
   @override
-  List<StateRecord> getAllStateRecords() {
-    final records = _states.values
-        .map((json) => StateRecord.fromJson(_safeCastMap(json)))
-        .toList();
-    records.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    return records;
-  }
-
-  @override
   Future<void> replaceMemoryUnits(List<MemoryUnit> units) async {
     await _units.clear();
     for (final unit in units) {
       await _units.put(unit.id, unit.toJson());
-    }
-  }
-
-  @override
-  Future<void> replaceStateRecords(List<StateRecord> records) async {
-    await _states.clear();
-    for (final record in records) {
-      await _states.put(record.storageKey, record.toJson());
     }
   }
 

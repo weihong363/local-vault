@@ -95,7 +95,6 @@ class TransactionalStateRepository implements MemorySidecarRepository {
   }
 
   /// 原子性批量替换（使用事务性写入）
-  @override
   Future<void> replaceStateRecords(List<StateRecord> records) async {
     try {
       debugPrint(
@@ -235,7 +234,6 @@ class TransactionalStateRepository implements MemorySidecarRepository {
     return true;
   }
 
-  @override
   List<StateRecord> getAllStateRecords() {
     final records = _states.values.map((json) => _parseRecord(json)).toList();
     records.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));

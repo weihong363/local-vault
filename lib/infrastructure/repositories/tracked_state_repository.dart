@@ -309,7 +309,6 @@ class TrackedStateRepository implements MemorySidecarRepository {
     await _flushChanges();
   }
 
-  @override
   List<StateRecord> getAllStateRecords() {
     final records = _states.values.map((json) => _parseRecord(json)).toList();
     records.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -332,7 +331,6 @@ class TrackedStateRepository implements MemorySidecarRepository {
     return records;
   }
 
-  @override
   Future<void> replaceStateRecords(List<StateRecord> records) async {
     // 批量替换时不追踪单个变更，记录一次 bulk 操作
     final now = DateTime.now();
