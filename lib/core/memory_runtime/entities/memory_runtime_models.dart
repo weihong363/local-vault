@@ -9,6 +9,133 @@ enum MemoryJobKind {
   fullCompaction,
 }
 
+enum ClassificationStatus {
+  classified,
+  deferred,
+}
+
+class TopicCandidate {
+  const TopicCandidate({
+    required this.topic,
+    required this.score,
+  });
+
+  final String topic;
+  final double score;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'topic': topic,
+      'score': score,
+    };
+  }
+
+  factory TopicCandidate.fromJson(Map<String, dynamic> json) {
+    return TopicCandidate(
+      topic: json['topic'] as String? ?? '',
+      score: (json['score'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class CoreMemoryMetadata {
+  const CoreMemoryMetadata({
+    this.candidateTopics = const <TopicCandidate>[],
+    this.selectedTopic,
+    required this.topicConfidence,
+    required this.classificationStatus,
+  });
+
+  final List<TopicCandidate> candidateTopics;
+  final String? selectedTopic;
+  final double topicConfidence;
+  final ClassificationStatus classificationStatus;
+
+  String get primaryTopic {
+    if (selectedTopic?.trim().isNotEmpty ?? false) {
+      return selectedTopic!.trim();
+    }
+    if (candidateTopics.isNotEmpty) {
+      return candidateTopics.first.topic.trim();
+    }
+    return '';
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'candidateTopics': candidateTopics
+          .take(3)
+          .map((candidate) => candidate.toJson())
+          .toList(growable: false),
+      'selectedTopic': selectedTopic,
+      'topicConfidence': topicConfidence,
+      'classificationStatus': classificationStatus.name,
+    };
+  }
+
+  factory CoreMemoryMetadata.fromJson(Map<String, dynamic> json) {
+    final rawCandidates = json['candidateTopics'] as List? ?? const [];
+    final parsedCandidates = rawCandidates
+        .whereType<Map>()
+        .map((item) => TopicCandidate.fromJson(Map<String, dynamic>.from(item)))
+        .where((candidate) => candidate.topic.trim().isNotEmpty)
+        .toList(growable: false);
+
+    return CoreMemoryMetadata(
+      candidateTopics: parsedCandidates.take(3).toList(growable: false),
+      selectedTopic: json['selectedTopic'] as String?,
+      topicConfidence: (json['topicConfidence'] as num?)?.toDouble() ?? 0.0,
+      classificationStatus: ClassificationStatus.values.firstWhere(
+        (status) => status.name == json['classificationStatus'],
+        orElse: () => ClassificationStatus.classified,
+      ),
+    );
+  }
+
+  factory CoreMemoryMetadata.legacyTopic(
+    String topic, {
+    double confidence = 1.0,
+  }) {
+    final normalized = topic.trim();
+    return CoreMemoryMetadata(
+      candidateTopics: normalized.isEmpty
+          ? const <TopicCandidate>[]
+          : <TopicCandidate>[
+              TopicCandidate(topic: normalized, score: confidence),
+            ],
+      selectedTopic: normalized.isEmpty ? null : normalized,
+      topicConfidence: confidence,
+      classificationStatus: normalized.isEmpty
+          ? ClassificationStatus.deferred
+          : ClassificationStatus.classified,
+    );
+  }
+
+  factory CoreMemoryMetadata.fromTopicClassification(
+    String topic, {
+    required double confidence,
+    double threshold = 0.5,
+  }) {
+    final normalized = topic.trim();
+    final status = confidence < threshold
+        ? ClassificationStatus.deferred
+        : ClassificationStatus.classified;
+    return CoreMemoryMetadata(
+      candidateTopics: normalized.isEmpty
+          ? const <TopicCandidate>[]
+          : <TopicCandidate>[
+              TopicCandidate(topic: normalized, score: confidence),
+            ],
+      selectedTopic: status == ClassificationStatus.classified &&
+              normalized.isNotEmpty
+          ? normalized
+          : null,
+      topicConfidence: confidence,
+      classificationStatus: status,
+    );
+  }
+}
+
 class MemoryCompressionJob {
   MemoryCompressionJob({
     required this.id,
@@ -51,6 +178,7 @@ class StatePatch {
     required this.keywords,
     required this.importance,
     required this.confidence,
+    required this.metadata,
   });
 
   final String namespace;
@@ -60,6 +188,7 @@ class StatePatch {
   final List<String> keywords;
   final double importance;
   final double confidence;
+  final CoreMemoryMetadata metadata;
 
   String get storageKey => '$namespace::$key';
 }
@@ -77,6 +206,7 @@ class StateRecord {
     required this.updatedAt,
     this.metadata,
     this.confidence,
+    this.coreMemoryMetadata,
   });
 
   @HiveField(0)
@@ -109,6 +239,8 @@ class StateRecord {
   @HiveField(9, defaultValue: null)
   final double? confidence;
 
+  final CoreMemoryMetadata? coreMemoryMetadata;
+
   String get storageKey => '$namespace::$key';
 
   Map<String, dynamic> toJson() {
@@ -123,6 +255,8 @@ class StateRecord {
       'updatedAt': updatedAt.toIso8601String(),
       if (metadata != null) 'metadata': metadata,
       if (confidence != null) 'confidence': confidence,
+      if (coreMemoryMetadata != null)
+        'coreMemoryMetadata': coreMemoryMetadata!.toJson(),
     };
   }
 
@@ -147,6 +281,8 @@ class StateRecord {
           DateTime.fromMillisecondsSinceEpoch(0),
       metadata: json['metadata'] as String?,
       confidence: (json['confidence'] as num?)?.toDouble(),
+      coreMemoryMetadata:
+          _decodeCoreMemoryMetadata(json['coreMemoryMetadata'], json['topic']),
     );
   }
 
@@ -163,6 +299,7 @@ class StateRecord {
       'u': updatedAt.millisecondsSinceEpoch,
       if (metadata != null) 'm': metadata,
       if (confidence != null) 'c': confidence,
+      if (coreMemoryMetadata != null) 'cm': coreMemoryMetadata!.toJson(),
     };
   }
 
@@ -186,6 +323,7 @@ class StateRecord {
       updatedAt: DateTime.fromMillisecondsSinceEpoch(json['u'] as int? ?? 0),
       metadata: json['m'] as String?,
       confidence: (json['c'] as num?)?.toDouble(),
+      coreMemoryMetadata: _decodeCoreMemoryMetadata(json['cm'], json['t']),
     );
   }
 
@@ -209,6 +347,7 @@ class StateRecord {
     double? importance,
     String? metadata,
     double? confidence,
+    CoreMemoryMetadata? coreMemoryMetadata,
     bool incrementVersion = true,
   }) {
     return StateRecord(
@@ -222,8 +361,32 @@ class StateRecord {
       updatedAt: DateTime.now(),
       metadata: metadata ?? this.metadata,
       confidence: confidence ?? this.confidence,
+      coreMemoryMetadata: coreMemoryMetadata ?? this.coreMemoryMetadata,
     );
   }
+
+  String get effectiveTopic {
+    final primaryTopic = coreMemoryMetadata?.primaryTopic ?? '';
+    if (primaryTopic.isNotEmpty) {
+      return primaryTopic;
+    }
+    return topic;
+  }
+}
+
+CoreMemoryMetadata? _decodeCoreMemoryMetadata(dynamic raw, dynamic legacyTopic) {
+  if (raw is Map<String, dynamic>) {
+    return CoreMemoryMetadata.fromJson(raw);
+  }
+  if (raw is Map) {
+    return CoreMemoryMetadata.fromJson(Map<String, dynamic>.from(raw));
+  }
+
+  final topic = (legacyTopic as String? ?? '').trim();
+  if (topic.isEmpty) {
+    return null;
+  }
+  return CoreMemoryMetadata.legacyTopic(topic);
 }
 
 @HiveType(typeId: 11)
@@ -238,6 +401,7 @@ class MemoryUnit {
     required this.createdAt,
     required this.updatedAt,
     required this.confidence,
+    this.coreMemoryMetadata,
   });
 
   @HiveField(0)
@@ -267,6 +431,9 @@ class MemoryUnit {
   @HiveField(8)
   final double confidence;
 
+  @HiveField(9, defaultValue: null)
+  final CoreMemoryMetadata? coreMemoryMetadata;
+
   MemoryUnit copyWith({
     String? id,
     String? summary,
@@ -277,6 +444,7 @@ class MemoryUnit {
     DateTime? createdAt,
     DateTime? updatedAt,
     double? confidence,
+    CoreMemoryMetadata? coreMemoryMetadata,
   }) {
     return MemoryUnit(
       id: id ?? this.id,
@@ -288,6 +456,7 @@ class MemoryUnit {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       confidence: confidence ?? this.confidence,
+      coreMemoryMetadata: coreMemoryMetadata ?? this.coreMemoryMetadata,
     );
   }
 
@@ -303,6 +472,7 @@ class MemoryUnit {
       'c': createdAt.millisecondsSinceEpoch,
       'u': updatedAt.millisecondsSinceEpoch,
       'conf': confidence,
+      if (coreMemoryMetadata != null) 'cm': coreMemoryMetadata!.toJson(),
     };
   }
 
@@ -325,6 +495,7 @@ class MemoryUnit {
         double value => value,
         _ => 0.0,
       },
+      coreMemoryMetadata: _decodeCoreMemoryMetadata(json['cm'], json['t']),
     );
   }
 
@@ -351,6 +522,8 @@ class MemoryUnit {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'confidence': confidence,
+      if (coreMemoryMetadata != null)
+        'coreMemoryMetadata': coreMemoryMetadata!.toJson(),
     };
   }
 
@@ -375,7 +548,17 @@ class MemoryUnit {
         double value => value,
         _ => 0.0,
       },
+      coreMemoryMetadata:
+          _decodeCoreMemoryMetadata(json['coreMemoryMetadata'], json['topic']),
     );
+  }
+
+  String get effectiveTopic {
+    final primaryTopic = coreMemoryMetadata?.primaryTopic ?? '';
+    if (primaryTopic.isNotEmpty) {
+      return primaryTopic;
+    }
+    return topic;
   }
 }
 

@@ -187,6 +187,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
     for (final unit in units) {
       final patch = _deriveStatePatch(unit);
       if (patch == null ||
+          patch.metadata.classificationStatus == ClassificationStatus.deferred ||
           patch.confidence < _policy.stateConfidenceThreshold) {
         continue;
       }
@@ -221,6 +222,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
               ? (previous?.version ?? 0) + 1
               : previous.version,
           updatedAt: DateTime.now(),
+          coreMemoryMetadata: mergedPatch.metadata,
         ),
       );
     }
@@ -375,6 +377,10 @@ class RuleBasedMemoryCapability implements MemoryCapability {
       keywords: unit.keywords.take(_policy.maxKeywordsPerRecord).toList(),
       importance: unit.importance,
       confidence: profile.confidence,
+      metadata: CoreMemoryMetadata.fromTopicClassification(
+        unit.topic,
+        confidence: profile.confidence,
+      ),
     );
   }
 
@@ -407,6 +413,7 @@ class RuleBasedMemoryCapability implements MemoryCapability {
         0.0,
         (sum, patch) => max(sum, patch.confidence),
       ),
+      metadata: primary.metadata,
     );
   }
 
@@ -466,6 +473,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
   final MemorySLMService _slmService;
   final MemoryPolicyConfig _policyConfig;
   final MemoryPolicy _policy;
+  static const double _classificationConfidenceThreshold = 0.5;
 
   @override
   Future<SessionCompactionResult> compressSessions(
@@ -553,11 +561,14 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       createdAt: summary.createdAt,
       updatedAt: summary.updatedAt ?? DateTime.now(),
       confidence: max(0.45, profile.confidence),
+      coreMemoryMetadata: _buildCoreMemoryMetadata(topic, profile.confidence),
     );
 
     final patch = _deriveStatePatchWithProfile(unit, profile);
 
-    if (patch == null || patch.confidence < _policy.stateConfidenceThreshold) {
+    if (patch == null ||
+        patch.metadata.classificationStatus == ClassificationStatus.deferred ||
+        patch.confidence < _policy.stateConfidenceThreshold) {
       return null;
     }
 
@@ -571,6 +582,7 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       importance: patch.importance,
       version: 1,
       updatedAt: DateTime.now(),
+      coreMemoryMetadata: patch.metadata,
     );
   }
 
@@ -627,6 +639,18 @@ class RuleBasedMemoryCompressor implements MemoryCompressor {
       keywords: unit.keywords.take(_policy.maxKeywordsPerRecord).toList(),
       importance: unit.importance,
       confidence: profile.confidence,
+      metadata: _buildCoreMemoryMetadata(unit.topic, profile.confidence),
+    );
+  }
+
+  CoreMemoryMetadata _buildCoreMemoryMetadata(
+    String topic,
+    double confidence,
+  ) {
+    return CoreMemoryMetadata.fromTopicClassification(
+      topic,
+      confidence: confidence,
+      threshold: _classificationConfidenceThreshold,
     );
   }
 
@@ -1731,7 +1755,9 @@ class RuleBasedMemoryRetriever implements MemoryRetriever {
         .getAllMemoryUnits()
         .where(
           (unit) => !selectedStates.any(
-            (record) => _normalize(record.topic) == _normalize(unit.topic),
+            (record) =>
+                _normalize(record.effectiveTopic) ==
+                _normalize(unit.effectiveTopic),
           ),
         )
         .map((unit) =>
@@ -1759,7 +1785,7 @@ class RuleBasedMemoryRetriever implements MemoryRetriever {
     RuleSemanticProfile queryProfile,
   ) {
     final unitProfile = _slmService.describeTextSemantics(
-      title: unit.topic,
+      title: unit.effectiveTopic,
       content: unit.summary,
       tags: unit.keywords,
     );
@@ -1774,7 +1800,7 @@ class RuleBasedMemoryRetriever implements MemoryRetriever {
     final textScore = SimilarityUtils.calculateMemorySimilarity(
       request.topic,
       request.query,
-      unit.topic,
+      unit.effectiveTopic,
       unit.summary,
     );
     final recencyScore = _recencyScore(unit.updatedAt);
@@ -1791,7 +1817,7 @@ class RuleBasedMemoryRetriever implements MemoryRetriever {
     RuleSemanticProfile queryProfile,
   ) {
     final stateProfile = _slmService.describeTextSemantics(
-      title: record.topic,
+      title: record.effectiveTopic,
       content: record.summary,
       tags: record.keywords,
     );
@@ -1806,7 +1832,7 @@ class RuleBasedMemoryRetriever implements MemoryRetriever {
     final textScore = SimilarityUtils.calculateMemorySimilarity(
       request.topic,
       request.query,
-      record.topic,
+      record.effectiveTopic,
       record.summary,
     );
     final recencyScore = _recencyScore(record.updatedAt);
@@ -1837,7 +1863,7 @@ class DefaultContextAssembler implements ContextAssembler {
       buffer.writeln('Current state:');
       for (final record in result.states.take(_policy.preferredStateItems)) {
         buffer.writeln(
-          '- [${record.namespace}] ${record.topic.isEmpty ? record.key : record.topic}: ${record.summary}',
+          '- [${record.namespace}] ${record.effectiveTopic.isEmpty ? record.key : record.effectiveTopic}: ${record.summary}',
         );
       }
     }
@@ -1849,7 +1875,7 @@ class DefaultContextAssembler implements ContextAssembler {
       buffer.writeln('Relevant memory:');
       for (final unit in result.memoryUnits.take(_policy.maxContextItems)) {
         buffer.writeln(
-          '- ${unit.topic.isEmpty ? unit.summary : unit.topic}: ${unit.summary}',
+          '- ${unit.effectiveTopic.isEmpty ? unit.summary : unit.effectiveTopic}: ${unit.summary}',
         );
       }
     }
